@@ -2,7 +2,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { ThemeProvider } from '@mui/material/styles';
-import { CssBaseline } from '@mui/material';
+import { CssBaseline, Box } from '@mui/material';
 import theme from '../../theme';
 import Navigation from '../../components/Navigation';
 import type { Metadata } from 'next';
@@ -42,7 +42,9 @@ export default async function LocaleLayout({
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <Navigation />
-        <main className="pt-16">{children}</main>
+        <Box component="main" sx={{ pt: 8 }}>
+          {children}
+        </Box>
       </ThemeProvider>
     </NextIntlClientProvider>
   );
