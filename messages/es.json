@@ -1,0 +1,103 @@
+{
+  "navigation": {
+    "home": "Inicio",
+    "lessons": "Lecciones",
+    "schedule": "Reservar",
+    "gallery": "Galería",
+    "about": "Acerca de",
+    "faq": "Preguntas",
+    "contact": "Contacto"
+  },
+  "home": {
+    "heroTitle": "Aprende a Surfear con Jazmine Dean",
+    "heroSubtitle": "Instrucción profesional de surf en las hermosas aguas de Rincón, Puerto Rico",
+    "bookNow": "Reserva tu Lección",
+    "learnMore": "Aprende Más",
+    "aboutPreview": "Campeona de la Costa Este 4x • 2do Lugar Panamericano • Equipo Puerto Rico",
+    "lessonsTitle": "Lecciones de Surf",
+    "lessonsDescription": "Desde sesiones para principiantes hasta entrenamiento avanzado",
+    "galleryTitle": "Vive la Experiencia",
+    "galleryDescription": "Mira videos y fotos de nuestras aventuras de surf"
+  },
+  "lessons": {
+    "title": "Lecciones de Surf",
+    "subtitle": "Instrucción profesional adaptada a tu nivel",
+    "beginner": {
+      "title": "Lecciones para Principiantes",
+      "price": "$75",
+      "duration": "1 hora",
+      "location": "Rincón a Isabela/Jobos",
+      "description": "Perfecto para surfistas primerizos. Aprende seguridad acuática, manejo de tabla y atrapa tus primeras olas.",
+      "includes": ["Alquiler de tabla", "Traje de neopreno (si es necesario)", "Instrucción profesional", "Briefing de seguridad"]
+    },
+    "advanced": {
+      "title": "Entrenamiento Avanzado",
+      "price": "Contacta para precios",
+      "duration": "Flexible",
+      "location": "Varias ubicaciones",
+      "description": "Análisis de video, programas de varios días y coaching de viaje para surfistas experimentados.",
+      "includes": ["Revisión de video", "Análisis de técnica", "Preparación para competencias", "Programas personalizados"]
+    }
+  },
+  "booking": {
+    "title": "Reserva tu Lección",
+    "selectDate": "Seleccionar Fecha",
+    "selectTime": "Seleccionar Hora",
+    "partySize": "Tamaño del Grupo",
+    "lessonType": "Tipo de Lección",
+    "totalPrice": "Precio Total",
+    "customerInfo": "Información del Cliente",
+    "name": "Nombre Completo",
+    "email": "Correo Electrónico",
+    "phone": "Número de Teléfono",
+    "proceedToPayment": "Proceder al Pago"
+  },
+  "about": {
+    "title": "Acerca de Jazmine Dean",
+    "subtitle": "Surfista Profesional e Instructora",
+    "bio": "Jazmine Dean es una surfista profesional que representa al Equipo Puerto Rico con un impresionante récord competitivo. Basada en la mundialmente reconocida ciudad de surf de Rincón, aporta años de experiencia y pasión a cada lección.",
+    "achievements": "Logros",
+    "accolades": [
+      "Campeona de la Costa Este 4x",
+      "2do Lugar Juegos Panamericanos",
+      "Competidora ISA World Surfing Games",
+      "Miembro del Equipo Puerto Rico",
+      "Instructora Profesional de Surf"
+    ]
+  },
+  "faq": {
+    "title": "Preguntas Frecuentes",
+    "questions": [
+      {
+        "question": "¿Dónde nos reunimos para las lecciones?",
+        "answer": "Nos reunimos en ubicaciones designadas de playa en Rincón, con opciones para viajar a Isabela/Jobos para condiciones óptimas."
+      },
+      {
+        "question": "¿Qué está incluido en la lección?",
+        "answer": "Todas las lecciones incluyen alquiler de tabla de surf, traje de neopreno (si es necesario), instrucción profesional y un briefing completo de seguridad."
+      },
+      {
+        "question": "¿Puedo reprogramar mi lección?",
+        "answer": "Sí, ofrecemos opciones flexibles de reprogramación basadas en condiciones climáticas y tu disponibilidad."
+      },
+      {
+        "question": "¿Las lecciones son adecuadas para principiantes totales?",
+        "answer": "¡Absolutamente! Nuestras lecciones para principiantes están específicamente diseñadas para surfistas primerizos de todas las edades."
+      },
+      {
+        "question": "¿Ofrecen lecciones para grupos y familias?",
+        "answer": "Sí, damos la bienvenida a grupos y familias. Contáctanos para tarifas especiales de grupo y arreglos personalizados."
+      },
+      {
+        "question": "¿Cuál es su política de reembolso?",
+        "answer": "Ofrecemos reembolsos completos por cancelaciones debido a condiciones climáticas inseguras. Otras cancelaciones requieren aviso de 24 horas."
+      }
+    ]
+  },
+  "contact": {
+    "title": "Contacta a Jazmine",
+    "subtitle": "¿Listo para reservar o tienes preguntas? ¡Ponte en contacto!",
+    "location": "Rincón, Puerto Rico",
+    "followUs": "Síguenos"
+  }
+}

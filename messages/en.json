@@ -1,0 +1,103 @@
+{
+  "navigation": {
+    "home": "Home",
+    "lessons": "Lessons",
+    "schedule": "Book Now",
+    "gallery": "Gallery",
+    "about": "About",
+    "faq": "FAQ",
+    "contact": "Contact"
+  },
+  "home": {
+    "heroTitle": "Learn to Surf with Jazmine Dean",
+    "heroSubtitle": "Professional surf instruction in the beautiful waters of Rincón, Puerto Rico",
+    "bookNow": "Book Your Lesson",
+    "learnMore": "Learn More",
+    "aboutPreview": "4x East Coast Champion • Pan-American 2nd Place • Team Puerto Rico",
+    "lessonsTitle": "Surf Lessons",
+    "lessonsDescription": "From beginner-friendly sessions to advanced coaching",
+    "galleryTitle": "Experience the Journey",
+    "galleryDescription": "Watch videos and see photos from our surf adventures"
+  },
+  "lessons": {
+    "title": "Surf Lessons",
+    "subtitle": "Professional instruction tailored to your skill level",
+    "beginner": {
+      "title": "Beginner Lessons",
+      "price": "$75",
+      "duration": "1 hour",
+      "location": "Rincón to Isabela/Jobos",
+      "description": "Perfect for first-time surfers. Learn water safety, board handling, and catch your first waves.",
+      "includes": ["Surfboard rental", "Wetsuit (if needed)", "Professional instruction", "Safety briefing"]
+    },
+    "advanced": {
+      "title": "Advanced Coaching",
+      "price": "Contact for pricing",
+      "duration": "Flexible",
+      "location": "Various locations",
+      "description": "Video analysis, multi-day programs, and travel coaching for experienced surfers.",
+      "includes": ["Video review", "Technique analysis", "Competition prep", "Custom programs"]
+    }
+  },
+  "booking": {
+    "title": "Book Your Lesson",
+    "selectDate": "Select Date",
+    "selectTime": "Select Time",
+    "partySize": "Party Size",
+    "lessonType": "Lesson Type",
+    "totalPrice": "Total Price",
+    "customerInfo": "Customer Information",
+    "name": "Full Name",
+    "email": "Email Address",
+    "phone": "Phone Number",
+    "proceedToPayment": "Proceed to Payment"
+  },
+  "about": {
+    "title": "About Jazmine Dean",
+    "subtitle": "Professional Surfer & Instructor",
+    "bio": "Jazmine Dean is a professional surfer representing Team Puerto Rico with an impressive competitive record. Based in the world-renowned surf town of Rincón, she brings years of experience and passion to every lesson.",
+    "achievements": "Achievements",
+    "accolades": [
+      "4x East Coast Champion",
+      "Pan-American Games 2nd Place",
+      "ISA World Surfing Games Competitor",
+      "Team Puerto Rico Member",
+      "Professional Surf Instructor"
+    ]
+  },
+  "faq": {
+    "title": "Frequently Asked Questions",
+    "questions": [
+      {
+        "question": "Where do we meet for lessons?",
+        "answer": "We meet at designated beach locations in Rincón, with options to travel to Isabela/Jobos for optimal conditions."
+      },
+      {
+        "question": "What's included in the lesson?",
+        "answer": "All lessons include surfboard rental, wetsuit (if needed), professional instruction, and a comprehensive safety briefing."
+      },
+      {
+        "question": "Can I reschedule my lesson?",
+        "answer": "Yes, we offer flexible rescheduling options based on weather conditions and your availability."
+      },
+      {
+        "question": "Are lessons suitable for complete beginners?",
+        "answer": "Absolutely! Our beginner lessons are specifically designed for first-time surfers of all ages."
+      },
+      {
+        "question": "Do you offer group and family lessons?",
+        "answer": "Yes, we welcome groups and families. Contact us for special group rates and custom arrangements."
+      },
+      {
+        "question": "What's your refund policy?",
+        "answer": "We offer full refunds for cancellations due to unsafe weather conditions. Other cancellations require 24-hour notice."
+      }
+    ]
+  },
+  "contact": {
+    "title": "Contact Jazmine",
+    "subtitle": "Ready to book or have questions? Get in touch!",
+    "location": "Rincón, Puerto Rico",
+    "followUs": "Follow Us"
+  }
+}
