@@ -54,8 +54,8 @@ export default function GalleryPage() {
           <Grid item xs={12} md={6}>
             <Box className={styles.videoWrapper}>
               <iframe
-                src="https://www.youtube.com/embed/dQw4w9WgXcQ"
-                title="Surf Lesson Highlights"
+                src="https://www.youtube.com/embed/-TcWIezmvsw"
+                title="Featured Video 1"
                 className={styles.iframe}
                 allowFullScreen
               />
@@ -64,8 +64,28 @@ export default function GalleryPage() {
           <Grid item xs={12} md={6}>
             <Box className={styles.videoWrapper}>
               <iframe
-                src="https://www.youtube.com/embed/dQw4w9WgXcQ"
-                title="Advanced Surf Techniques"
+                src="https://www.youtube.com/embed/ogrZGiLpYWM"
+                title="Featured Video 2"
+                className={styles.iframe}
+                allowFullScreen
+              />
+            </Box>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Box className={styles.videoWrapper}>
+              <iframe
+                src="https://www.youtube.com/embed/3GwL6TAd1RM"
+                title="Featured Video 3"
+                className={styles.iframe}
+                allowFullScreen
+              />
+            </Box>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Box className={styles.videoWrapper}>
+              <iframe
+                src="https://www.youtube.com/embed/k2jw1l_kMxc"
+                title="Featured Video 4"
                 className={styles.iframe}
                 allowFullScreen
               />
