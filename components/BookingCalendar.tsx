@@ -19,14 +19,49 @@ import {
   Paper,
   Chip
 } from '@mui/material';
-import { Calendar, momentLocalizer } from 'react-big-calendar';
-import moment from 'moment';
-import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { loadStripe } from '@stripe/stripe-js';
+import { loadStripe, type Stripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import StripeCheckoutForm from './StripeCheckoutForm';
 
-const localizer = momentLocalizer(moment);
+const dateDisplayFormatter = new Intl.DateTimeFormat(undefined, {
+  month: 'long',
+  day: 'numeric',
+  year: 'numeric'
+});
+
+const timeDisplayFormatter = new Intl.DateTimeFormat(undefined, {
+  hour: 'numeric',
+  minute: '2-digit'
+});
+
+function formatDateForInput(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateForDisplay(date: Date) {
+  return dateDisplayFormatter.format(date);
+}
+
+function formatTimeForDisplay(isoString: string) {
+  const parsed = new Date(isoString);
+  return Number.isNaN(parsed.getTime()) ? '' : timeDisplayFormatter.format(parsed);
+}
+
+function buildDayRange(date: Date) {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(date);
+  end.setHours(23, 59, 59, 999);
+
+  return {
+    start: start.toISOString(),
+    end: end.toISOString()
+  };
+}
 
 interface BookingData {
   date: Date | null;
@@ -60,14 +95,17 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) 
   const [lessonTypes, setLessonTypes] = useState<LessonType[]>([]);
   const [availableSlots, setAvailableSlots] = useState<{ id: string; start_time: string }[]>([]);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [stripePromise, setStripePromise] = useState<any>(null);
+  const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null);
+
+  const selectedLesson = lessonTypes.find((lt) => lt.id === bookingData.lessonType) || null;
+  const selectedSlot = availableSlots.find((slot) => slot.id === bookingData.timeSlot) || null;
 
   // Load lesson types once on mount
   useEffect(() => {
     // Load Stripe publishable key
     const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string;
     if (pk) setStripePromise(loadStripe(pk));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -91,9 +129,11 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) 
   }, [lessonTypes]);
 
   useEffect(() => {
-    if (!bookingData.date) return;
-    const start = moment(bookingData.date).startOf('day').toISOString();
-    const end = moment(bookingData.date).endOf('day').toISOString();
+    if (!bookingData.date) {
+      setAvailableSlots([]);
+      return;
+    }
+    const { start, end } = buildDayRange(bookingData.date);
     const ltParam = bookingData.lessonType ? `&lessonTypeId=${encodeURIComponent(bookingData.lessonType)}` : '';
     fetch(`/api/availability?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}${ltParam}`)
       .then((r) => r.json())
@@ -105,13 +145,12 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) 
   }, [bookingData.date, bookingData.lessonType]);
 
   const calculateTotal = () => {
-    const lessonType = lessonTypes.find(lt => lt.id === bookingData.lessonType);
-    return lessonType ? Number(lessonType.price) * bookingData.partySize : 0;
+    return selectedLesson ? Number(selectedLesson.price) * bookingData.partySize : 0;
   };
 
   const handleNext = () => {
     if (activeStep < steps.length - 2) {
-      setActiveStep(activeStep + 1);
+      setActiveStep((step) => step + 1);
     } else if (activeStep === steps.length - 2) {
       // create booking and generate client secret
       // In a full implementation, we would use selected concrete time_slot id; here we mock by sending the time text
@@ -126,19 +165,21 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) 
           customer_email: bookingData.customerEmail,
           customer_phone: bookingData.customerPhone,
         })
-      }).then(res => res.json()).then(data => {
-        if (data.clientSecret) {
-          setClientSecret(data.clientSecret);
-          setActiveStep(activeStep + 1);
-        }
-      });
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.clientSecret) {
+            setClientSecret(data.clientSecret);
+            setActiveStep((step) => step + 1);
+          }
+        });
     } else {
       onBookingComplete(bookingData);
     }
   };
 
   const handleBack = () => {
-    setActiveStep(activeStep - 1);
+    setActiveStep((step) => step - 1);
   };
 
   const canProceed = () => {
@@ -172,39 +213,53 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) 
                 Select Your Preferred Date and Time
               </Typography>
 
-              <Box sx={{ height: 400, mb: 3 }}>
-                <Calendar
-                  localizer={localizer}
-                  events={[]}
-                  startAccessor="start"
-                  endAccessor="end"
-                  selectable
-                  onSelectSlot={(slotInfo: { start: Date; end: Date }) => {
-                    setBookingData({
-                      ...bookingData,
-                      date: slotInfo.start
-                    });
-                  }}
-                  style={{ height: '100%' }}
-                />
-              </Box>
+              <Grid container spacing={3} sx={{ mb: 3 }}>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Lesson Date"
+                    type="date"
+                    InputLabelProps={{ shrink: true }}
+                    value={bookingData.date ? formatDateForInput(bookingData.date) : ''}
+                    onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                      const value = event.target.value;
+                      setBookingData((prev) => ({
+                        ...prev,
+                        date: value ? new Date(`${value}T00:00:00`) : null,
+                        timeSlot: ''
+                      }));
+                    }}
+                  />
+                </Grid>
+              </Grid>
 
               {bookingData.date && (
                 <Box>
                   <Typography variant="h6" gutterBottom>
-                    Available Times for {moment(bookingData.date).format('MMMM Do, YYYY')}
+                    Available Times for {formatDateForDisplay(bookingData.date)}
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    {availableSlots.map((slot: { id: string; start_time: string }) => (
-                      <Chip
-                        key={slot.id}
-                        label={moment(slot.start_time).format('h:mm A')}
-                        clickable
-                        color={bookingData.timeSlot === slot.id ? 'primary' : 'default'}
-                        onClick={() => setBookingData({ ...bookingData, timeSlot: slot.id })}
-                        sx={{ mb: 1 }}
-                      />
-                    ))}
+                    {availableSlots.length ? (
+                      availableSlots.map((slot: { id: string; start_time: string }) => (
+                        <Chip
+                          key={slot.id}
+                          label={formatTimeForDisplay(slot.start_time)}
+                          clickable
+                          color={bookingData.timeSlot === slot.id ? 'primary' : 'default'}
+                          onClick={() =>
+                            setBookingData((prev) => ({
+                              ...prev,
+                              timeSlot: slot.id
+                            }))
+                          }
+                          sx={{ mb: 1 }}
+                        />
+                      ))
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        No time slots available for this date.
+                      </Typography>
+                    )}
                   </Box>
                 </Box>
               )}
@@ -224,10 +279,12 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) 
                     <Select
                       value={bookingData.lessonType}
                       label="Lesson Type"
-                      onChange={(e: any) => setBookingData({
-                        ...bookingData,
+                    onChange={(e: any) =>
+                      setBookingData((prev) => ({
+                        ...prev,
                         lessonType: e.target.value
-                      })}
+                      }))
+                    }
                     >
                       {lessonTypes.map((type: LessonType) => (
                         <MenuItem key={type.id} value={type.id}>
@@ -244,10 +301,12 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) 
                     label="Party Size"
                     type="number"
                     value={bookingData.partySize}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBookingData({
-                      ...bookingData,
-                      partySize: parseInt(e.target.value) || 1
-                    })}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setBookingData((prev) => ({
+                        ...prev,
+                        partySize: parseInt(e.target.value, 10) || 1
+                      }))
+                    }
                     inputProps={{ min: 1, max: 8 }}
                   />
                 </Grid>
@@ -258,7 +317,7 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) 
                   Total: ${calculateTotal()}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {bookingData.partySize} person(s) × ${lessonTypes.find((lt: LessonType) => lt.id === bookingData.lessonType)?.price || 0}
+                  {bookingData.partySize} person(s) × ${selectedLesson?.price || 0}
                 </Typography>
               </Paper>
             </Box>
@@ -276,10 +335,12 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) 
                     fullWidth
                     label="Full Name"
                     value={bookingData.customerName}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBookingData({
-                      ...bookingData,
-                      customerName: e.target.value
-                    })}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setBookingData((prev) => ({
+                        ...prev,
+                        customerName: e.target.value
+                      }))
+                    }
                   />
                 </Grid>
 
@@ -289,10 +350,12 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) 
                     label="Email Address"
                     type="email"
                     value={bookingData.customerEmail}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBookingData({
-                      ...bookingData,
-                      customerEmail: e.target.value
-                    })}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setBookingData((prev) => ({
+                        ...prev,
+                        customerEmail: e.target.value
+                      }))
+                    }
                   />
                 </Grid>
 
@@ -301,10 +364,12 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) 
                     fullWidth
                     label="Phone Number"
                     value={bookingData.customerPhone}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBookingData({
-                      ...bookingData,
-                      customerPhone: e.target.value
-                    })}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setBookingData((prev) => ({
+                        ...prev,
+                        customerPhone: e.target.value
+                      }))
+                    }
                   />
                 </Grid>
               </Grid>
@@ -314,13 +379,13 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) 
                   Booking Summary
                 </Typography>
                 <Typography variant="body1">
-                  <strong>Date:</strong> {bookingData.date ? moment(bookingData.date).format('MMMM Do, YYYY') : ''}
+                  <strong>Date:</strong> {bookingData.date ? formatDateForDisplay(bookingData.date) : ''}
                 </Typography>
                 <Typography variant="body1">
-                  <strong>Time:</strong> {availableSlots.find((s) => s.id === bookingData.timeSlot) ? moment(availableSlots.find((s) => s.id === bookingData.timeSlot)!.start_time).format('h:mm A') : ''}
+                  <strong>Time:</strong> {selectedSlot ? formatTimeForDisplay(selectedSlot.start_time) : ''}
                 </Typography>
                 <Typography variant="body1">
-                  <strong>Lesson:</strong> {lessonTypes.find(lt => lt.id === bookingData.lessonType)?.name}
+                  <strong>Lesson:</strong> {selectedLesson?.name}
                 </Typography>
                 <Typography variant="body1">
                   <strong>Party Size:</strong> {bookingData.partySize}
