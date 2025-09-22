@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
 
 export async function POST(req: NextRequest) {
   const sig = req.headers.get('stripe-signature') as string;
@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const supabaseAdmin = getSupabaseAdminClient() as any;
     switch (event.type) {
       case 'payment_intent.succeeded': {
         const pi = event.data.object as any;

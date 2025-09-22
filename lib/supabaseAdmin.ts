@@ -1,14 +1,25 @@
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from './supabase';
 
-// Server-side Supabase client using service role for privileged operations
-// DO NOT expose the service role key to the client.
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY as string;
+type SupabaseAdminDatabaseClient = ReturnType<typeof createClient>;
 
-if (!supabaseUrl || !serviceRoleKey) {
-    console.warn('Supabase admin client missing env vars: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+let supabaseAdminClient: SupabaseAdminDatabaseClient | null = null;
+
+export function getSupabaseAdminClient(): SupabaseAdminDatabaseClient {
+  if (!supabaseAdminClient) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error(
+        'Supabase admin client is not configured. Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.'
+      );
+    }
+
+    supabaseAdminClient = createClient(supabaseUrl, serviceRoleKey);
+  }
+
+  return supabaseAdminClient;
 }
 
-export const supabaseAdmin = createClient(supabaseUrl || '', serviceRoleKey || '');
-
-export default supabaseAdmin;
+export default getSupabaseAdminClient;

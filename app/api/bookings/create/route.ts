@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
 import { stripe, createPaymentIntent } from '@/lib/stripe';
+import type { Database } from '@/lib/supabase';
 
 export async function POST(req: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseAdminClient() as any;
     const body = await req.json();
     const { time_slot_id, lesson_type_id, party_size, customer_name, customer_email, customer_phone } = body;
 
@@ -17,9 +19,11 @@ export async function POST(req: NextRequest) {
       .select('*')
       .eq('id', lesson_type_id)
       .single();
-    if (ltErr || !lessonType) throw new Error(ltErr?.message || 'Lesson type not found');
+    if (ltErr) throw new Error(ltErr.message);
+    if (!lessonType) throw new Error('Lesson type not found');
 
-    const total = Number(lessonType.price) * Number(party_size);
+    const confirmedLessonType = lessonType as Database['public']['Tables']['lesson_types']['Row'];
+    const total = Number(confirmedLessonType.price) * Number(party_size);
 
     // Hold slot (optimistic lock)
     const { data: slot, error: slotErr } = await supabaseAdmin
