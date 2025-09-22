@@ -6,12 +6,13 @@ export default function GalleryPage() {
   const t = useTranslations();
 
   const photos = [
-    'https://images.pexels.com/photos/416978/pexels-photo-416978.jpeg',
-    'https://images.pexels.com/photos/390051/surfer-wave-sunset-the-indian-ocean-390051.jpeg',
-    'https://images.pexels.com/photos/1654698/pexels-photo-1654698.jpeg',
-    'https://images.pexels.com/photos/1654684/pexels-photo-1654684.jpeg',
-    'https://images.pexels.com/photos/1654693/pexels-photo-1654693.jpeg',
-    'https://images.pexels.com/photos/1654697/pexels-photo-1654697.jpeg'
+    '/Dress.png',
+    '/dress2.png',
+    '/hang10.png',
+    '/isa.png',
+    '/isasilver.png',
+    '/lbturn.png',
+    '/sbsnap.png'
   ];
 
   return (
@@ -33,7 +34,7 @@ export default function GalleryPage() {
                 component="img"
                 height="250"
                 image={photo}
-                alt={`Surf photo ${index + 1}`}
+                alt={`Jazmine Dean Surf School - ${index + 1}`}
                 sx={{
                   transition: 'transform 0.3s ease',
                   '&:hover': {
