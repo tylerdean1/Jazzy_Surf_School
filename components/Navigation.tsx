@@ -52,7 +52,18 @@ const Navigation: React.FC = () => {
             <Link href={item.href} style={{ textDecoration: 'none', width: '100%' }}>
               <ListItemText 
                 primary={t(item.key)} 
-                sx={{ textAlign: 'center', py: 1 }}
+                sx={{ 
+                  textAlign: 'center', 
+                  py: 1,
+                  '& .MuiTypography-root': {
+                    color: '#20B2AA',
+                    fontWeight: 500,
+                    fontSize: '1.1rem',
+                    '&:hover': {
+                      color: '#1a9488'
+                    }
+                  }
+                }}
               />
             </Link>
           </ListItem>
@@ -109,9 +120,16 @@ const Navigation: React.FC = () => {
                     <Button 
                       color="inherit" 
                       sx={{ 
+                        color: 'white',
+                        fontWeight: 500,
+                        textTransform: 'none',
+                        fontSize: '1rem',
                         '&:hover': { 
-                          backgroundColor: 'rgba(255, 255, 255, 0.1)' 
-                        } 
+                          backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                          color: '#ffffff',
+                          transform: 'translateY(-1px)'
+                        },
+                        transition: 'all 0.2s ease'
                       }}
                     >
                       {t(item.key)}

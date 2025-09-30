@@ -17,7 +17,7 @@ export default function AboutPage() {
               objectFit: 'cover',
               borderRadius: 3
             }}
-            src="https://images.pexels.com/photos/1654684/pexels-photo-1654684.jpeg"
+            src="/isasilver.png"
             alt="Jazmine Dean surfing"
           />
         </Grid>

@@ -28,7 +28,12 @@
       "duration": "1 hour",
       "location": "Rincón to Isabela/Jobos",
       "description": "Perfect for first-time surfers. Learn water safety, board handling, and catch your first waves.",
-      "includes": ["Surfboard rental", "Wetsuit (if needed)", "Professional instruction", "Safety briefing"]
+      "includes": [
+        "Surfboard rental",
+        "Safety briefing",
+        "Personalized beach & water coaching",
+        "Photos of your session"
+      ]
     },
     "advanced": {
       "title": "Advanced Coaching",
@@ -36,7 +41,12 @@
       "duration": "Flexible",
       "location": "Various locations",
       "description": "Video analysis, multi-day programs, and travel coaching for experienced surfers.",
-      "includes": ["Video review", "Technique analysis", "Competition prep", "Custom programs"]
+      "includes": [
+        "Video review",
+        "Technique analysis",
+        "Competition prep",
+        "Custom programs"
+      ]
     }
   },
   "booking": {
@@ -70,11 +80,15 @@
     "questions": [
       {
         "question": "Where do we meet for lessons?",
-        "answer": "We meet at designated beach locations in Rincón, with options to travel to Isabela/Jobos for optimal conditions."
+        "answer": "We are based out of Rincón, Puerto Rico, and primarily conduct lessons at our local beach breaks. However, when conditions are favorable and upon request, we're happy to travel anywhere along the coast from Rincón up to Jobos and all the spots in between to find the perfect waves for your lesson."
       },
       {
-        "question": "What's included in the lesson?",
-        "answer": "All lessons include surfboard rental, wetsuit (if needed), professional instruction, and a comprehensive safety briefing."
+        "question": "What's included in beginner lessons?",
+        "answer": "Beginner lessons include surfboard rental, comprehensive safety briefing, personalized coaching both on the beach and in the water, and photos of your surf session to capture your progress and memorable moments."
+      },
+      {
+        "question": "What's included in advanced coaching?",
+        "answer": "Advanced coaching is a comprehensive multi-session program that includes video analysis of your surfing. We start with a baseline session where we film your surfing, then review the footage together to identify areas for improvement. This is followed by a theory-to-practice session where you apply the techniques we've discussed, creating a complete learning cycle for advanced skill development."
       },
       {
         "question": "Can I reschedule my lesson?",

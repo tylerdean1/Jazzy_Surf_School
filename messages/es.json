@@ -28,7 +28,12 @@
       "duration": "1 hora",
       "location": "Rincón a Isabela/Jobos",
       "description": "Perfecto para surfistas primerizos. Aprende seguridad acuática, manejo de tabla y atrapa tus primeras olas.",
-      "includes": ["Alquiler de tabla", "Traje de neopreno (si es necesario)", "Instrucción profesional", "Briefing de seguridad"]
+      "includes": [
+        "Alquiler de tabla de surf",
+        "Briefing de seguridad",
+        "Entrenamiento personalizado en playa y agua",
+        "Fotos de tu sesión"
+      ]
     },
     "advanced": {
       "title": "Entrenamiento Avanzado",
@@ -36,7 +41,12 @@
       "duration": "Flexible",
       "location": "Varias ubicaciones",
       "description": "Análisis de video, programas de varios días y coaching de viaje para surfistas experimentados.",
-      "includes": ["Revisión de video", "Análisis de técnica", "Preparación para competencias", "Programas personalizados"]
+      "includes": [
+        "Revisión de video",
+        "Análisis de técnica",
+        "Preparación para competencias",
+        "Programas personalizados"
+      ]
     }
   },
   "booking": {
@@ -70,11 +80,15 @@
     "questions": [
       {
         "question": "¿Dónde nos reunimos para las lecciones?",
-        "answer": "Nos reunimos en ubicaciones designadas de playa en Rincón, con opciones para viajar a Isabela/Jobos para condiciones óptimas."
+        "answer": "Tenemos nuestra base en Rincón, Puerto Rico, y principalmente damos lecciones en nuestros breaks locales. Sin embargo, cuando las condiciones son favorables y bajo petición, estaremos encantados de viajar a cualquier lugar a lo largo de la costa desde Rincón hasta Jobos y todos los spots intermedios para encontrar las olas perfectas para tu lección."
       },
       {
-        "question": "¿Qué está incluido en la lección?",
-        "answer": "Todas las lecciones incluyen alquiler de tabla de surf, traje de neopreno (si es necesario), instrucción profesional y un briefing completo de seguridad."
+        "question": "¿Qué está incluido en las lecciones para principiantes?",
+        "answer": "Las lecciones para principiantes incluyen alquiler de tabla de surf, briefing completo de seguridad, entrenamiento personalizado tanto en la playa como en el agua, y fotos de tu sesión de surf para capturar tu progreso y momentos memorables."
+      },
+      {
+        "question": "¿Qué está incluido en el entrenamiento avanzado?",
+        "answer": "El entrenamiento avanzado es un programa integral de múltiples sesiones que incluye análisis de video de tu surf. Comenzamos con una sesión de referencia donde filmamos tu surfing, luego revisamos el metraje juntos para identificar áreas de mejora. Esto es seguido por una sesión de teoría a práctica donde aplicas las técnicas que hemos discutido, creando un ciclo completo de aprendizaje para el desarrollo de habilidades avanzadas."
       },
       {
         "question": "¿Puedo reprogramar mi lección?",
