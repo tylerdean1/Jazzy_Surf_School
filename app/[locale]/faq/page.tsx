@@ -14,7 +14,7 @@ export default function FAQPage() {
       </Box>
       
       <Box>
-        {[0, 1, 2, 3, 4, 5].map((index) => (
+        {[0, 1, 2, 3, 4, 5, 6].map((index) => (
           <Accordion key={index} sx={{ mb: 2, borderRadius: 2, '&:before': { display: 'none' } }}>
             <AccordionSummary
               expandIcon={<ExpandMore />}

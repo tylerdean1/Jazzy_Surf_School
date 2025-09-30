@@ -30,7 +30,6 @@ export default function LessonsPage() {
               t('beginner.includes.2'),
               t('beginner.includes.3')
             ]}
-            featured={true}
           />
         </Grid>
         
