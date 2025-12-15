@@ -11,7 +11,7 @@ export default function BookPage() {
 
   const handleBookingComplete = (booking: BookingData) => {
     console.log('Booking completed:', booking);
-    // Here you would integrate with Stripe for payment processing
+    // Admin follows up manually (no in-app payment processing)
     setBookingComplete(true);
   };
 

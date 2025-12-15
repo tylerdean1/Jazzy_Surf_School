@@ -15,6 +15,8 @@ export type NotificationPayload = {
  *
  * Currently POSTS to `/api/notify` (a local stub). Replace or extend this
  * implementation to call your SMS/email providers (Twilio, SendGrid, etc.).
+ * The API responds with an `adminSummary` string you can feed into those
+ * providers when you wire them up.
  */
 export async function sendBookingNotification(payload: NotificationPayload) {
     try {
