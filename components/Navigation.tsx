@@ -33,7 +33,7 @@ const Navigation: React.FC = () => {
     { key: 'lessons', href: `/${locale}/lessons` },
     { key: 'schedule', href: `/${locale}/book` },
     { key: 'gallery', href: `/${locale}/gallery` },
-    { key: 'about', href: `/${locale}/mission_statement` },
+    { key: 'about', href: `/${locale}/about_jaz` },
     { key: 'faq', href: `/${locale}/faq` },
     { key: 'contact', href: `/${locale}/contact` }
   ];

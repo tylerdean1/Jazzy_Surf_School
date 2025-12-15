@@ -3,15 +3,6 @@
 import { useTranslations } from 'next-intl';
 import { Container, Typography, Grid, Box } from '@mui/material';
 import LessonCard from '../../../components/LessonCard';
-import GalleryCarousel from '../../../components/GalleryCarousel';
-
-const lessonPhotoBarImages = [
-  '/target_audiance/1.png',
-  '/target_audiance/2.png',
-  '/target_audiance/3.png',
-  '/target_audiance/4.png',
-  '/target_audiance/5.png'
-];
 
 export default function LessonsPage() {
   const t = useTranslations('lessons');
@@ -29,15 +20,7 @@ export default function LessonsPage() {
         <Box sx={{ mt: 4 }}>
           <Box component="img" src="/target_audiance/prices.png" alt="Prices" sx={{ width: '100%', height: 'auto', maxHeight: 600, objectFit: 'contain', borderRadius: 1 }} />
 
-          {/* Photo bar below the main image: 1.png - 5.png */}
-          <Box sx={{ mt: 2 }}>
-            <GalleryCarousel
-              images={lessonPhotoBarImages}
-              height={160}
-              objectFit="contain"
-              mode="ordered"
-            />
-          </Box>
+          {/* Photo bar removed per request */}
         </Box>
       </Box>
 

@@ -1,21 +1,35 @@
-"use client";
+import fs from 'fs/promises';
+import path from 'path';
+import Image from 'next/image';
+import { Container, Typography, Grid, Box, Card } from '@mui/material';
 
-import { useTranslations } from 'next-intl';
-import { Container, Typography, Grid, Box, Card, CardMedia } from '@mui/material';
-import styles from './Gallery.module.css';
+type MediaKind = 'image' | 'video' | 'other';
 
-export default function GalleryPage() {
-  const t = useTranslations();
+function getMediaKind(fileName: string): MediaKind {
+  const ext = path.extname(fileName).toLowerCase();
+  if ([
+    '.png',
+    '.jpg',
+    '.jpeg',
+    '.webp',
+    '.gif',
+    '.avif',
+    '.svg'
+  ].includes(ext)) {
+    return 'image';
+  }
 
-  const photos = [
-    '/Dress.png',
-    '/dress2.png',
-    '/hang10.png',
-    '/isa.png',
-    '/isasilver.png',
-    '/lbturn.png',
-    '/sbsnap.png'
-  ];
+  if (['.mp4', '.webm'].includes(ext)) return 'video';
+  return 'other';
+}
+
+export default async function GalleryPage() {
+  const schoolContentDir = path.join(process.cwd(), 'public', 'school_content');
+  const allEntries = await fs.readdir(schoolContentDir);
+
+  const files = allEntries
+    .filter((name) => !name.startsWith('.'))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 
   return (
     <Container maxWidth="lg" sx={{ py: 8 }}>
@@ -24,78 +38,56 @@ export default function GalleryPage() {
           Gallery
         </Typography>
         <Typography variant="h5" color="text.secondary">
-          Surf adventures and lesson highlights
+          Check out some of the content from our past lessons :)
         </Typography>
       </Box>
 
       <Grid container spacing={3}>
-        {photos.map((photo, index) => (
-          <Grid item xs={12} sm={6} md={4} key={index}>
-            <Card sx={{ borderRadius: 2, overflow: 'hidden' }}>
-              <CardMedia
-                component="img"
-                height="250"
-                image={photo}
-                alt={`Jazmine Dean Surf School - ${index + 1}`}
-                sx={{
-                  transition: 'transform 0.3s ease',
-                  '&:hover': {
-                    transform: 'scale(1.05)'
-                  }
-                }}
-              />
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+        {files.map((fileName) => {
+          const src = `/school_content/${fileName}`;
+          const kind = getMediaKind(fileName);
 
-      <Box sx={{ mt: 6, textAlign: 'center' }}>
-        <Typography variant="h4" gutterBottom color="#20B2AA">
-          Featured Videos
-        </Typography>
-        <Grid container spacing={4} sx={{ mt: 2 }}>
-          <Grid item xs={12} md={6}>
-            <Box className={styles.videoWrapper}>
-              <iframe
-                src="https://www.youtube.com/embed/-TcWIezmvsw"
-                title="Featured Video 1"
-                className={styles.iframe}
-                allowFullScreen
-              />
-            </Box>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Box className={styles.videoWrapper}>
-              <iframe
-                src="https://www.youtube.com/embed/ogrZGiLpYWM"
-                title="Featured Video 2"
-                className={styles.iframe}
-                allowFullScreen
-              />
-            </Box>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Box className={styles.videoWrapper}>
-              <iframe
-                src="https://www.youtube.com/embed/3GwL6TAd1RM"
-                title="Featured Video 3"
-                className={styles.iframe}
-                allowFullScreen
-              />
-            </Box>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Box className={styles.videoWrapper}>
-              <iframe
-                src="https://www.youtube.com/embed/k2jw1l_kMxc"
-                title="Featured Video 4"
-                className={styles.iframe}
-                allowFullScreen
-              />
-            </Box>
-          </Grid>
-        </Grid>
-      </Box>
+          return (
+            <Grid item xs={12} sm={6} md={4} key={fileName}>
+              <Card sx={{ borderRadius: 2, overflow: 'hidden' }}>
+                <Box sx={{ position: 'relative', height: 250, background: 'hsl(var(--background))' }}>
+                  {kind === 'image' ? (
+                    <Image
+                      src={src}
+                      alt={fileName}
+                      fill
+                      sizes="(max-width: 600px) 100vw, (max-width: 960px) 50vw, 33vw"
+                      style={{ objectFit: 'cover' }}
+                    />
+                  ) : kind === 'video' ? (
+                    <Box
+                      component="video"
+                      src={src}
+                      controls
+                      playsInline
+                      sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                  ) : (
+                    <Box
+                      sx={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      <Typography variant="body2" color="text.secondary">
+                        {fileName}
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              </Card>
+            </Grid>
+          );
+        })}
+      </Grid>
     </Container>
   );
 }
