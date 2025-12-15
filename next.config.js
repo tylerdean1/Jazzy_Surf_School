@@ -4,23 +4,13 @@ const path = require('path');
 const os = require('os');
 
 function getDistDir() {
-  // Allows overriding if you want a project-local folder again later.
+  // Optional override (e.g., to keep build artifacts outside OneDrive):
+  // set NEXT_DIST_DIR=.next
+  // or point it to a project-local junction/symlink.
   if (process.env.NEXT_DIST_DIR) return process.env.NEXT_DIST_DIR;
 
-  // OneDrive-synced folders can cause Windows reparse-point `readlink` errors.
-  // Prefer a local, non-synced directory for Next's build artifacts.
-  const projectRoot = __dirname;
-
-  if (process.env.LOCALAPPDATA) {
-    const target = path.join(process.env.LOCALAPPDATA, 'SunsetSurfAcademy', 'next-dist');
-    // Next's `distDir` expects a relative path; absolute Windows paths can break.
-    // This keeps the artifacts outside OneDrive while still providing a relative path.
-    const rel = path.relative(projectRoot, target);
-    // If on a different drive, `path.relative` returns an absolute path (with a drive letter).
-    if (rel && !path.isAbsolute(rel)) return rel;
-  }
-
-  // Fallback: a project-local folder.
+  // Default to a project-local folder so TypeScript module resolution
+  // works for generated Next types (distDir outside the project breaks this).
   return '.next';
 }
 

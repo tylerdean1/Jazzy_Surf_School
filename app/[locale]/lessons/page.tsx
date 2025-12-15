@@ -5,6 +5,14 @@ import { Container, Typography, Grid, Box } from '@mui/material';
 import LessonCard from '../../../components/LessonCard';
 import GalleryCarousel from '../../../components/GalleryCarousel';
 
+const lessonPhotoBarImages = [
+  '/target_audiance/1.png',
+  '/target_audiance/2.png',
+  '/target_audiance/3.png',
+  '/target_audiance/4.png',
+  '/target_audiance/5.png'
+];
+
 export default function LessonsPage() {
   const t = useTranslations('lessons');
 
@@ -24,15 +32,10 @@ export default function LessonsPage() {
           {/* Photo bar below the main image: 1.png - 5.png */}
           <Box sx={{ mt: 2 }}>
             <GalleryCarousel
-              images={[
-                '/target_audiance/1.png',
-                '/target_audiance/2.png',
-                '/target_audiance/3.png',
-                '/target_audiance/4.png',
-                '/target_audiance/5.png'
-              ]}
+              images={lessonPhotoBarImages}
               height={160}
               objectFit="contain"
+              mode="ordered"
             />
           </Box>
         </Box>

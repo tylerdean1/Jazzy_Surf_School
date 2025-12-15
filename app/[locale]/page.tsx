@@ -6,6 +6,15 @@ import { Container, Grid, Card, CardContent, Typography, Box } from '@mui/materi
 import GalleryCarousel from '../../components/GalleryCarousel';
 import Link from 'next/link';
 
+const targetAudienceImages = [
+  '/target_audiance/prices.png',
+  '/target_audiance/1.png',
+  '/target_audiance/2.png',
+  '/target_audiance/3.png',
+  '/target_audiance/4.png',
+  '/target_audiance/5.png'
+];
+
 export default function HomePage() {
   const t = useTranslations('home');
   const locale = useLocale();
@@ -45,15 +54,8 @@ export default function HomePage() {
                   {/* Lessons card: show carousel of /target_audiance images */}
                   <Box sx={{ mb: 3 }}>
                     <GalleryCarousel
-                      images={[
-                        '/target_audiance/prices.png',
-                        '/target_audiance/1.png',
-                        '/target_audiance/2.png',
-                        '/target_audiance/3.png',
-                        '/target_audiance/4.png',
-                        '/target_audiance/5.png'
-                      ]}
-                      height={200}
+                      images={targetAudienceImages}
+                      mode="ordered"
                     />
                   </Box>
                   <Typography variant="h5" gutterBottom color="#20B2AA">
