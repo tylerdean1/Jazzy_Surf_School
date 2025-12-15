@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-// Frontend-only mode: Supabase integration disabled.
+// Frontend-only mode: lesson types are static.
 export async function GET() {
     return NextResponse.json({
         lessonTypes: [
