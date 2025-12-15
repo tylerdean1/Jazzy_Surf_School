@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "set NODE_PATH=%CD%\\node_modules&& next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "set NODE_PATH=%CD%\\node_modules&& next start",
     "lint": "next lint",
     "typegen": "node scripts/typegen.cjs"
   },

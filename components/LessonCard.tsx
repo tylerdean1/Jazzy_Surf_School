@@ -40,8 +40,8 @@ const LessonCard: React.FC<LessonCardProps> = ({
   const locale = useLocale();
 
   return (
-    <Card 
-      sx={{ 
+    <Card
+      sx={{
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
@@ -56,26 +56,11 @@ const LessonCard: React.FC<LessonCardProps> = ({
         }
       }}
     >
-      {featured && (
-        <Chip
-          label="Most Popular"
-          sx={{
-            position: 'absolute',
-            top: 16,
-            right: 16,
-            backgroundColor: '#FF6B6B',
-            color: 'white',
-            fontWeight: 600,
-            zIndex: 1
-          }}
-        />
-      )}
-      
       <CardContent sx={{ flexGrow: 1, p: 3 }}>
         <Typography variant="h5" component="h3" gutterBottom fontWeight={600}>
           {title}
         </Typography>
-        
+
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
           <Typography variant="h4" color="#20B2AA" fontWeight={700}>
             {price}

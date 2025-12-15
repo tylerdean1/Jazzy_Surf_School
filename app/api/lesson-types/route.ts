@@ -1,16 +1,12 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
 
+// Frontend-only mode: Supabase integration disabled.
 export async function GET() {
-    try {
-        const { data, error } = await supabase
-            .from('lesson_types')
-            .select('*')
-            .eq('is_active', true)
-            .order('price', { ascending: true });
-        if (error) throw error;
-        return NextResponse.json({ lessonTypes: data });
-    } catch (err: any) {
-        return NextResponse.json({ error: err?.message || 'Failed to load lesson types' }, { status: 500 });
-    }
+    return NextResponse.json({
+        lessonTypes: [
+            { id: 'beginner', name: 'Beginner Lesson (2 hours)', price: 100 },
+            { id: 'intermediate', name: 'Intermediate Lesson (2 hours)', price: 100 },
+            { id: 'advanced', name: 'Advanced Coaching (2 hours)', price: 100 }
+        ]
+    });
 }

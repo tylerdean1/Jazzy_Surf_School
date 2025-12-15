@@ -3,17 +3,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Container, Typography, Box, Alert } from '@mui/material';
-import BookingCalendar from '../../../components/BookingCalendar';
-
-interface BookingData {
-  date: Date | null;
-  timeSlot: string;
-  lessonType: string;
-  partySize: number;
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-}
+import BookingCalendar, { type BookingData } from '../../../components/BookingCalendar';
 
 export default function BookPage() {
   const t = useTranslations('booking');
@@ -32,10 +22,10 @@ export default function BookPage() {
           {t('title')}
         </Typography>
       </Box>
-      
+
       {bookingComplete ? (
         <Alert severity="success" sx={{ mb: 4 }}>
-          Booking request received! You&apos;ll be redirected to payment processing.
+          Booking request received!
         </Alert>
       ) : (
         <BookingCalendar onBookingComplete={handleBookingComplete} />

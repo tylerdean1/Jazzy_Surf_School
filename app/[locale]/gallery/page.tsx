@@ -1,3 +1,5 @@
+"use client";
+
 import { useTranslations } from 'next-intl';
 import { Container, Typography, Grid, Box, Card, CardMedia } from '@mui/material';
 import styles from './Gallery.module.css';
@@ -25,7 +27,7 @@ export default function GalleryPage() {
           Surf adventures and lesson highlights
         </Typography>
       </Box>
-      
+
       <Grid container spacing={3}>
         {photos.map((photo, index) => (
           <Grid item xs={12} sm={6} md={4} key={index}>
@@ -46,7 +48,7 @@ export default function GalleryPage() {
           </Grid>
         ))}
       </Grid>
-      
+
       <Box sx={{ mt: 6, textAlign: 'center' }}>
         <Typography variant="h4" gutterBottom color="#20B2AA">
           Featured Videos

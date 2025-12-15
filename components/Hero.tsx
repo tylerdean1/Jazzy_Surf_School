@@ -8,7 +8,7 @@ import { useLocale } from 'next-intl';
 
 const HeroContainer = styled(Box)({
   height: '100vh',
-  backgroundImage: 'url("/hero-shot.png")',
+  backgroundImage: 'url("/hero_shot/hero_shot.png")',
   backgroundSize: 'cover',
   backgroundPosition: 'center',
   display: 'flex',
@@ -41,13 +41,13 @@ interface HeroProps {
   secondaryHref?: string;
 }
 
-const Hero: React.FC<HeroProps> = ({ 
-  title, 
-  subtitle, 
-  primaryAction, 
-  secondaryAction, 
+const Hero: React.FC<HeroProps> = ({
+  title,
+  subtitle,
+  primaryAction,
+  secondaryAction,
   primaryHref,
-  secondaryHref 
+  secondaryHref
 }) => {
   const locale = useLocale();
 
@@ -55,11 +55,11 @@ const Hero: React.FC<HeroProps> = ({
     <HeroContainer>
       <Container maxWidth="lg">
         <ContentBox>
-          <Typography 
-            variant="h2" 
-            component="h1" 
+          <Typography
+            variant="h2"
+            component="h1"
             gutterBottom
-            sx={{ 
+            sx={{
               fontWeight: 700,
               fontSize: { xs: '2.5rem', md: '3.5rem', lg: '4rem' },
               textShadow: '2px 2px 4px rgba(0,0,0,0.5)',
@@ -68,13 +68,13 @@ const Hero: React.FC<HeroProps> = ({
           >
             {title}
           </Typography>
-          <Typography 
-            variant="h5" 
-            component="p" 
+          <Typography
+            variant="h5"
+            component="p"
             gutterBottom
-            sx={{ 
-              mb: 4, 
-              maxWidth: '800px', 
+            sx={{
+              mb: 4,
+              maxWidth: '800px',
               mx: 'auto',
               fontSize: { xs: '1.1rem', md: '1.3rem' },
               textShadow: '1px 1px 2px rgba(0,0,0,0.5)'
@@ -84,10 +84,10 @@ const Hero: React.FC<HeroProps> = ({
           </Typography>
           <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href={primaryHref} style={{ textDecoration: 'none' }}>
-              <Button 
-                variant="contained" 
+              <Button
+                variant="contained"
                 size="large"
-                sx={{ 
+                sx={{
                   backgroundColor: '#FF6B6B',
                   '&:hover': { backgroundColor: '#FF5252' },
                   px: 4,
@@ -102,13 +102,13 @@ const Hero: React.FC<HeroProps> = ({
             </Link>
             {secondaryAction && secondaryHref && (
               <Link href={secondaryHref} style={{ textDecoration: 'none' }}>
-                <Button 
-                  variant="outlined" 
+                <Button
+                  variant="outlined"
                   size="large"
-                  sx={{ 
+                  sx={{
                     borderColor: 'white',
                     color: 'white',
-                    '&:hover': { 
+                    '&:hover': {
                       borderColor: '#F5E6A3',
                       backgroundColor: 'rgba(245, 230, 163, 0.1)'
                     },

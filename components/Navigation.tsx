@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useTranslations, useLocale } from 'next-intl';
 import {
   AppBar,
@@ -32,7 +33,7 @@ const Navigation: React.FC = () => {
     { key: 'lessons', href: `/${locale}/lessons` },
     { key: 'schedule', href: `/${locale}/book` },
     { key: 'gallery', href: `/${locale}/gallery` },
-    { key: 'about', href: `/${locale}/about` },
+    { key: 'about', href: `/${locale}/mission_statement` },
     { key: 'faq', href: `/${locale}/faq` },
     { key: 'contact', href: `/${locale}/contact` }
   ];
@@ -44,16 +45,16 @@ const Navigation: React.FC = () => {
   const drawer = (
     <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center' }}>
       <Typography variant="h6" sx={{ my: 2, color: '#20B2AA' }}>
-        Jazmine Dean Surf
+        Sunset Surf Academy
       </Typography>
       <List>
         {navItems.map((item) => (
           <ListItem key={item.key} disablePadding>
             <Link href={item.href} style={{ textDecoration: 'none', width: '100%' }}>
-              <ListItemText 
-                primary={t(item.key)} 
-                sx={{ 
-                  textAlign: 'center', 
+              <ListItemText
+                primary={t(item.key)}
+                sx={{
+                  textAlign: 'center',
                   py: 1,
                   '& .MuiTypography-root': {
                     color: '#20B2AA',
@@ -77,9 +78,9 @@ const Navigation: React.FC = () => {
 
   return (
     <>
-      <AppBar 
-        position="fixed" 
-        sx={{ 
+      <AppBar
+        position="fixed"
+        sx={{
           backgroundColor: 'rgba(32, 178, 170, 0.95)',
           backdropFilter: 'blur(10px)'
         }}
@@ -91,17 +92,30 @@ const Navigation: React.FC = () => {
             component="div"
             sx={{ flexGrow: 1, fontWeight: 600 }}
           >
-            <Link 
-              href={`/${locale}`} 
+            <Link
+              href={`/${locale}`}
               style={{ textDecoration: 'none', color: 'inherit' }}
             >
-              Jazmine Dean Surf
+              Sunset Surf Academy
             </Link>
           </Typography>
-          
+
           {isMobile ? (
             <>
               <LanguageToggle />
+              <Link
+                href={`/${locale}`}
+                style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '0.5rem' }}
+              >
+                <Image
+                  src="/Logo/SSA_Orange_Logo.png"
+                  alt="Surf School orange logo"
+                  width={40}
+                  height={40}
+                  priority
+                  style={{ borderRadius: 8 }}
+                />
+              </Link>
               <IconButton
                 color="inherit"
                 aria-label="open drawer"
@@ -117,14 +131,14 @@ const Navigation: React.FC = () => {
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                 {navItems.map((item) => (
                   <Link key={item.key} href={item.href} style={{ textDecoration: 'none' }}>
-                    <Button 
-                      color="inherit" 
-                      sx={{ 
+                    <Button
+                      color="inherit"
+                      sx={{
                         color: 'white',
                         fontWeight: 500,
                         textTransform: 'none',
                         fontSize: '1rem',
-                        '&:hover': { 
+                        '&:hover': {
                           backgroundColor: 'rgba(255, 255, 255, 0.15)',
                           color: '#ffffff',
                           transform: 'translateY(-1px)'
@@ -137,6 +151,19 @@ const Navigation: React.FC = () => {
                   </Link>
                 ))}
                 <LanguageToggle />
+                <Link
+                  href={`/${locale}`}
+                  style={{ display: 'inline-flex', alignItems: 'center' }}
+                >
+                  <Image
+                    src="/Logo/SSA_Orange_Logo.png"
+                    alt="Surf School orange logo"
+                    width={44}
+                    height={44}
+                    priority
+                    style={{ borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}
+                  />
+                </Link>
               </Box>
             </>
           )}

@@ -1,3 +1,5 @@
+"use client";
+
 import { useTranslations } from 'next-intl';
 import { Container, Typography, Box, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 import { ExpandMore } from '@mui/icons-material';
@@ -12,7 +14,7 @@ export default function FAQPage() {
           {t('title')}
         </Typography>
       </Box>
-      
+
       <Box>
         {[0, 1, 2, 3, 4, 5, 6].map((index) => (
           <Accordion key={index} sx={{ mb: 2, borderRadius: 2, '&:before': { display: 'none' } }}>

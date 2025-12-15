@@ -9,25 +9,27 @@
     "contact": "Contact"
   },
   "home": {
-    "heroTitle": "Learn to Surf with Jazmine Dean",
+    "heroTitle": "Learn to Surf at Sunset Surf Academy",
     "heroSubtitle": "Professional surf instruction in the beautiful waters of Rincón, Puerto Rico",
     "bookNow": "Book Your Lesson",
     "learnMore": "Learn More",
-    "aboutPreview": "4x East Coast Champion • Pan-American 2nd Place • Team Puerto Rico",
+    "aboutPreview": "Learn from some of the best surfers in the world.",
     "lessonsTitle": "Surf Lessons",
     "lessonsDescription": "From beginner-friendly sessions to advanced coaching",
     "galleryTitle": "Experience the Journey",
-    "galleryDescription": "Watch videos and see photos from our surf adventures"
+    "galleryDescription": "Watch videos and see photos from our surf adventures",
+    "teamTitle": "Meet the Team",
+    "teamDescription": "Get to know the coaches who make Sunset Surf Academy special"
   },
   "lessons": {
     "title": "Surf Lessons",
     "subtitle": "Professional instruction tailored to your skill level",
     "beginner": {
-      "title": "Beginner Lessons",
-      "price": "$75",
-      "duration": "1 hour",
+      "title": "Lessons (beginner)",
+      "price": "$100",
+      "duration": "2 hours",
       "location": "Rincón to Isabela/Jobos",
-      "description": "Perfect for first-time surfers. Learn water safety, board handling, and catch your first waves.",
+      "description": "The beginner lessons teach the fundamentals of surfing.",
       "includes": [
         "Surfboard rental",
         "Safety briefing",
@@ -35,12 +37,25 @@
         "Photos of your session"
       ]
     },
-    "advanced": {
+    "intermediate": {
       "title": "Advanced Coaching",
-      "price": "Contact for pricing",
-      "duration": "Flexible",
+      "price": "$100",
+      "duration": "2 hours",
+      "location": "Rincón to Isabela/Jobos",
+      "description": "Intermediate lessons teach how to read waves, interact in any lineup, and gain practical skills to surf more confidently.",
+      "includes": [
+        "Surfboard rental",
+        "Wave reading & lineup etiquette",
+        "Skills development",
+        "Photos and short video clips"
+      ]
+    },
+    "advanced": {
+      "title": "Surf Guide",
+      "price": "$100",
+      "duration": "2 hours",
       "location": "Various locations",
-      "description": "Video analysis, multi-day programs, and travel coaching for experienced surfers.",
+      "description": "Advanced lessons cover advanced skills, video analysis, competition preparation, and custom programs.",
       "includes": [
         "Video review",
         "Technique analysis",
@@ -63,7 +78,7 @@
     "proceedToPayment": "Proceed to Payment"
   },
   "about": {
-    "title": "About Jazmine Dean",
+    "title": "About Jazmine Dean Perez",
     "subtitle": "Professional Surfer & Instructor",
     "bio": "Jazmine Dean is a professional surfer representing Team Puerto Rico with an impressive competitive record. Based in the world-renowned surf town of Rincón, she brings years of experience and passion to every lesson.",
     "achievements": "Achievements",
@@ -74,6 +89,14 @@
       "Team Puerto Rico Member",
       "Professional Surf Instructor"
     ]
+  },
+  "mission": {
+    "title": "Our Mission",
+    "subtitle": "Take Every Surfer To The Next Level",
+    "lead": "At Sunset Surf Academy our mission is simple: to help every surfer — from complete beginners to seasoned competitors — progress, have more fun, and get better results in the water.",
+    "body1": "We believe surfing is for everyone. For first-timers we focus on water safety, confidence-building and the fundamentals so your first waves are empowering and memorable. For intermediate and advanced surfers we offer technique work, video analysis and competition preparation that targets measurable improvement.",
+    "body2": "Our coaches design lessons around your goals — whether that’s catching your first wave, improving your bottom turns, boosting aerials, or nailing contest-worthy maneuvers. We emphasize clear coaching, practical drills, and a supportive environment that accelerates learning while keeping the stoke alive.",
+    "conclusion": "Ultimately, success at Sunset Surf Academy isn’t just measured in scores; it’s measured in smiles, confidence and the endless pursuit of better surfing. Come surf with us and let’s take your surfing to the next level."
   },
   "faq": {
     "title": "Frequently Asked Questions",
@@ -113,5 +136,10 @@
     "subtitle": "Ready to book or have questions? Get in touch!",
     "location": "Rincón, Puerto Rico",
     "followUs": "Follow Us"
+  },
+  "team": {
+    "title": "Meet the Team",
+    "subtitle": "Learn from some of the best surfers in the world.",
+    "intro": "These are our top coaches who will take you to the next level in your surfing. Click on their profiles to learn a little about them!"
   }
 }

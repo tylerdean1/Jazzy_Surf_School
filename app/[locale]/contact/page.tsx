@@ -1,3 +1,5 @@
+"use client";
+
 import { useTranslations } from 'next-intl';
 import { Container, Typography, Grid, Box, Card, CardContent, IconButton, Tooltip } from '@mui/material';
 import { Instagram, Facebook, YouTube, LocationOn } from '@mui/icons-material';
@@ -15,7 +17,7 @@ export default function ContactPage() {
           {t('subtitle')}
         </Typography>
       </Box>
-      
+
       <Grid container spacing={6} justifyContent="center">
         <Grid item xs={12} md={8}>
           <Card sx={{ textAlign: 'center' }}>
@@ -24,12 +26,12 @@ export default function ContactPage() {
               <Typography variant="h5" gutterBottom>
                 {t('location')}
               </Typography>
-              
+
               <Box sx={{ mt: 4 }}>
                 <Typography variant="h6" gutterBottom color="#20B2AA" sx={{ mb: 4, textAlign: 'center' }}>
                   {t('followUs')}
                 </Typography>
-                
+
                 {/* OnlyJazmine Section */}
                 <Box sx={{ mb: 4 }}>
                   <Typography variant="h6" gutterBottom sx={{ textAlign: 'center', mb: 2, fontWeight: 'bold' }}>
@@ -37,17 +39,17 @@ export default function ContactPage() {
                   </Typography>
                   <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3 }}>
                     <Box sx={{ textAlign: 'center' }}>
-                      <IconButton 
-                        color="primary" 
+                      <IconButton
+                        color="primary"
                         size="large"
                         component="a"
                         href="https://instagram.com/onlyjazmine"
                         target="_blank"
                         rel="noopener noreferrer"
-                        sx={{ 
+                        sx={{
                           backgroundColor: '#f8f9fa',
                           mb: 1,
-                          '&:hover': { 
+                          '&:hover': {
                             backgroundColor: '#e9ecef',
                             transform: 'translateY(-2px)',
                             boxShadow: '0 4px 12px rgba(32, 178, 170, 0.3)'
@@ -62,17 +64,17 @@ export default function ContactPage() {
                       </Typography>
                     </Box>
                     <Box sx={{ textAlign: 'center' }}>
-                      <IconButton 
-                        color="primary" 
+                      <IconButton
+                        color="primary"
                         size="large"
                         component="a"
                         href="https://facebook.com/jazmine.dean.77"
                         target="_blank"
                         rel="noopener noreferrer"
-                        sx={{ 
+                        sx={{
                           backgroundColor: '#f8f9fa',
                           mb: 1,
-                          '&:hover': { 
+                          '&:hover': {
                             backgroundColor: '#e9ecef',
                             transform: 'translateY(-2px)',
                             boxShadow: '0 4px 12px rgba(32, 178, 170, 0.3)'
@@ -87,17 +89,17 @@ export default function ContactPage() {
                       </Typography>
                     </Box>
                     <Box sx={{ textAlign: 'center' }}>
-                      <IconButton 
-                        color="primary" 
+                      <IconButton
+                        color="primary"
                         size="large"
                         component="a"
                         href="https://youtube.com/@Onlyjazminee"
                         target="_blank"
                         rel="noopener noreferrer"
-                        sx={{ 
+                        sx={{
                           backgroundColor: '#f8f9fa',
                           mb: 1,
-                          '&:hover': { 
+                          '&:hover': {
                             backgroundColor: '#e9ecef',
                             transform: 'translateY(-2px)',
                             boxShadow: '0 4px 12px rgba(32, 178, 170, 0.3)'
@@ -121,17 +123,17 @@ export default function ContactPage() {
                   </Typography>
                   <Box sx={{ display: 'flex', justifyContent: 'center', gap: 3 }}>
                     <Box sx={{ textAlign: 'center' }}>
-                      <IconButton 
-                        color="primary" 
+                      <IconButton
+                        color="primary"
                         size="large"
                         component="a"
                         href="https://www.instagram.com/unlimitedtimetravelers/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        sx={{ 
+                        sx={{
                           backgroundColor: '#f8f9fa',
                           mb: 1,
-                          '&:hover': { 
+                          '&:hover': {
                             backgroundColor: '#e9ecef',
                             transform: 'translateY(-2px)',
                             boxShadow: '0 4px 12px rgba(32, 178, 170, 0.3)'
@@ -146,17 +148,17 @@ export default function ContactPage() {
                       </Typography>
                     </Box>
                     <Box sx={{ textAlign: 'center' }}>
-                      <IconButton 
-                        color="primary" 
+                      <IconButton
+                        color="primary"
                         size="large"
                         component="a"
                         href="https://www.facebook.com/unlimitedtimetravelers"
                         target="_blank"
                         rel="noopener noreferrer"
-                        sx={{ 
+                        sx={{
                           backgroundColor: '#f8f9fa',
                           mb: 1,
-                          '&:hover': { 
+                          '&:hover': {
                             backgroundColor: '#e9ecef',
                             transform: 'translateY(-2px)',
                             boxShadow: '0 4px 12px rgba(32, 178, 170, 0.3)'
@@ -173,7 +175,7 @@ export default function ContactPage() {
                   </Box>
                 </Box>
               </Box>
-              
+
               <Box
                 component="img"
                 sx={{

@@ -16,27 +16,21 @@ import {
   Stepper,
   Step,
   StepLabel,
-  Paper,
-  Chip
+  Paper
 } from '@mui/material';
-import { Calendar, momentLocalizer } from 'react-big-calendar';
-import moment from 'moment';
-import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements } from '@stripe/react-stripe-js';
-import StripeCheckoutForm from './StripeCheckoutForm';
+import Checkbox from '@mui/material/Checkbox';
+import ListItemText from '@mui/material/ListItemText';
+import { sendBookingNotification } from '@/lib/notifications';
 
-const localizer = momentLocalizer(moment);
-
-interface BookingData {
-  date: Date | null;
-  timeSlot: string; // holds time_slot id
+export type BookingData = {
+  date: string; // yyyy-mm-dd
+  timeSlots: string[]; // human-readable time blocks (30-min)
   lessonType: string;
   partySize: number;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
-}
+};
 
 interface BookingCalendarProps {
   onBookingComplete: (booking: BookingData) => void;
@@ -45,8 +39,8 @@ interface BookingCalendarProps {
 const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) => {
   const [activeStep, setActiveStep] = useState(0);
   const [bookingData, setBookingData] = useState<BookingData>({
-    date: null,
-    timeSlot: '',
+    date: '',
+    timeSlots: [],
     lessonType: '',
     partySize: 1,
     customerName: '',
@@ -54,87 +48,72 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) 
     customerPhone: ''
   });
 
-  const steps = ['Select Date & Time', 'Choose Lesson', 'Customer Info', 'Payment'];
+  const steps = ['Select Date & Time', 'Choose Lesson', 'Customer Info'];
 
   type LessonType = { id: string; name: string; price: number };
-  const [lessonTypes, setLessonTypes] = useState<LessonType[]>([]);
-  const [availableSlots, setAvailableSlots] = useState<{ id: string; start_time: string }[]>([]);
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [stripePromise, setStripePromise] = useState<any>(null);
 
-  // Load lesson types once on mount
-  useEffect(() => {
-    // Load Stripe publishable key
-    const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string;
-    if (pk) setStripePromise(loadStripe(pk));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Frontend-only placeholder data (no Supabase / no API dependency)
+  const lessonTypes: LessonType[] = [
+    { id: 'beginner', name: 'Beginner Lesson (2 hours)', price: 100 },
+    { id: 'intermediate', name: 'Intermediate Lesson (2 hours)', price: 100 },
+    { id: 'advanced', name: 'Advanced Coaching (2 hours)', price: 100 }
+  ];
+
+  // generate 30-minute slots from 07:00 to 15:30 (last slot ends at 16:00)
+  const generateTimeSlots = () => {
+    const slots: string[] = [];
+    for (let hour = 7; hour <= 15; hour++) {
+      const h12 = (hour % 12) === 0 ? 12 : hour % 12;
+      const ampm = hour < 12 ? 'AM' : 'PM';
+      slots.push(`${h12}:00 ${ampm}`);
+      slots.push(`${h12}:30 ${ampm}`);
+    }
+    return slots;
+  };
+
+  const timeSlots = generateTimeSlots();
 
   useEffect(() => {
-    // Load lesson types
-    fetch('/api/lesson-types')
-      .then((r) => r.json())
-      .then((d) => {
-        const types: LessonType[] = d.lessonTypes || [];
-        setLessonTypes(types);
-      })
-      .catch(() => { });
-  }, []);
-
-  // When lesson types load, set a default lesson type if not already selected
-  useEffect(() => {
-    if (!lessonTypes.length) return;
     setBookingData((prev) => {
       if (prev.lessonType) return prev;
       return { ...prev, lessonType: lessonTypes[0]?.id || '' };
     });
-  }, [lessonTypes]);
-
-  useEffect(() => {
-    if (!bookingData.date) return;
-    const start = moment(bookingData.date).startOf('day').toISOString();
-    const end = moment(bookingData.date).endOf('day').toISOString();
-    const ltParam = bookingData.lessonType ? `&lessonTypeId=${encodeURIComponent(bookingData.lessonType)}` : '';
-    fetch(`/api/availability?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}${ltParam}`)
-      .then((r) => r.json())
-      .then((d) => {
-        const slots = (d.slots || []).map((s: any) => ({ id: s.id, start_time: s.start_time }));
-        setAvailableSlots(slots);
-      })
-      .catch(() => setAvailableSlots([]));
-  }, [bookingData.date, bookingData.lessonType]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const calculateTotal = () => {
     const lessonType = lessonTypes.find(lt => lt.id === bookingData.lessonType);
     return lessonType ? Number(lessonType.price) * bookingData.partySize : 0;
   };
 
-  const handleNext = () => {
-    if (activeStep < steps.length - 2) {
+  const handleNext = async () => {
+    if (activeStep < steps.length - 1) {
       setActiveStep(activeStep + 1);
-    } else if (activeStep === steps.length - 2) {
-      // create booking and generate client secret
-      // In a full implementation, we would use selected concrete time_slot id; here we mock by sending the time text
-      fetch('/api/bookings/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          time_slot_id: bookingData.timeSlot,
-          lesson_type_id: bookingData.lessonType,
-          party_size: bookingData.partySize,
-          customer_name: bookingData.customerName,
-          customer_email: bookingData.customerEmail,
-          customer_phone: bookingData.customerPhone,
-        })
-      }).then(res => res.json()).then(data => {
-        if (data.clientSecret) {
-          setClientSecret(data.clientSecret);
-          setActiveStep(activeStep + 1);
-        }
-      });
-    } else {
-      onBookingComplete(bookingData);
+      return;
     }
+
+    // Finalize: prepare payload and call stubbed notification API (TODO: integrate SMS/Email providers)
+    const payload = {
+      date: bookingData.date,
+      timeSlots: bookingData.timeSlots,
+      lessonType: bookingData.lessonType,
+      partySize: bookingData.partySize,
+      customerName: bookingData.customerName,
+      customerEmail: bookingData.customerEmail,
+      customerPhone: bookingData.customerPhone,
+      adminPhone: '939-525-0307',
+      adminEmail: 'sunsetsurfacademy@gmail.com'
+    };
+
+    try {
+      await sendBookingNotification(payload);
+    } catch (err) {
+      // log and continue; notification delivery is a best-effort for now
+      // eslint-disable-next-line no-console
+      console.error('sendBookingNotification error', err);
+    }
+
+    onBookingComplete(bookingData);
   };
 
   const handleBack = () => {
@@ -144,7 +123,7 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) 
   const canProceed = () => {
     switch (activeStep) {
       case 0:
-        return bookingData.date && bookingData.timeSlot;
+        return Boolean(bookingData.date && bookingData.timeSlots && bookingData.timeSlots.length > 0);
       case 1:
         return bookingData.lessonType && bookingData.partySize > 0;
       case 2:
@@ -172,42 +151,47 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) 
                 Select Your Preferred Date and Time
               </Typography>
 
-              <Box sx={{ height: 400, mb: 3 }}>
-                <Calendar
-                  localizer={localizer}
-                  events={[]}
-                  startAccessor="start"
-                  endAccessor="end"
-                  selectable
-                  onSelectSlot={(slotInfo: { start: Date; end: Date }) => {
-                    setBookingData({
-                      ...bookingData,
-                      date: slotInfo.start
-                    });
-                  }}
-                  style={{ height: '100%' }}
-                />
-              </Box>
+              <Grid container spacing={3} sx={{ mt: 1 }}>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Date"
+                    type="date"
+                    value={bookingData.date}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setBookingData({ ...bookingData, date: e.target.value, timeSlots: [] })
+                    }
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
 
-              {bookingData.date && (
-                <Box>
-                  <Typography variant="h6" gutterBottom>
-                    Available Times for {moment(bookingData.date).format('MMMM Do, YYYY')}
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    {availableSlots.map((slot: { id: string; start_time: string }) => (
-                      <Chip
-                        key={slot.id}
-                        label={moment(slot.start_time).format('h:mm A')}
-                        clickable
-                        color={bookingData.timeSlot === slot.id ? 'primary' : 'default'}
-                        onClick={() => setBookingData({ ...bookingData, timeSlot: slot.id })}
-                        sx={{ mb: 1 }}
-                      />
-                    ))}
-                  </Box>
-                </Box>
-              )}
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Time</InputLabel>
+                    <Select
+                      multiple
+                      value={bookingData.timeSlots}
+                      label="Time"
+                      onChange={(e: any) =>
+                        setBookingData({ ...bookingData, timeSlots: typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value })
+                      }
+                      disabled={!bookingData.date}
+                      renderValue={(selected) => (selected as string[]).join(', ')}
+                    >
+                      {timeSlots.map((slot) => (
+                        <MenuItem key={slot} value={slot}>
+                          <Checkbox checked={bookingData.timeSlots.indexOf(slot) > -1} />
+                          <ListItemText primary={slot} />
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                Pick one or more 30-minute time blocks that work for you; we will send these to the coach for confirmation.
+              </Typography>
             </Box>
           )}
 
@@ -314,10 +298,10 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) 
                   Booking Summary
                 </Typography>
                 <Typography variant="body1">
-                  <strong>Date:</strong> {bookingData.date ? moment(bookingData.date).format('MMMM Do, YYYY') : ''}
+                  <strong>Date:</strong> {bookingData.date}
                 </Typography>
                 <Typography variant="body1">
-                  <strong>Time:</strong> {availableSlots.find((s) => s.id === bookingData.timeSlot) ? moment(availableSlots.find((s) => s.id === bookingData.timeSlot)!.start_time).format('h:mm A') : ''}
+                  <strong>Time:</strong> {bookingData.timeSlots?.length ? bookingData.timeSlots.join(', ') : ''}
                 </Typography>
                 <Typography variant="body1">
                   <strong>Lesson:</strong> {lessonTypes.find(lt => lt.id === bookingData.lessonType)?.name}
@@ -332,38 +316,25 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) 
             </Box>
           )}
 
-          {activeStep === 3 && clientSecret && stripePromise && (
-            <Box>
-              <Typography variant="h6" gutterBottom>
-                Payment
-              </Typography>
-              <Elements options={{ clientSecret }} stripe={stripePromise}>
-                <StripeCheckoutForm onSuccess={() => onBookingComplete(bookingData)} />
-              </Elements>
-            </Box>
-          )}
-
-          {activeStep !== 3 && (
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
-              <Button
-                disabled={activeStep === 0}
-                onClick={handleBack}
-              >
-                Back
-              </Button>
-              <Button
-                variant="contained"
-                onClick={handleNext}
-                disabled={!canProceed()}
-                sx={{
-                  backgroundColor: '#20B2AA',
-                  '&:hover': { backgroundColor: '#1A9A9A' }
-                }}
-              >
-                {activeStep >= steps.length - 2 ? 'Proceed' : 'Next'}
-              </Button>
-            </Box>
-          )}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
+            <Button
+              disabled={activeStep === 0}
+              onClick={handleBack}
+            >
+              Back
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleNext}
+              disabled={!canProceed()}
+              sx={{
+                backgroundColor: '#20B2AA',
+                '&:hover': { backgroundColor: '#1A9A9A' }
+              }}
+            >
+              {activeStep === steps.length - 1 ? 'Submit Request' : 'Next'}
+            </Button>
+          </Box>
         </CardContent>
       </Card>
     </Box>

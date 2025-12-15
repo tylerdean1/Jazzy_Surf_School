@@ -9,15 +9,17 @@
     "contact": "Contacto"
   },
   "home": {
-    "heroTitle": "Aprende a Surfear con Jazmine Dean",
+    "heroTitle": "Aprende a surfear en Sunset Surf Academy",
     "heroSubtitle": "Instrucción profesional de surf en las hermosas aguas de Rincón, Puerto Rico",
     "bookNow": "Reserva tu Lección",
     "learnMore": "Aprende Más",
-    "aboutPreview": "Campeona de la Costa Este 4x • 2do Lugar Panamericano • Equipo Puerto Rico",
+    "aboutPreview": "Aprende con algunos de los mejores surfistas del mundo.",
     "lessonsTitle": "Lecciones de Surf",
     "lessonsDescription": "Desde sesiones para principiantes hasta entrenamiento avanzado",
     "galleryTitle": "Vive la Experiencia",
-    "galleryDescription": "Mira videos y fotos de nuestras aventuras de surf"
+    "galleryDescription": "Mira videos y fotos de nuestras aventuras de surf",
+    "teamTitle": "Conoce al equipo",
+    "teamDescription": "Descubre a los entrenadores que hacen especial a Sunset Surf Academy"
   },
   "lessons": {
     "title": "Lecciones de Surf",
@@ -75,6 +77,14 @@
       "Instructora Profesional de Surf"
     ]
   },
+  "mission": {
+    "title": "Nuestra Misión",
+    "subtitle": "Llevar a cada surfista al siguiente nivel",
+    "lead": "En Sunset Surf Academy nuestra misión es clara: ayudar a cada surfista —desde quienes pisan la tabla por primera vez hasta quienes compiten— a progresar, divertirse más y obtener mejores resultados en el agua.",
+    "body1": "Creemos que el surf es para todos. Para los principiantes nos enfocamos en la seguridad acuática, la confianza y los fundamentos para que tus primeras olas sean seguras y memorables. Para surfistas intermedios y avanzados ofrecemos trabajo técnico, análisis de video y preparación para competencias enfocados en mejoras medibles.",
+    "body2": "Nuestros entrenadores diseñan las lecciones alrededor de tus metas —ya sea atrapar tu primera ola, mejorar giros, potenciar aéreos o perfeccionar maniobras para competición. Enfatizamos enseñanza clara, ejercicios prácticos y un ambiente de apoyo que acelera el aprendizaje manteniendo la pasión por el surf.",
+    "conclusion": "Al final, el éxito en Sunset Surf Academy no se mide solo en puntajes; se mide en sonrisas, confianza y en el impulso continuo de mejorar. Ven a surfear con nosotros y llevemos tu surfing al siguiente nivel."
+  },
   "faq": {
     "title": "Preguntas Frecuentes",
     "questions": [
@@ -113,5 +123,10 @@
     "subtitle": "¿Listo para reservar o tienes preguntas? ¡Ponte en contacto!",
     "location": "Rincón, Puerto Rico",
     "followUs": "Síguenos"
+  },
+  "team": {
+    "title": "Conoce al equipo",
+    "subtitle": "Aprende con algunos de los mejores surfistas del mundo.",
+    "intro": "Estos son nuestros entrenadores principales que te llevarán al siguiente nivel en tu surf. ¡Haz clic en sus perfiles para aprender un poco sobre ellos!"
   }
 }

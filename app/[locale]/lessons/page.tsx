@@ -1,6 +1,9 @@
+"use client";
+
 import { useTranslations } from 'next-intl';
 import { Container, Typography, Grid, Box } from '@mui/material';
 import LessonCard from '../../../components/LessonCard';
+import GalleryCarousel from '../../../components/GalleryCarousel';
 
 export default function LessonsPage() {
   const t = useTranslations('lessons');
@@ -14,10 +17,29 @@ export default function LessonsPage() {
         <Typography variant="h5" color="text.secondary">
           {t('subtitle')}
         </Typography>
+        {/* Main prices image */}
+        <Box sx={{ mt: 4 }}>
+          <Box component="img" src="/target_audiance/prices.png" alt="Prices" sx={{ width: '100%', height: 'auto', maxHeight: 600, objectFit: 'contain', borderRadius: 1 }} />
+
+          {/* Photo bar below the main image: 1.png - 5.png */}
+          <Box sx={{ mt: 2 }}>
+            <GalleryCarousel
+              images={[
+                '/target_audiance/1.png',
+                '/target_audiance/2.png',
+                '/target_audiance/3.png',
+                '/target_audiance/4.png',
+                '/target_audiance/5.png'
+              ]}
+              height={160}
+              objectFit="contain"
+            />
+          </Box>
+        </Box>
       </Box>
-      
+
       <Grid container spacing={4} justifyContent="center">
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={4}>
           <LessonCard
             title={t('beginner.title')}
             price={t('beginner.price')}
@@ -30,10 +52,27 @@ export default function LessonsPage() {
               t('beginner.includes.2'),
               t('beginner.includes.3')
             ]}
+            featured
           />
         </Grid>
-        
-        <Grid item xs={12} md={6}>
+
+        <Grid item xs={12} md={4}>
+          <LessonCard
+            title={t('intermediate.title')}
+            price={t('intermediate.price')}
+            duration={t('intermediate.duration')}
+            location={t('intermediate.location')}
+            description={t('intermediate.description')}
+            includes={[
+              t('intermediate.includes.0'),
+              t('intermediate.includes.1'),
+              t('intermediate.includes.2'),
+              t('intermediate.includes.3')
+            ]}
+          />
+        </Grid>
+
+        <Grid item xs={12} md={4}>
           <LessonCard
             title={t('advanced.title')}
             price={t('advanced.price')}

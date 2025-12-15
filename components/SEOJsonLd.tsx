@@ -4,7 +4,7 @@ import React from 'react';
 
 export default function SEOJsonLd() {
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const imageUrl = origin ? `${origin}/hero-shot.png` : 'https://images.pexels.com/photos/416978/pexels-photo-416978.jpeg';
+    const imageUrl = origin ? `${origin}/hero_shot/hero_shot.png` : 'https://images.pexels.com/photos/416978/pexels-photo-416978.jpeg';
 
     const jsonLd = {
         '@context': 'https://schema.org',
