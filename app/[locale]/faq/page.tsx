@@ -3,9 +3,16 @@
 import { useTranslations } from 'next-intl';
 import { Container, Typography, Box, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 import { ExpandMore } from '@mui/icons-material';
+import { useLocale } from 'next-intl';
+import useCmsPageBody from '../../../hooks/useCmsPageBody';
+import CmsRichTextRenderer from '../../../components/CmsRichTextRenderer';
+import { isEmptyDoc } from '../../../lib/cmsRichText';
 
 export default function FAQPage() {
   const t = useTranslations('faq');
+  const locale = useLocale();
+  const cms = useCmsPageBody('faq', locale);
+  const hasCms = !cms.loading && !cms.error && !isEmptyDoc(cms.body);
 
   return (
     <Container maxWidth="md" sx={{ py: 8 }}>
@@ -14,6 +21,12 @@ export default function FAQPage() {
           {t('title')}
         </Typography>
       </Box>
+
+      {hasCms ? (
+        <Box sx={{ mb: 4 }}>
+          <CmsRichTextRenderer json={cms.body} />
+        </Box>
+      ) : null}
 
       <Box>
         {[0, 1, 2, 3, 4, 5, 6].map((index) => (

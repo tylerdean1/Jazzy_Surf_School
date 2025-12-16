@@ -4,20 +4,18 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useTranslations, useLocale } from 'next-intl';
-import {
-  AppBar,
-  Toolbar,
-  Typography,
-  Button,
-  Box,
-  Drawer,
-  List,
-  ListItem,
-  ListItemText,
-  IconButton,
-  useTheme,
-  useMediaQuery
-} from '@mui/material';
+import AppBar from '@mui/material/AppBar';
+import Toolbar from '@mui/material/Toolbar';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import Box from '@mui/material/Box';
+import Drawer from '@mui/material/Drawer';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
+import IconButton from '@mui/material/IconButton';
+import useTheme from '@mui/material/styles/useTheme';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { Menu, Waves } from '@mui/icons-material';
 import LanguageToggle from './LanguageToggle';
 

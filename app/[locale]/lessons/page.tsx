@@ -1,11 +1,17 @@
 "use client";
 
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Container, Typography, Grid, Box } from '@mui/material';
 import LessonCard from '../../../components/LessonCard';
+import useCmsPageBody from '../../../hooks/useCmsPageBody';
+import CmsRichTextRenderer from '../../../components/CmsRichTextRenderer';
+import { isEmptyDoc } from '../../../lib/cmsRichText';
 
 export default function LessonsPage() {
   const t = useTranslations('lessons');
+  const locale = useLocale();
+  const cms = useCmsPageBody('lessons', locale);
+  const hasCms = !cms.loading && !cms.error && !isEmptyDoc(cms.body);
 
   return (
     <Container maxWidth="lg" sx={{ py: 8 }}>
@@ -16,6 +22,12 @@ export default function LessonsPage() {
         <Typography variant="h5" color="text.secondary">
           {t('subtitle')}
         </Typography>
+
+        {hasCms ? (
+          <Box sx={{ mt: 3, textAlign: 'left' }}>
+            <CmsRichTextRenderer json={cms.body} />
+          </Box>
+        ) : null}
         {/* Main prices image */}
         <Box sx={{ mt: 4 }}>
           <Box component="img" src="/target_audiance/prices.png" alt="Prices" sx={{ width: '100%', height: 'auto', maxHeight: 600, objectFit: 'contain', borderRadius: 1 }} />

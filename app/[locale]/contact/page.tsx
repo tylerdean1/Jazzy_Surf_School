@@ -3,11 +3,18 @@
 import { Container, Typography, Grid, Box, Card, CardContent, IconButton, Link } from '@mui/material';
 import { Instagram, Phone, Email } from '@mui/icons-material';
 import Image from 'next/image';
+import { useLocale } from 'next-intl';
+import useCmsPageBody from '../../../hooks/useCmsPageBody';
+import CmsRichTextRenderer from '../../../components/CmsRichTextRenderer';
+import { isEmptyDoc } from '../../../lib/cmsRichText';
 
 export default function ContactPage() {
   const INSTAGRAM = 'https://www.instagram.com/sunsetsurfacademy/';
   const PHONE = '939-525-0307';
   const EMAIL = 'sunsetsurfacademy@gmail.com';
+  const locale = useLocale();
+  const cms = useCmsPageBody('contact', locale);
+  const hasCms = !cms.loading && !cms.error && !isEmptyDoc(cms.body);
 
   return (
     <Container maxWidth="md" sx={{ py: 8 }}>
@@ -19,6 +26,12 @@ export default function ContactPage() {
           Have questions or want to check our online presence? Check the links below.
         </Typography>
       </Box>
+
+      {hasCms ? (
+        <Box sx={{ mb: 4 }}>
+          <CmsRichTextRenderer json={cms.body} />
+        </Box>
+      ) : null}
 
       <Grid container spacing={4} justifyContent="center">
         <Grid item xs={12} sm={8}>

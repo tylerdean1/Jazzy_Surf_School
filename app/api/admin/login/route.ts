@@ -1,0 +1,43 @@
+import { NextResponse } from 'next/server';
+import supabaseAdmin from '../../../../lib/supabaseAdmin';
+
+export async function POST(req: Request) {
+    try {
+        const body = await req.json();
+        const accessToken = String(body?.access_token || '');
+
+        if (!accessToken) {
+            return NextResponse.json({ ok: false, message: 'Missing access token' }, { status: 400 });
+        }
+
+        // Validate access token with Supabase admin client
+        const { data, error } = await supabaseAdmin.auth.getUser(accessToken);
+        if (error || !data?.user) {
+            return NextResponse.json({ ok: false, message: 'Invalid token or user not found' }, { status: 401 });
+        }
+
+        const user = data.user;
+        // DB-driven admin check (matches public.is_admin(): admin_users.id = auth.uid())
+        const { data: adminRow, error: adminErr } = await supabaseAdmin
+            .from('admin_users')
+            .select('id')
+            .eq('id', user.id)
+            .maybeSingle();
+
+        if (adminErr) {
+            return NextResponse.json({ ok: false, message: 'Failed to validate admin user' }, { status: 500 });
+        }
+
+        const isAdmin = !!adminRow?.id;
+
+        if (!isAdmin) {
+            return NextResponse.json({ ok: false, message: 'User is not an admin' }, { status: 403 });
+        }
+
+        const res = NextResponse.json({ ok: true });
+        res.cookies.set({ name: 'admin', value: '1', httpOnly: true, path: '/', maxAge: 60 * 60 * 24 });
+        return res;
+    } catch (err) {
+        return NextResponse.json({ ok: false, message: 'Invalid request' }, { status: 400 });
+    }
+}

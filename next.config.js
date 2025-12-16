@@ -32,4 +32,11 @@ const nextConfig = withNextIntl({
   }
 });
 
+// Next 13.5+ validates env values are strings. next-intl injects
+// `env._next_intl_trailing_slash` and may leave it undefined.
+nextConfig.env = {
+  ...(nextConfig.env || {}),
+  _next_intl_trailing_slash: String((nextConfig.env || {})._next_intl_trailing_slash ?? ''),
+};
+
 module.exports = nextConfig;

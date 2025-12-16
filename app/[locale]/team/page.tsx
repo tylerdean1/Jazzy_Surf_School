@@ -3,9 +3,16 @@
 import { useTranslations } from 'next-intl';
 import { Container, Typography, Box, Grid, Card, CardContent } from '@mui/material';
 import TeamCard from '../../../components/TeamCard';
+import { useLocale } from 'next-intl';
+import useCmsPageBody from '../../../hooks/useCmsPageBody';
+import CmsRichTextRenderer from '../../../components/CmsRichTextRenderer';
+import { isEmptyDoc } from '../../../lib/cmsRichText';
 
 export default function TeamPage() {
     const t = useTranslations('team');
+    const locale = useLocale();
+    const cms = useCmsPageBody('team', locale);
+    const hasCms = !cms.loading && !cms.error && !isEmptyDoc(cms.body);
 
     return (
         <Container maxWidth="lg" sx={{ py: 8 }}>
@@ -15,9 +22,15 @@ export default function TeamPage() {
             <Typography variant="h5" gutterBottom color="text.secondary">
                 {t('subtitle')}
             </Typography>
-            <Typography variant="body1" sx={{ fontSize: '1.05rem', lineHeight: 1.6 }}>
-                {t('intro')}
-            </Typography>
+            {hasCms ? (
+                <Box sx={{ mt: 2 }}>
+                    <CmsRichTextRenderer json={cms.body} />
+                </Box>
+            ) : (
+                <Typography variant="body1" sx={{ fontSize: '1.05rem', lineHeight: 1.6 }}>
+                    {t('intro')}
+                </Typography>
+            )}
             <Grid container spacing={4} sx={{ mt: 6 }}>
                 <Grid item xs={12} md={6}>
                     <TeamCard
