@@ -19,6 +19,7 @@ import {
 import supabaseClient from '../../lib/supabaseClient';
 import { RichTextEditor, RichTextRenderer } from './RichText';
 import MediaManager from './MediaManager';
+import AdminLiveEditor from './AdminLiveEditor';
 import type { Database } from '../../lib/database.types';
 
 type CmsRow = Pick<
@@ -55,7 +56,7 @@ export default function AdminDashboard() {
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-    const canShowCms = useMemo(() => tab === 0, [tab]);
+    const canShowCms = useMemo(() => tab === 1, [tab]);
 
     useEffect(() => {
         // Auth is enforced by the server via the httpOnly `admin` cookie.
@@ -186,6 +187,7 @@ export default function AdminDashboard() {
                 <>
                     <Box sx={{ borderBottom: 1, borderColor: 'divider', mt: 3 }}>
                         <Tabs value={tab} onChange={(_, v) => setTab(v)}>
+                            <Tab label="Edit" />
                             <Tab label="Pages" />
                             <Tab label="Sessions" />
                             <Tab label="Media" />
@@ -193,6 +195,13 @@ export default function AdminDashboard() {
                     </Box>
 
                     <TabPanel value={tab} index={0}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            You are viewing the real site UI. Click the edit icons to change content inline.
+                        </Typography>
+                        <AdminLiveEditor />
+                    </TabPanel>
+
+                    <TabPanel value={tab} index={1}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                             <FormControl size="small" sx={{ minWidth: 260 }}>
                                 <InputLabel id="page-key-label">Page</InputLabel>
@@ -274,11 +283,11 @@ export default function AdminDashboard() {
                         </Box>
                     </TabPanel>
 
-                    <TabPanel value={tab} index={1}>
+                    <TabPanel value={tab} index={2}>
                         <Alert severity="info">Sessions tab next (wiring to admin_*_session RPCs).</Alert>
                     </TabPanel>
 
-                    <TabPanel value={tab} index={2}>
+                    <TabPanel value={tab} index={3}>
                         <MediaManager />
                     </TabPanel>
                 </>

@@ -17,6 +17,7 @@ import {
 import { CheckCircle, AccessTime, LocationOn, Group } from '@mui/icons-material';
 import Link from 'next/link';
 import { useLocale } from 'next-intl';
+import EditableInlineText from '@/components/admin/edit/EditableInlineText';
 
 interface LessonCardProps {
   title: string;
@@ -26,6 +27,7 @@ interface LessonCardProps {
   description: string;
   includes: string[];
   featured?: boolean;
+  cmsKeyBase?: string;
 }
 
 const LessonCard: React.FC<LessonCardProps> = ({
@@ -35,7 +37,8 @@ const LessonCard: React.FC<LessonCardProps> = ({
   location,
   description,
   includes,
-  featured = false
+  featured = false,
+  cmsKeyBase
 }) => {
   const locale = useLocale();
 
@@ -58,12 +61,24 @@ const LessonCard: React.FC<LessonCardProps> = ({
     >
       <CardContent sx={{ flexGrow: 1, p: 3 }}>
         <Typography variant="h5" component="h3" gutterBottom fontWeight={600}>
-          {title}
+          {cmsKeyBase ? (
+            <EditableInlineText cmsKey={`${cmsKeyBase}.title`} fallback={title}>
+              {(v) => <>{v}</>}
+            </EditableInlineText>
+          ) : (
+            title
+          )}
         </Typography>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
           <Typography variant="h4" color="#20B2AA" fontWeight={700}>
-            {price}
+            {cmsKeyBase ? (
+              <EditableInlineText cmsKey={`${cmsKeyBase}.price`} fallback={price}>
+                {(v) => <>{v}</>}
+              </EditableInlineText>
+            ) : (
+              price
+            )}
           </Typography>
           {price !== "Contact for pricing" && (
             <Typography variant="body2" color="text.secondary">
@@ -78,11 +93,23 @@ const LessonCard: React.FC<LessonCardProps> = ({
         </Box>
 
         <Typography variant="body1" paragraph sx={{ mb: 3 }}>
-          {description}
+          {cmsKeyBase ? (
+            <EditableInlineText cmsKey={`${cmsKeyBase}.description`} fallback={description} multiline fullWidth>
+              {(v) => <>{v}</>}
+            </EditableInlineText>
+          ) : (
+            description
+          )}
         </Typography>
 
         <Typography variant="h6" gutterBottom color="#20B2AA">
-          What&apos;s Included:
+          {cmsKeyBase ? (
+            <EditableInlineText cmsKey={`${cmsKeyBase}.includesLabel`} fallback={"What's Included:"}>
+              {(v) => <>{v}</>}
+            </EditableInlineText>
+          ) : (
+            "What's Included:"
+          )}
         </Typography>
         <List dense>
           {includes.map((item, index) => (
@@ -90,7 +117,17 @@ const LessonCard: React.FC<LessonCardProps> = ({
               <ListItemIcon sx={{ minWidth: 32 }}>
                 <CheckCircle sx={{ color: '#4CAF50', fontSize: 20 }} />
               </ListItemIcon>
-              <ListItemText primary={item} />
+              <ListItemText
+                primary={
+                  cmsKeyBase ? (
+                    <EditableInlineText cmsKey={`${cmsKeyBase}.includes.${index}`} fallback={item}>
+                      {(v) => <>{v}</>}
+                    </EditableInlineText>
+                  ) : (
+                    item
+                  )
+                }
+              />
             </ListItem>
           ))}
         </List>

@@ -5,6 +5,7 @@ import Hero from '../../components/Hero';
 import { Container, Grid, Card, CardContent, Typography, Box } from '@mui/material';
 import GalleryCarousel from '../../components/GalleryCarousel';
 import Link from 'next/link';
+import EditableInlineText from '@/components/admin/edit/EditableInlineText';
 
 const targetAudienceImages = [
   '/target_audiance/prices.png',
@@ -28,12 +29,15 @@ export default function HomePage() {
         secondaryAction={t('learnMore')}
         primaryHref={`/${locale}/book`}
         secondaryHref={`/${locale}/mission_statement`}
+        cmsKeyBase="home.hero"
       />
 
       <Container maxWidth="lg" sx={{ py: 8 }}>
         <Box textAlign="center" sx={{ mb: 6 }}>
           <Typography variant="h3" gutterBottom color="#20B2AA">
-            {t('aboutPreview')}
+            <EditableInlineText cmsKey="home.aboutPreview" fallback={t('aboutPreview')}>
+              {(v) => <>{v}</>}
+            </EditableInlineText>
           </Typography>
         </Box>
 
@@ -59,10 +63,14 @@ export default function HomePage() {
                     />
                   </Box>
                   <Typography variant="h5" gutterBottom color="#20B2AA">
-                    {t('lessonsTitle')}
+                    <EditableInlineText cmsKey="home.cards.lessons.title" fallback={t('lessonsTitle')}>
+                      {(v) => <>{v}</>}
+                    </EditableInlineText>
                   </Typography>
                   <Typography variant="body1">
-                    {t('lessonsDescription')}
+                    <EditableInlineText cmsKey="home.cards.lessons.description" fallback={t('lessonsDescription')} multiline fullWidth>
+                      {(v) => <>{v}</>}
+                    </EditableInlineText>
                   </Typography>
                 </CardContent>
               </Card>
@@ -86,10 +94,14 @@ export default function HomePage() {
                     <GalleryCarousel />
                   </Box>
                   <Typography variant="h5" gutterBottom color="#20B2AA">
-                    {t('galleryTitle')}
+                    <EditableInlineText cmsKey="home.cards.gallery.title" fallback={t('galleryTitle')}>
+                      {(v) => <>{v}</>}
+                    </EditableInlineText>
                   </Typography>
                   <Typography variant="body1">
-                    {t('galleryDescription')}
+                    <EditableInlineText cmsKey="home.cards.gallery.description" fallback={t('galleryDescription')} multiline fullWidth>
+                      {(v) => <>{v}</>}
+                    </EditableInlineText>
                   </Typography>
                 </CardContent>
               </Card>
@@ -122,10 +134,14 @@ export default function HomePage() {
                     alt="Meet the team"
                   />
                   <Typography variant="h5" gutterBottom color="#20B2AA">
-                    {t('teamTitle')}
+                    <EditableInlineText cmsKey="home.cards.team.title" fallback={t('teamTitle')}>
+                      {(v) => <>{v}</>}
+                    </EditableInlineText>
                   </Typography>
                   <Typography variant="body1">
-                    {t('teamDescription')}
+                    <EditableInlineText cmsKey="home.cards.team.description" fallback={t('teamDescription')} multiline fullWidth>
+                      {(v) => <>{v}</>}
+                    </EditableInlineText>
                   </Typography>
                 </CardContent>
               </Card>

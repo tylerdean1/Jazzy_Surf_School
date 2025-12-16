@@ -6,10 +6,14 @@ import LessonCard from '../../../components/LessonCard';
 import useCmsPageBody from '../../../hooks/useCmsPageBody';
 import CmsRichTextRenderer from '../../../components/CmsRichTextRenderer';
 import { isEmptyDoc } from '../../../lib/cmsRichText';
+import { useAdminEdit } from '@/components/admin/edit/AdminEditContext';
+import EditableRichTextBlock from '@/components/admin/edit/EditableRichTextBlock';
+import EditableInlineText from '@/components/admin/edit/EditableInlineText';
 
 export default function LessonsPage() {
   const t = useTranslations('lessons');
   const locale = useLocale();
+  const { enabled: adminEdit } = useAdminEdit();
   const cms = useCmsPageBody('lessons', locale);
   const hasCms = !cms.loading && !cms.error && !isEmptyDoc(cms.body);
 
@@ -17,15 +21,19 @@ export default function LessonsPage() {
     <Container maxWidth="lg" sx={{ py: 8 }}>
       <Box textAlign="center" sx={{ mb: 6 }}>
         <Typography variant="h2" gutterBottom color="#20B2AA">
-          {t('title')}
+          <EditableInlineText cmsKey="lessons.title" fallback={t('title')}>
+            {(v) => <>{v}</>}
+          </EditableInlineText>
         </Typography>
         <Typography variant="h5" color="text.secondary">
-          {t('subtitle')}
+          <EditableInlineText cmsKey="lessons.subtitle" fallback={t('subtitle')} multiline fullWidth>
+            {(v) => <>{v}</>}
+          </EditableInlineText>
         </Typography>
 
-        {hasCms ? (
+        {hasCms || adminEdit ? (
           <Box sx={{ mt: 3, textAlign: 'left' }}>
-            <CmsRichTextRenderer json={cms.body} />
+            <EditableRichTextBlock cmsKey="lessons" value={cms.body || ''} emptyPlaceholder="Lessons page body" />
           </Box>
         ) : null}
         {/* Main prices image */}
@@ -51,6 +59,7 @@ export default function LessonsPage() {
               t('beginner.includes.3')
             ]}
             featured
+            cmsKeyBase="lessons.beginner"
           />
         </Grid>
 
@@ -67,6 +76,7 @@ export default function LessonsPage() {
               t('intermediate.includes.2'),
               t('intermediate.includes.3')
             ]}
+            cmsKeyBase="lessons.intermediate"
           />
         </Grid>
 
@@ -83,6 +93,7 @@ export default function LessonsPage() {
               t('advanced.includes.2'),
               t('advanced.includes.3')
             ]}
+            cmsKeyBase="lessons.advanced"
           />
         </Grid>
       </Grid>

@@ -5,6 +5,7 @@ import { Box, Typography, Button, Container } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import Link from 'next/link';
 import { useLocale } from 'next-intl';
+import EditableInlineText from '@/components/admin/edit/EditableInlineText';
 
 const HeroContainer = styled(Box)({
   height: '100vh',
@@ -39,6 +40,7 @@ interface HeroProps {
   secondaryAction?: string;
   primaryHref: string;
   secondaryHref?: string;
+  cmsKeyBase?: string;
 }
 
 const Hero: React.FC<HeroProps> = ({
@@ -48,6 +50,8 @@ const Hero: React.FC<HeroProps> = ({
   secondaryAction,
   primaryHref,
   secondaryHref
+  ,
+  cmsKeyBase
 }) => {
   const locale = useLocale();
 
@@ -66,7 +70,13 @@ const Hero: React.FC<HeroProps> = ({
               mb: 3
             }}
           >
-            {title}
+            {cmsKeyBase ? (
+              <EditableInlineText cmsKey={`${cmsKeyBase}.title`} fallback={title}>
+                {(v) => <>{v}</>}
+              </EditableInlineText>
+            ) : (
+              title
+            )}
           </Typography>
           <Typography
             variant="h5"
@@ -80,7 +90,13 @@ const Hero: React.FC<HeroProps> = ({
               textShadow: '1px 1px 2px rgba(0,0,0,0.5)'
             }}
           >
-            {subtitle}
+            {cmsKeyBase ? (
+              <EditableInlineText cmsKey={`${cmsKeyBase}.subtitle`} fallback={subtitle} multiline fullWidth>
+                {(v) => <>{v}</>}
+              </EditableInlineText>
+            ) : (
+              subtitle
+            )}
           </Typography>
           <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href={primaryHref} style={{ textDecoration: 'none' }}>
@@ -97,7 +113,13 @@ const Hero: React.FC<HeroProps> = ({
                   boxShadow: '0 4px 12px rgba(255, 107, 107, 0.3)'
                 }}
               >
-                {primaryAction}
+                {cmsKeyBase ? (
+                  <EditableInlineText cmsKey={`${cmsKeyBase}.primaryAction`} fallback={primaryAction}>
+                    {(v) => <>{v}</>}
+                  </EditableInlineText>
+                ) : (
+                  primaryAction
+                )}
               </Button>
             </Link>
             {secondaryAction && secondaryHref && (
@@ -118,7 +140,13 @@ const Hero: React.FC<HeroProps> = ({
                     fontWeight: 600
                   }}
                 >
-                  {secondaryAction}
+                  {cmsKeyBase ? (
+                    <EditableInlineText cmsKey={`${cmsKeyBase}.secondaryAction`} fallback={secondaryAction}>
+                      {(v) => <>{v}</>}
+                    </EditableInlineText>
+                  ) : (
+                    secondaryAction
+                  )}
                 </Button>
               </Link>
             )}

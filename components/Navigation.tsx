@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useTranslations, useLocale } from 'next-intl';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
@@ -14,17 +15,48 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import IconButton from '@mui/material/IconButton';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
 import useTheme from '@mui/material/styles/useTheme';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { Menu, Waves } from '@mui/icons-material';
 import LanguageToggle from './LanguageToggle';
+import { ADMIN_PAGES } from '@/components/admin/adminPages';
 
 const Navigation: React.FC = () => {
   const t = useTranslations('navigation');
   const locale = useLocale();
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const onAdminPage = pathname === `/${locale}/admin`;
+  const selectedAdminPage = searchParams.get('page') || 'home';
+
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!onAdminPage) {
+      setIsAdmin(false);
+      return;
+    }
+
+    (async () => {
+      const res = await fetch('/api/admin/status');
+      const body = await res.json().catch(() => ({}));
+      if (cancelled) return;
+      setIsAdmin(!!body?.isAdmin);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [onAdminPage]);
 
   const navItems = [
     { key: 'home', href: `/${locale}` },
@@ -101,6 +133,28 @@ const Navigation: React.FC = () => {
           {isMobile ? (
             <>
               <LanguageToggle />
+              {onAdminPage && isAdmin ? (
+                <Box sx={{ ml: 2, minWidth: 160 }}>
+                  <FormControl size="small" fullWidth>
+                    <InputLabel id="admin-page-label">Page</InputLabel>
+                    <Select
+                      labelId="admin-page-label"
+                      label="Page"
+                      value={selectedAdminPage}
+                      onChange={(e) => {
+                        const next = String(e.target.value);
+                        router.push(`/${locale}/admin?page=${encodeURIComponent(next)}`);
+                      }}
+                    >
+                      {ADMIN_PAGES.map((p) => (
+                        <MenuItem key={p} value={p}>
+                          {p}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+              ) : null}
               <Link
                 href={`/${locale}`}
                 style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '0.5rem' }}
@@ -148,6 +202,29 @@ const Navigation: React.FC = () => {
                     </Button>
                   </Link>
                 ))}
+                {onAdminPage && isAdmin ? (
+                  <Box sx={{ minWidth: 200 }}>
+                    <FormControl size="small" fullWidth>
+                      <InputLabel id="admin-page-label">Page</InputLabel>
+                      <Select
+                        labelId="admin-page-label"
+                        label="Page"
+                        value={selectedAdminPage}
+                        onChange={(e) => {
+                          const next = String(e.target.value);
+                          router.push(`/${locale}/admin?page=${encodeURIComponent(next)}`);
+                        }}
+                        sx={{ backgroundColor: 'rgba(255,255,255,0.15)', color: 'white' }}
+                      >
+                        {ADMIN_PAGES.map((p) => (
+                          <MenuItem key={p} value={p}>
+                            {p}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Box>
+                ) : null}
                 <LanguageToggle />
                 <Link
                   href={`/${locale}`}
