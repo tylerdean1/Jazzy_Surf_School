@@ -58,45 +58,27 @@ export default function AdminDashboard() {
     const canShowCms = useMemo(() => tab === 0, [tab]);
 
     useEffect(() => {
-        let cancelled = false;
-
-        (async () => {
-            setLoading(true);
-            setAuthError(null);
-
-            const { data } = await supabaseClient.auth.getSession();
-            if (!data.session) {
-                setLoading(false);
-                setAuthError('No Supabase session found. Please sign in again at /adminlogin.');
-                return;
-            }
-
-            if (cancelled) return;
-            setLoading(false);
-        })();
-
-        return () => {
-            cancelled = true;
-        };
+        // Auth is enforced by the server via the httpOnly `admin` cookie.
+        // Keeping this client component usable even if a Supabase session expires.
+        setLoading(false);
+        setAuthError(null);
     }, []);
 
     const loadPage = async (pageKey: PageKey) => {
         setMessage(null);
-        const { data, error } = await supabaseClient
-            .from('cms_page_content')
-            .select('id,page_key,body_en,body_es_draft,body_es_published,approved,updated_at')
-            .eq('page_key', pageKey)
-            .maybeSingle();
 
-        if (error) {
+        const res = await fetch(`/api/admin/cms/page-content?page_key=${encodeURIComponent(pageKey)}`);
+        const body = await res.json().catch(() => ({}));
+
+        if (!res.ok || !body?.ok) {
             setRow(null);
             setBodyEn('');
             setBodyEsDraft('');
-            setMessage({ type: 'error', text: error.message });
+            setMessage({ type: 'error', text: body?.message || `Failed to load page (${res.status})` });
             return;
         }
 
-        const next = (data as CmsRow | null) ?? null;
+        const next = (body?.row as CmsRow | null) ?? null;
         setRow(next);
         setBodyEn(next?.body_en ?? '');
         setBodyEsDraft(next?.body_es_draft ?? '');
@@ -112,14 +94,20 @@ export default function AdminDashboard() {
         setSaving(true);
         setMessage(null);
         try {
-            const { error } = await supabaseClient.rpc('admin_upsert_page_content', {
-                p_page_key: selectedKey,
-                p_body_en: bodyEn || undefined,
-                p_body_es_draft: bodyEsDraft || undefined,
+            const res = await fetch('/api/admin/cms/page-content', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    op: 'save',
+                    page_key: selectedKey,
+                    body_en: bodyEn || null,
+                    body_es_draft: bodyEsDraft || null,
+                }),
             });
 
-            if (error) {
-                setMessage({ type: 'error', text: error.message });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok || !body?.ok) {
+                setMessage({ type: 'error', text: body?.message || `Save failed (${res.status})` });
                 return;
             }
 
@@ -134,9 +122,14 @@ export default function AdminDashboard() {
         setSaving(true);
         setMessage(null);
         try {
-            const { error } = await supabaseClient.rpc('admin_publish_es', { p_page_key: selectedKey });
-            if (error) {
-                setMessage({ type: 'error', text: error.message });
+            const res = await fetch('/api/admin/cms/page-content', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ op: 'publish_es', page_key: selectedKey }),
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok || !body?.ok) {
+                setMessage({ type: 'error', text: body?.message || `Publish failed (${res.status})` });
                 return;
             }
 
@@ -153,9 +146,14 @@ export default function AdminDashboard() {
         setSaving(true);
         setMessage(null);
         try {
-            const { error } = await supabaseClient.rpc('admin_delete_page_content', { p_page_key: selectedKey });
-            if (error) {
-                setMessage({ type: 'error', text: error.message });
+            const res = await fetch('/api/admin/cms/page-content', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ op: 'delete', page_key: selectedKey }),
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok || !body?.ok) {
+                setMessage({ type: 'error', text: body?.message || `Delete failed (${res.status})` });
                 return;
             }
 
