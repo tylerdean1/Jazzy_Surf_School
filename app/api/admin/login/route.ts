@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import supabaseAdmin from '../../../../lib/supabaseAdmin';
+import { getSupabaseAdmin } from '../../../../lib/supabaseAdmin';
 
 export async function POST(req: Request) {
     try {
@@ -8,6 +8,16 @@ export async function POST(req: Request) {
 
         if (!accessToken) {
             return NextResponse.json({ ok: false, message: 'Missing access token' }, { status: 400 });
+        }
+
+        let supabaseAdmin;
+        try {
+            supabaseAdmin = getSupabaseAdmin();
+        } catch (e: any) {
+            return NextResponse.json(
+                { ok: false, message: e?.message || 'Server is missing Supabase service configuration' },
+                { status: 500 }
+            );
         }
 
         // Validate access token with Supabase admin client
