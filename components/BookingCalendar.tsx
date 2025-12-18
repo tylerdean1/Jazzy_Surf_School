@@ -34,9 +34,10 @@ export type BookingData = {
 
 interface BookingCalendarProps {
   onBookingComplete: (booking: BookingData) => void;
+  initialLessonTypeId?: string;
 }
 
-const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) => {
+const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, initialLessonTypeId }) => {
   const [activeStep, setActiveStep] = useState(0);
   const [bookingData, setBookingData] = useState<BookingData>({
     date: '',
@@ -48,7 +49,7 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) 
     customerPhone: ''
   });
 
-  const steps = ['Select Date & Time', 'Choose Lesson', 'Customer Info'];
+  const steps = ['Choose Lesson', 'Select Date & Time', 'Customer Info'];
 
   type LessonType = { id: string; name: string; price: number };
 
@@ -76,7 +77,8 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) 
   useEffect(() => {
     setBookingData((prev) => {
       if (prev.lessonType) return prev;
-      return { ...prev, lessonType: lessonTypes[0]?.id || '' };
+      const isValidInitial = typeof initialLessonTypeId === 'string' && lessonTypes.some((lt) => lt.id === initialLessonTypeId);
+      return { ...prev, lessonType: (isValidInitial ? initialLessonTypeId : (lessonTypes[0]?.id || '')) };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -123,9 +125,9 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) 
   const canProceed = () => {
     switch (activeStep) {
       case 0:
-        return Boolean(bookingData.date && bookingData.timeSlots && bookingData.timeSlots.length > 0);
+        return Boolean(bookingData.lessonType && bookingData.partySize > 0);
       case 1:
-        return bookingData.lessonType && bookingData.partySize > 0;
+        return Boolean(bookingData.date && bookingData.timeSlots && bookingData.timeSlots.length > 0);
       case 2:
         return bookingData.customerName && bookingData.customerEmail && bookingData.customerPhone;
       default:
@@ -146,56 +148,6 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) 
       <Card>
         <CardContent sx={{ p: 4 }}>
           {activeStep === 0 && (
-            <Box>
-              <Typography variant="h6" gutterBottom>
-                Select Your Preferred Date and Time
-              </Typography>
-
-              <Grid container spacing={3} sx={{ mt: 1 }}>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Date"
-                    type="date"
-                    value={bookingData.date}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setBookingData({ ...bookingData, date: e.target.value, timeSlots: [] })
-                    }
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Time</InputLabel>
-                    <Select
-                      multiple
-                      value={bookingData.timeSlots}
-                      label="Time"
-                      onChange={(e: any) =>
-                        setBookingData({ ...bookingData, timeSlots: typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value })
-                      }
-                      disabled={!bookingData.date}
-                      renderValue={(selected) => (selected as string[]).join(', ')}
-                    >
-                      {timeSlots.map((slot) => (
-                        <MenuItem key={slot} value={slot}>
-                          <Checkbox checked={bookingData.timeSlots.indexOf(slot) > -1} />
-                          <ListItemText primary={slot} />
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-              </Grid>
-
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                Pick one or more 30-minute time blocks that work for you; we will send these to the coach for confirmation.
-              </Typography>
-            </Box>
-          )}
-
-          {activeStep === 1 && (
             <Box>
               <Typography variant="h6" gutterBottom>
                 Choose Your Lesson and Party Size
@@ -245,6 +197,56 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete }) 
                   {bookingData.partySize} person(s) × ${lessonTypes.find((lt: LessonType) => lt.id === bookingData.lessonType)?.price || 0}
                 </Typography>
               </Paper>
+            </Box>
+          )}
+
+          {activeStep === 1 && (
+            <Box>
+              <Typography variant="h6" gutterBottom>
+                Select Your Preferred Date and Time
+              </Typography>
+
+              <Grid container spacing={3} sx={{ mt: 1 }}>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Date"
+                    type="date"
+                    value={bookingData.date}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setBookingData({ ...bookingData, date: e.target.value, timeSlots: [] })
+                    }
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Time</InputLabel>
+                    <Select
+                      multiple
+                      value={bookingData.timeSlots}
+                      label="Time"
+                      onChange={(e: any) =>
+                        setBookingData({ ...bookingData, timeSlots: typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value })
+                      }
+                      disabled={!bookingData.date}
+                      renderValue={(selected) => (selected as string[]).join(', ')}
+                    >
+                      {timeSlots.map((slot) => (
+                        <MenuItem key={slot} value={slot}>
+                          <Checkbox checked={bookingData.timeSlots.indexOf(slot) > -1} />
+                          <ListItemText primary={slot} />
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                Pick one or more 30-minute time blocks that work for you; we will send these to the coach for confirmation.
+              </Typography>
             </Box>
           )}
 

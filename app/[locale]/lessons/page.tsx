@@ -58,8 +58,8 @@ export default function LessonsPage() {
               t('beginner.includes.2'),
               t('beginner.includes.3')
             ]}
-            featured
             cmsKeyBase="lessons.beginner"
+            bookLessonTypeId="beginner"
           />
         </Grid>
 
@@ -77,6 +77,7 @@ export default function LessonsPage() {
               t('intermediate.includes.3')
             ]}
             cmsKeyBase="lessons.intermediate"
+            bookLessonTypeId="intermediate"
           />
         </Grid>
 
@@ -94,6 +95,7 @@ export default function LessonsPage() {
               t('advanced.includes.3')
             ]}
             cmsKeyBase="lessons.advanced"
+            bookLessonTypeId="advanced"
           />
         </Grid>
       </Grid>

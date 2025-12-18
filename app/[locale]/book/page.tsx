@@ -2,12 +2,15 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { useSearchParams } from 'next/navigation';
 import { Container, Typography, Box, Alert } from '@mui/material';
 import BookingCalendar, { type BookingData } from '../../../components/BookingCalendar';
 
 export default function BookPage() {
   const t = useTranslations('booking');
+  const searchParams = useSearchParams();
   const [bookingComplete, setBookingComplete] = useState(false);
+  const initialLessonTypeId = searchParams.get('lesson') || undefined;
 
   const handleBookingComplete = (booking: BookingData) => {
     console.log('Booking completed:', booking);
@@ -28,7 +31,7 @@ export default function BookPage() {
           Booking request received!
         </Alert>
       ) : (
-        <BookingCalendar onBookingComplete={handleBookingComplete} />
+        <BookingCalendar onBookingComplete={handleBookingComplete} initialLessonTypeId={initialLessonTypeId} />
       )}
     </Container>
   );

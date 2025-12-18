@@ -28,6 +28,7 @@ interface LessonCardProps {
   includes: string[];
   featured?: boolean;
   cmsKeyBase?: string;
+  bookLessonTypeId?: string;
 }
 
 const LessonCard: React.FC<LessonCardProps> = ({
@@ -38,9 +39,11 @@ const LessonCard: React.FC<LessonCardProps> = ({
   description,
   includes,
   featured = false,
-  cmsKeyBase
+  cmsKeyBase,
+  bookLessonTypeId
 }) => {
   const locale = useLocale();
+  const bookHref = bookLessonTypeId ? `/${locale}/book?lesson=${encodeURIComponent(bookLessonTypeId)}` : `/${locale}/book`;
 
   return (
     <Card
@@ -134,7 +137,7 @@ const LessonCard: React.FC<LessonCardProps> = ({
       </CardContent>
 
       <CardActions sx={{ p: 3, pt: 0 }}>
-        <Link href={`/${locale}/book`} style={{ textDecoration: 'none', width: '100%' }}>
+        <Link href={bookHref} style={{ textDecoration: 'none', width: '100%' }}>
           <Button
             variant="contained"
             fullWidth
