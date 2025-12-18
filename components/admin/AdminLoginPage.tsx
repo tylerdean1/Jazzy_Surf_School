@@ -2,9 +2,17 @@
 
 import React, { useState } from "react";
 import { Alert, Box, Button, Container, TextField, Typography } from "@mui/material";
+import { usePathname } from "next/navigation";
 import supabaseClient from "@/lib/supabaseClient";
 
 export default function AdminLoginPage() {
+    const pathname = usePathname();
+    const locale = (() => {
+        const p = String(pathname || '/');
+        const seg = p.split('/').filter(Boolean)[0];
+        return seg === 'en' || seg === 'es' ? seg : 'en';
+    })();
+
     const [password, setPassword] = useState("");
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -30,11 +38,15 @@ export default function AdminLoginPage() {
             });
 
             if (res.ok) {
-                window.location.href = "/admin";
+                window.location.href = `/${locale}/admin`;
                 return;
             }
 
             const body = await res.json().catch(() => ({}));
+            if (res.status === 403) {
+                // They authenticated with Supabase, but are not an admin in our DB.
+                await supabaseClient.auth.signOut();
+            }
             setError(body?.message || "Invalid credentials");
         } catch {
             setError("Network error");

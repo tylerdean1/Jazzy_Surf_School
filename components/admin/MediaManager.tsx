@@ -22,14 +22,13 @@ import {
     TextField,
     Typography,
 } from '@mui/material';
-import supabaseClient from '../../lib/supabaseClient';
-import type { Database } from '../../lib/database.types';
 
 type AssetType = 'photo' | 'video';
 type PhotoCategory = 'logo' | 'hero' | 'lessons' | 'web_content' | 'uncategorized';
 
 type MediaAsset = {
     id: string;
+    asset_key: string | null;
     title: string;
     description: string | null;
     public: boolean;
@@ -46,14 +45,13 @@ type MediaAsset = {
 const CATEGORIES: PhotoCategory[] = ['logo', 'hero', 'lessons', 'web_content', 'uncategorized'];
 const ASSET_TYPES: AssetType[] = ['photo', 'video'];
 
-function computePublicUrl(bucket: string, path: string): string {
-    if (!bucket || !path) return '';
-    try {
-        const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
-        return data.publicUrl;
-    } catch {
-        return '';
-    }
+async function getSignedUrl(bucket: string, path: string): Promise<string> {
+    const res = await fetch(
+        `/api/admin/media/signed-url?bucket=${encodeURIComponent(bucket)}&path=${encodeURIComponent(path)}&expiresIn=900`
+    );
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body?.ok) throw new Error(body?.message || `Failed to get URL (${res.status})`);
+    return String(body?.url || '');
 }
 
 export default function MediaManager() {
@@ -65,6 +63,7 @@ export default function MediaManager() {
     const [editing, setEditing] = useState<MediaAsset | null>(null);
 
     const [title, setTitle] = useState('');
+    const [assetKey, setAssetKey] = useState('');
     const [description, setDescription] = useState('');
     const [bucket, setBucket] = useState('');
     const [path, setPath] = useState('');
@@ -77,6 +76,7 @@ export default function MediaManager() {
     const resetForm = () => {
         setEditing(null);
         setTitle('');
+        setAssetKey('');
         setDescription('');
         setBucket('');
         setPath('');
@@ -95,6 +95,7 @@ export default function MediaManager() {
     const openEdit = (item: MediaAsset) => {
         setEditing(item);
         setTitle(item.title);
+        setAssetKey(item.asset_key ?? '');
         setDescription(item.description ?? '');
         setBucket(item.bucket);
         setPath(item.path);
@@ -109,57 +110,73 @@ export default function MediaManager() {
     const load = async () => {
         setLoading(true);
         setError(null);
-        const { data, error } = await supabaseClient.rpc('admin_list_media_assets');
-        if (error) {
-            setError(error.message);
+
+        try {
+            const res = await fetch('/api/admin/media/assets', { method: 'GET' });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok || !body?.ok) throw new Error(body?.message || `Load failed (${res.status})`);
+            setItems(((body?.items ?? []) as MediaAsset[]) ?? []);
+        } catch (e: any) {
+            setError(e?.message || 'Load failed');
             setItems([]);
+        } finally {
             setLoading(false);
-            return;
         }
-        setItems(((data ?? []) as unknown as MediaAsset[]) ?? []);
-        setLoading(false);
     };
 
     useEffect(() => {
         load();
     }, []);
 
-    const rows = useMemo(() => {
-        return items.map((i) => ({
-            ...i,
-            publicUrl: computePublicUrl(i.bucket, i.path),
-        }));
-    }, [items]);
+    const rows = useMemo(() => items, [items]);
 
     const save = async () => {
         setLoading(true);
         setError(null);
 
-        const payload: Database['public']['Functions']['admin_upsert_media_asset']['Args'] = {
-            p_bucket: bucket,
-            p_path: path,
-            p_title: title,
-            p_public: isPublic,
-            p_category: category,
-            p_asset_type: assetType,
-            p_description: description || undefined,
-            p_session_id: sessionId.trim() ? sessionId.trim() : undefined,
-            p_sort: Number.isFinite(sort) ? sort : 32767,
-        };
+        try {
+            const payload = {
+                op: 'upsert',
+                asset: {
+                    id: editing?.id || undefined,
+                    asset_key: assetKey.trim() ? assetKey.trim() : null,
+                    title,
+                    description: description || null,
+                    public: isPublic,
+                    bucket,
+                    path,
+                    category,
+                    asset_type: assetType,
+                    sort: Number.isFinite(sort) ? sort : 32767,
+                    session_id: sessionId.trim() ? sessionId.trim() : null,
+                },
+            };
 
-        if (editing?.id) payload.p_id = editing.id;
+            const res = await fetch('/api/admin/media/assets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok || !body?.ok) throw new Error(body?.message || `Save failed (${res.status})`);
 
-        const { error } = await supabaseClient.rpc('admin_upsert_media_asset', payload);
-        if (error) {
-            setError(error.message);
+            setDialogOpen(false);
+            resetForm();
+            await load();
+        } catch (e: any) {
+            setError(e?.message || 'Save failed');
+        } finally {
             setLoading(false);
-            return;
         }
+    };
 
-        setDialogOpen(false);
-        resetForm();
-        await load();
-        setLoading(false);
+    const openPreview = async (b: string, p: string) => {
+        try {
+            const url = await getSignedUrl(b, p);
+            if (url) window.open(url, '_blank', 'noopener,noreferrer');
+        } catch (e: any) {
+            setError(e?.message || 'Preview failed');
+        }
     };
 
     return (
@@ -185,6 +202,7 @@ export default function MediaManager() {
                 <Table size="small">
                     <TableHead>
                         <TableRow>
+                            <TableCell>Asset Key</TableCell>
                             <TableCell>Title</TableCell>
                             <TableCell>Category</TableCell>
                             <TableCell>Type</TableCell>
@@ -198,6 +216,9 @@ export default function MediaManager() {
                     <TableBody>
                         {rows.map((i) => (
                             <TableRow key={i.id}>
+                                <TableCell>
+                                    <Box sx={{ fontFamily: 'monospace', fontSize: 12 }}>{i.asset_key || '—'}</Box>
+                                </TableCell>
                                 <TableCell>{i.title}</TableCell>
                                 <TableCell>{i.category}</TableCell>
                                 <TableCell>{i.asset_type}</TableCell>
@@ -209,15 +230,9 @@ export default function MediaManager() {
                                 </TableCell>
                                 <TableCell>{i.sort}</TableCell>
                                 <TableCell>
-                                    {i.publicUrl ? (
-                                        <a href={i.publicUrl} target="_blank" rel="noreferrer">
-                                            Open
-                                        </a>
-                                    ) : (
-                                        <Box component="span" sx={{ color: 'text.disabled' }}>
-                                            —
-                                        </Box>
-                                    )}
+                                    <Button size="small" onClick={() => openPreview(i.bucket, i.path)}>
+                                        Open
+                                    </Button>
                                 </TableCell>
                                 <TableCell align="right">
                                     <Button size="small" onClick={() => openEdit(i)}>
@@ -228,7 +243,7 @@ export default function MediaManager() {
                         ))}
                         {!rows.length ? (
                             <TableRow>
-                                <TableCell colSpan={8}>
+                                <TableCell colSpan={9}>
                                     <Typography color="text.secondary">{loading ? 'Loading…' : 'No media yet.'}</Typography>
                                 </TableCell>
                             </TableRow>
@@ -240,6 +255,13 @@ export default function MediaManager() {
             <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>{editing ? 'Edit Media' : 'Add Media'}</DialogTitle>
                 <DialogContent sx={{ display: 'grid', gap: 2, pt: 2 }}>
+                    <TextField
+                        label="Asset Key (stable pointer)"
+                        value={assetKey}
+                        onChange={(e) => setAssetKey(e.target.value)}
+                        fullWidth
+                        helperText="Example: home.hero or home.photo_stream.001"
+                    />
                     <TextField label="Title" value={title} onChange={(e) => setTitle(e.target.value)} fullWidth />
                     <TextField
                         label="Description"
@@ -312,7 +334,7 @@ export default function MediaManager() {
 
                     {bucket && path ? (
                         <Typography variant="body2" color="text.secondary">
-                            Public URL: {computePublicUrl(bucket, path) || '—'}
+                            Preview uses a signed URL (works for private buckets).
                         </Typography>
                     ) : null}
                 </DialogContent>

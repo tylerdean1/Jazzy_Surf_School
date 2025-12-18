@@ -450,6 +450,7 @@ CREATE TABLE public.media_assets (
     asset_type public.asset_type DEFAULT 'photo'::public.asset_type NOT NULL,
     sort smallint DEFAULT 32767 NOT NULL,
     category public.photo_category DEFAULT 'uncategorized'::public.photo_category NOT NULL,
+    asset_key text,
     CONSTRAINT media_assets_bucket_not_empty CHECK ((length(TRIM(BOTH FROM bucket)) > 0)),
     CONSTRAINT media_assets_path_not_empty CHECK ((length(TRIM(BOTH FROM path)) > 0)),
     CONSTRAINT media_assets_sort_check CHECK (((sort >= '-32768'::integer) AND (sort <= 32767))),
@@ -511,6 +512,13 @@ COMMENT ON COLUMN public.media_assets.sort IS 'method to sort best first. -1 is 
 --
 
 COMMENT ON COLUMN public.media_assets.category IS 'What category does this fall under (logo, lessons, web content ect.)';
+
+
+--
+-- Name: COLUMN media_assets.asset_key; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.media_assets.asset_key IS 'Stable frontend pointer. Use exact keys for single assets (e.g., home.hero) and prefix namespaces for streams (e.g., home.photo_stream.001).';
 
 
 --
@@ -713,6 +721,81 @@ $$;
 
 
 --
+-- Name: admin_upsert_media_asset(text, text, text, boolean, public.photo_category, public.asset_type, text, uuid, smallint, uuid, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.admin_upsert_media_asset(p_bucket text, p_path text, p_title text, p_public boolean, p_category public.photo_category, p_asset_type public.asset_type, p_description text DEFAULT NULL::text, p_session_id uuid DEFAULT NULL::uuid, p_sort smallint DEFAULT 32767, p_id uuid DEFAULT NULL::uuid, p_asset_key text DEFAULT NULL::text) RETURNS public.media_assets
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+declare
+  result public.media_assets;
+  v_asset_key text;
+begin
+  if not public.is_admin() then
+    raise exception 'not authorized';
+  end if;
+
+  if p_bucket is null or length(trim(p_bucket)) = 0 then
+    raise exception 'bucket is required';
+  end if;
+
+  if p_path is null or length(trim(p_path)) = 0 then
+    raise exception 'path is required';
+  end if;
+
+  if p_title is null or length(trim(p_title)) = 0 then
+    raise exception 'title is required';
+  end if;
+
+  v_asset_key := nullif(trim(p_asset_key), '');
+
+  -- Upsert keyed on (bucket, path) as your storage identity.
+  insert into public.media_assets (
+    id,
+    bucket,
+    path,
+    title,
+    public,
+    category,
+    asset_type,
+    description,
+    session_id,
+    sort,
+    asset_key
+  )
+  values (
+    coalesce(p_id, gen_random_uuid()),
+    trim(p_bucket),
+    trim(p_path),
+    trim(p_title),
+    p_public,
+    p_category,
+    p_asset_type,
+    p_description,
+    p_session_id,
+    p_sort,
+    v_asset_key
+  )
+  on conflict (bucket, path)
+  do update set
+    title = excluded.title,
+    public = excluded.public,
+    category = excluded.category,
+    asset_type = excluded.asset_type,
+    description = excluded.description,
+    session_id = excluded.session_id,
+    sort = excluded.sort,
+    asset_key = excluded.asset_key,
+    updated_at = now()
+  returning * into result;
+
+  return result;
+end;
+$$;
+
+
+--
 -- Name: admin_upsert_page_content(text, text, text, text, boolean, smallint, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -803,6 +886,22 @@ $$;
 
 
 --
+-- Name: get_public_media_asset_by_key(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_public_media_asset_by_key(p_asset_key text) RETURNS SETOF public.media_assets
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+  select *
+  from public.media_assets
+  where public = true
+    and asset_key = p_asset_key
+  order by sort asc, created_at desc;
+$$;
+
+
+--
 -- Name: get_public_media_assets(public.photo_category); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -814,6 +913,23 @@ CREATE FUNCTION public.get_public_media_assets(p_category public.photo_category 
   from public.media_assets
   where public = true
     and (p_category is null or category = p_category)
+  order by sort asc, created_at desc;
+$$;
+
+
+--
+-- Name: get_public_media_assets_by_prefix(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_public_media_assets_by_prefix(p_prefix text) RETURNS SETOF public.media_assets
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+  select *
+  from public.media_assets
+  where public = true
+    and asset_key is not null
+    and asset_key like (p_prefix || '%')
   order by sort asc, created_at desc;
 $$;
 
@@ -1485,6 +1601,27 @@ ALTER TABLE ONLY auth.refresh_tokens ALTER COLUMN id SET DEFAULT nextval('auth.r
 COPY auth.audit_log_entries (instance_id, id, payload, created_at, ip_address) FROM stdin;
 00000000-0000-0000-0000-000000000000	71ea533c-6981-4dcf-b845-d5226d27839f	{"action":"user_signedup","actor_id":"00000000-0000-0000-0000-000000000000","actor_username":"service_role","actor_via_sso":false,"log_type":"team","traits":{"provider":"email","user_email":"sunsetsurfacademy@gmail.com","user_id":"e8238f2b-601f-49a6-b837-21b1d5512415","user_phone":""}}	2025-12-15 23:50:54.192699+00	
 00000000-0000-0000-0000-000000000000	cf4c59b6-4fde-415a-9d8c-f8cd0f715b8f	{"action":"user_signedup","actor_id":"00000000-0000-0000-0000-000000000000","actor_username":"service_role","actor_via_sso":false,"log_type":"team","traits":{"provider":"email","user_email":"tyler.adean93@yahoo.com","user_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","user_phone":""}}	2025-12-16 00:16:17.583282+00	
+00000000-0000-0000-0000-000000000000	830f97ca-66b8-474b-b9c2-680e14a399c1	{"action":"login","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-12-16 05:06:37.127524+00	
+00000000-0000-0000-0000-000000000000	6455f7d6-03e8-4df0-874d-b6dc4ea7e693	{"action":"login","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-12-16 05:07:12.60043+00	
+00000000-0000-0000-0000-000000000000	d57f6f4f-4ea7-4942-8dee-36e3fc1c17db	{"action":"login","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-12-16 05:18:52.744813+00	
+00000000-0000-0000-0000-000000000000	62fc14c3-3b8f-4d86-9163-78c174168231	{"action":"login","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-12-16 05:34:20.081945+00	
+00000000-0000-0000-0000-000000000000	1f13bccb-94b0-4971-b026-33b7525b5e55	{"action":"token_refreshed","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"token"}	2025-12-16 06:32:23.247774+00	
+00000000-0000-0000-0000-000000000000	36388e8a-4e05-44f9-a078-66dd6ed1a489	{"action":"token_revoked","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"token"}	2025-12-16 06:32:23.268223+00	
+00000000-0000-0000-0000-000000000000	d4d7a91a-0ea2-4985-a787-c5f430feb658	{"action":"token_refreshed","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"token"}	2025-12-16 07:30:53.050184+00	
+00000000-0000-0000-0000-000000000000	7f1877fb-6435-4d5b-8699-53d25111faa8	{"action":"token_revoked","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"token"}	2025-12-16 07:30:53.062224+00	
+00000000-0000-0000-0000-000000000000	3ee1f9f1-928e-4cfc-bfef-8a19dbb04f30	{"action":"token_refreshed","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"token"}	2025-12-16 08:29:23.215346+00	
+00000000-0000-0000-0000-000000000000	64934479-d0a2-405d-b603-7cf2c36b0e78	{"action":"token_revoked","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"token"}	2025-12-16 08:29:23.229403+00	
+00000000-0000-0000-0000-000000000000	c13112ed-1704-459b-94c5-16501d57c0b6	{"action":"token_refreshed","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"token"}	2025-12-16 09:27:53.247512+00	
+00000000-0000-0000-0000-000000000000	3e3f467c-e3b2-4d82-9d23-d70ae3e69067	{"action":"token_revoked","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"token"}	2025-12-16 09:27:53.273439+00	
+00000000-0000-0000-0000-000000000000	9f4996dc-86a1-48ee-83c4-d70aa6c983c7	{"action":"token_refreshed","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"token"}	2025-12-16 10:26:23.179588+00	
+00000000-0000-0000-0000-000000000000	109cc25e-0240-49e4-8fce-d82789526f67	{"action":"token_revoked","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"token"}	2025-12-16 10:26:23.191706+00	
+00000000-0000-0000-0000-000000000000	15f857f6-fa4d-4aae-a076-9ba58467f5cb	{"action":"token_refreshed","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"token"}	2025-12-16 11:24:53.180823+00	
+00000000-0000-0000-0000-000000000000	77348fd1-c729-4c55-b5da-5ae26832b65b	{"action":"token_revoked","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"token"}	2025-12-16 11:24:53.200089+00	
+00000000-0000-0000-0000-000000000000	e9c7f7b7-7a8d-492c-99b2-7169bad7e3d6	{"action":"token_refreshed","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"token"}	2025-12-16 12:23:23.283886+00	
+00000000-0000-0000-0000-000000000000	8d9c6efc-b301-4727-b3a2-9e4ff3591512	{"action":"token_revoked","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"token"}	2025-12-16 12:23:23.294349+00	
+00000000-0000-0000-0000-000000000000	28b427d7-196c-4945-8baa-06a50b5b1371	{"action":"token_refreshed","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"token"}	2025-12-16 13:21:53.383632+00	
+00000000-0000-0000-0000-000000000000	59269160-cce9-4ee6-a50d-3c23fa10faaf	{"action":"token_revoked","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"token"}	2025-12-16 13:21:53.405888+00	
+00000000-0000-0000-0000-000000000000	5e4d2a14-3c36-4ea4-a399-ce0f51680ea4	{"action":"login","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-12-16 14:13:05.82302+00	
 \.
 
 
@@ -1519,6 +1656,11 @@ COPY auth.instances (id, uuid, raw_base_config, created_at, updated_at) FROM std
 --
 
 COPY auth.mfa_amr_claims (session_id, created_at, updated_at, authentication_method, id) FROM stdin;
+9b099aba-499d-4777-8a35-ea576f319974	2025-12-16 05:06:37.199431+00	2025-12-16 05:06:37.199431+00	password	a2b2aaaf-dcd0-491e-b1ac-8236678af4b6
+9463713b-ba32-4123-8d3c-cf7e5664ea1e	2025-12-16 05:07:12.60414+00	2025-12-16 05:07:12.60414+00	password	29b2db9c-4562-4fe5-a61c-28ef1a23ff11
+4acb6be0-74c9-4e18-9351-ea41f43a7089	2025-12-16 05:18:52.781393+00	2025-12-16 05:18:52.781393+00	password	7675fc06-ae5e-4062-b4e4-864031ac9e96
+66664f43-54ef-4369-acc3-86608be5887b	2025-12-16 05:34:20.189272+00	2025-12-16 05:34:20.189272+00	password	288eacdf-5173-4f3b-ac3b-fb2e0c108661
+1fea6750-eade-4801-9782-1a3b2fa9b65b	2025-12-16 14:13:05.934843+00	2025-12-16 14:13:05.934843+00	password	176ed923-6ac5-4e84-a734-48c786a8fac3
 \.
 
 
@@ -1583,6 +1725,19 @@ COPY auth.one_time_tokens (id, user_id, token_type, token_hash, relates_to, crea
 --
 
 COPY auth.refresh_tokens (instance_id, id, token, user_id, revoked, created_at, updated_at, parent, session_id) FROM stdin;
+00000000-0000-0000-0000-000000000000	1	e26vzc3zsp3u	d17a1bd1-5f6c-4c80-8813-30d927cb3809	f	2025-12-16 05:06:37.173301+00	2025-12-16 05:06:37.173301+00	\N	9b099aba-499d-4777-8a35-ea576f319974
+00000000-0000-0000-0000-000000000000	2	bmotxqixjg2l	d17a1bd1-5f6c-4c80-8813-30d927cb3809	f	2025-12-16 05:07:12.602261+00	2025-12-16 05:07:12.602261+00	\N	9463713b-ba32-4123-8d3c-cf7e5664ea1e
+00000000-0000-0000-0000-000000000000	3	xsuts3776ygv	d17a1bd1-5f6c-4c80-8813-30d927cb3809	f	2025-12-16 05:18:52.767933+00	2025-12-16 05:18:52.767933+00	\N	4acb6be0-74c9-4e18-9351-ea41f43a7089
+00000000-0000-0000-0000-000000000000	4	z6po4j5et335	d17a1bd1-5f6c-4c80-8813-30d927cb3809	t	2025-12-16 05:34:20.149219+00	2025-12-16 06:32:23.269554+00	\N	66664f43-54ef-4369-acc3-86608be5887b
+00000000-0000-0000-0000-000000000000	5	5v42ryryx5ud	d17a1bd1-5f6c-4c80-8813-30d927cb3809	t	2025-12-16 06:32:23.285089+00	2025-12-16 07:30:53.062905+00	z6po4j5et335	66664f43-54ef-4369-acc3-86608be5887b
+00000000-0000-0000-0000-000000000000	6	b6y7av7aayhk	d17a1bd1-5f6c-4c80-8813-30d927cb3809	t	2025-12-16 07:30:53.079025+00	2025-12-16 08:29:23.2357+00	5v42ryryx5ud	66664f43-54ef-4369-acc3-86608be5887b
+00000000-0000-0000-0000-000000000000	7	wpejxwjr6rtr	d17a1bd1-5f6c-4c80-8813-30d927cb3809	t	2025-12-16 08:29:23.247608+00	2025-12-16 09:27:53.27599+00	b6y7av7aayhk	66664f43-54ef-4369-acc3-86608be5887b
+00000000-0000-0000-0000-000000000000	8	ovld73cqbtqv	d17a1bd1-5f6c-4c80-8813-30d927cb3809	t	2025-12-16 09:27:53.294837+00	2025-12-16 10:26:23.194183+00	wpejxwjr6rtr	66664f43-54ef-4369-acc3-86608be5887b
+00000000-0000-0000-0000-000000000000	9	e4gxtl3u6iql	d17a1bd1-5f6c-4c80-8813-30d927cb3809	t	2025-12-16 10:26:23.203811+00	2025-12-16 11:24:53.202006+00	ovld73cqbtqv	66664f43-54ef-4369-acc3-86608be5887b
+00000000-0000-0000-0000-000000000000	10	2pyvw4cdzfum	d17a1bd1-5f6c-4c80-8813-30d927cb3809	t	2025-12-16 11:24:53.213859+00	2025-12-16 12:23:23.295007+00	e4gxtl3u6iql	66664f43-54ef-4369-acc3-86608be5887b
+00000000-0000-0000-0000-000000000000	11	yv6uwrmuvuq4	d17a1bd1-5f6c-4c80-8813-30d927cb3809	t	2025-12-16 12:23:23.306592+00	2025-12-16 13:21:53.407756+00	2pyvw4cdzfum	66664f43-54ef-4369-acc3-86608be5887b
+00000000-0000-0000-0000-000000000000	12	4yir7ce77ibz	d17a1bd1-5f6c-4c80-8813-30d927cb3809	f	2025-12-16 13:21:53.42782+00	2025-12-16 13:21:53.42782+00	yv6uwrmuvuq4	66664f43-54ef-4369-acc3-86608be5887b
+00000000-0000-0000-0000-000000000000	13	3iu7pfvcrrgi	d17a1bd1-5f6c-4c80-8813-30d927cb3809	f	2025-12-16 14:13:05.890998+00	2025-12-16 14:13:05.890998+00	\N	1fea6750-eade-4801-9782-1a3b2fa9b65b
 \.
 
 
@@ -1687,6 +1842,11 @@ COPY auth.schema_migrations (version) FROM stdin;
 --
 
 COPY auth.sessions (id, user_id, created_at, updated_at, factor_id, aal, not_after, refreshed_at, user_agent, ip, tag, oauth_client_id, refresh_token_hmac_key, refresh_token_counter, scopes) FROM stdin;
+9b099aba-499d-4777-8a35-ea576f319974	d17a1bd1-5f6c-4c80-8813-30d927cb3809	2025-12-16 05:06:37.151901+00	2025-12-16 05:06:37.151901+00	\N	aal1	\N	\N	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36	76.106.161.12	\N	\N	\N	\N	\N
+9463713b-ba32-4123-8d3c-cf7e5664ea1e	d17a1bd1-5f6c-4c80-8813-30d927cb3809	2025-12-16 05:07:12.601426+00	2025-12-16 05:07:12.601426+00	\N	aal1	\N	\N	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36	76.106.161.12	\N	\N	\N	\N	\N
+4acb6be0-74c9-4e18-9351-ea41f43a7089	d17a1bd1-5f6c-4c80-8813-30d927cb3809	2025-12-16 05:18:52.757574+00	2025-12-16 05:18:52.757574+00	\N	aal1	\N	\N	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36	76.106.161.12	\N	\N	\N	\N	\N
+66664f43-54ef-4369-acc3-86608be5887b	d17a1bd1-5f6c-4c80-8813-30d927cb3809	2025-12-16 05:34:20.113733+00	2025-12-16 13:21:53.451719+00	\N	aal1	\N	2025-12-16 13:21:53.449354	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36	76.106.161.12	\N	\N	\N	\N	\N
+1fea6750-eade-4801-9782-1a3b2fa9b65b	d17a1bd1-5f6c-4c80-8813-30d927cb3809	2025-12-16 14:13:05.84819+00	2025-12-16 14:13:05.84819+00	\N	aal1	\N	\N	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36	76.106.161.12	\N	\N	\N	\N	\N
 \.
 
 
@@ -1712,7 +1872,7 @@ COPY auth.sso_providers (id, resource_id, created_at, updated_at, disabled) FROM
 
 COPY auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, invited_at, confirmation_token, confirmation_sent_at, recovery_token, recovery_sent_at, email_change_token_new, email_change, email_change_sent_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data, is_super_admin, created_at, updated_at, phone, phone_confirmed_at, phone_change, phone_change_token, phone_change_sent_at, email_change_token_current, email_change_confirm_status, banned_until, reauthentication_token, reauthentication_sent_at, is_sso_user, deleted_at, is_anonymous) FROM stdin;
 00000000-0000-0000-0000-000000000000	e8238f2b-601f-49a6-b837-21b1d5512415	authenticated	authenticated	sunsetsurfacademy@gmail.com	$2a$10$e8SW3.NRsF10rGP6hNLVZObQ53IixhAa8AkZzDMCChFFJI/5SV6tO	2025-12-15 23:50:54.198465+00	\N		\N		\N			\N	\N	{"provider": "email", "providers": ["email"]}	{"email_verified": true}	\N	2025-12-15 23:50:54.170638+00	2025-12-15 23:50:54.204739+00	\N	\N			\N		0	\N		\N	f	\N	f
-00000000-0000-0000-0000-000000000000	d17a1bd1-5f6c-4c80-8813-30d927cb3809	authenticated	authenticated	tyler.adean93@yahoo.com	$2a$10$qxKnDUaauQ1saQ0qIoJsfOIwsmlYvizRST2Xj.PRRUsegQ3Tw1vjq	2025-12-16 00:16:17.594882+00	\N		\N		\N			\N	\N	{"provider": "email", "providers": ["email"]}	{"email_verified": true}	\N	2025-12-16 00:16:17.555897+00	2025-12-16 00:16:17.600419+00	\N	\N			\N		0	\N		\N	f	\N	f
+00000000-0000-0000-0000-000000000000	d17a1bd1-5f6c-4c80-8813-30d927cb3809	authenticated	authenticated	tyler.adean93@yahoo.com	$2a$10$qxKnDUaauQ1saQ0qIoJsfOIwsmlYvizRST2Xj.PRRUsegQ3Tw1vjq	2025-12-16 00:16:17.594882+00	\N		\N		\N			\N	2025-12-16 14:13:05.847469+00	{"provider": "email", "providers": ["email"]}	{"email_verified": true}	\N	2025-12-16 00:16:17.555897+00	2025-12-16 14:13:05.925312+00	\N	\N			\N		0	\N		\N	f	\N	f
 \.
 
 
@@ -1738,17 +1898,17 @@ COPY public.cms_page_content (id, created_at, updated_at, created_by, updated_by
 -- Data for Name: media_assets; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) FROM stdin;
-15466f82-4c54-4a68-8fc4-585f680ea6c8	image_6483441 (1)	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	image_6483441 (1).JPG	\N	photo	32767	lessons
-213d091e-9a44-4771-a732-b4b13e8b98d0	IMG_3856	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	IMG_3856.JPG	\N	photo	32767	lessons
-3ed412c2-8fd6-486c-8bb0-4d323f57b55d	surfSchoolShot	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	surfSchoolShot.png	\N	photo	32767	lessons
-47c9d39d-b885-4a77-93d1-78a877aac0da	IMG_2505	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	IMG_2505.JPG	\N	photo	32767	lessons
-5553fefc-7593-4d79-b146-e28a5524b9fe	IMG_3633	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	IMG_3633.JPG	\N	photo	32767	lessons
-568c4677-2653-4861-9aab-5d73389964d1	IMG_2505 2	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	IMG_2505 2.JPG	\N	photo	32767	lessons
-626ad533-3bbc-4700-bf37-e6699f1735ca	IMG_3627	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	IMG_3627.JPG	\N	photo	32767	lessons
-8dff0ad0-1944-4a5a-9138-027c5135b74d	IMG_3855	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	IMG_3855.JPG	\N	photo	32767	lessons
-98c04638-721e-4b79-bb67-7288d175abae	IMG_3629	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	IMG_3629.JPG	\N	photo	32767	lessons
-9cdfcc3f-a3d7-4a2c-b42a-218a8f0b1e7d	image_6483441 (5)	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	image_6483441 (5).JPG	\N	photo	32767	lessons
+COPY public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category, asset_key) FROM stdin;
+15466f82-4c54-4a68-8fc4-585f680ea6c8	image_6483441 (1)	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	image_6483441 (1).JPG	\N	photo	32767	lessons	\N
+213d091e-9a44-4771-a732-b4b13e8b98d0	IMG_3856	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	IMG_3856.JPG	\N	photo	32767	lessons	\N
+3ed412c2-8fd6-486c-8bb0-4d323f57b55d	surfSchoolShot	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	surfSchoolShot.png	\N	photo	32767	lessons	\N
+47c9d39d-b885-4a77-93d1-78a877aac0da	IMG_2505	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	IMG_2505.JPG	\N	photo	32767	lessons	\N
+5553fefc-7593-4d79-b146-e28a5524b9fe	IMG_3633	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	IMG_3633.JPG	\N	photo	32767	lessons	\N
+568c4677-2653-4861-9aab-5d73389964d1	IMG_2505 2	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	IMG_2505 2.JPG	\N	photo	32767	lessons	\N
+626ad533-3bbc-4700-bf37-e6699f1735ca	IMG_3627	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	IMG_3627.JPG	\N	photo	32767	lessons	\N
+8dff0ad0-1944-4a5a-9138-027c5135b74d	IMG_3855	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	IMG_3855.JPG	\N	photo	32767	lessons	\N
+98c04638-721e-4b79-bb67-7288d175abae	IMG_3629	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	IMG_3629.JPG	\N	photo	32767	lessons	\N
+9cdfcc3f-a3d7-4a2c-b42a-218a8f0b1e7d	image_6483441 (5)	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	image_6483441 (5).JPG	\N	photo	32767	lessons	\N
 \.
 
 
@@ -1764,7 +1924,7 @@ COPY public.sessions (id, created_at, session_time, group_size, client_names, le
 -- Name: refresh_tokens_id_seq; Type: SEQUENCE SET; Schema: auth; Owner: -
 --
 
-SELECT pg_catalog.setval('auth.refresh_tokens_id_seq', 1, false);
+SELECT pg_catalog.setval('auth.refresh_tokens_id_seq', 13, true);
 
 
 --
@@ -2388,6 +2548,27 @@ CREATE INDEX users_is_anonymous_idx ON auth.users USING btree (is_anonymous);
 --
 
 CREATE UNIQUE INDEX admin_users_email_unique ON public.admin_users USING btree (email) WHERE (email IS NOT NULL);
+
+
+--
+-- Name: media_assets_asset_key_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX media_assets_asset_key_idx ON public.media_assets USING btree (asset_key);
+
+
+--
+-- Name: media_assets_asset_key_pattern_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX media_assets_asset_key_pattern_idx ON public.media_assets USING btree (asset_key text_pattern_ops);
+
+
+--
+-- Name: media_assets_asset_key_unique_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX media_assets_asset_key_unique_idx ON public.media_assets USING btree (asset_key) WHERE (asset_key IS NOT NULL);
 
 
 --

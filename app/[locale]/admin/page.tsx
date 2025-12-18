@@ -1,11 +1,11 @@
-import { cookies } from 'next/headers';
 import { Box, Button, Container, Typography } from '@mui/material';
 import Link from 'next/link';
 import AdminDashboard from '@/components/admin/AdminDashboard';
+import { isAdminRequest } from '@/lib/adminAuth';
 
-export default function AdminPage() {
-  const cookie = cookies().get('admin');
-  const isAdmin = cookie?.value === '1';
+export default async function AdminPage({ params }: { params: { locale: string } }) {
+  const locale = params?.locale || 'en';
+  const isAdmin = await isAdminRequest();
 
   if (!isAdmin) {
     return (
@@ -14,7 +14,7 @@ export default function AdminPage() {
           Not authorized
         </Typography>
         <Typography sx={{ mb: 2 }}>You must sign in to view the admin area.</Typography>
-        <Button component={Link} href="/adminlogin" variant="contained">
+        <Button component={Link} href={`/${locale}/adminlogin`} variant="contained">
           Go to Admin Login
         </Button>
       </Container>
@@ -24,7 +24,7 @@ export default function AdminPage() {
   return (
     <>
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: { xs: 2, md: 4 }, pt: 2 }}>
-        <Button href="/api/admin/logout" variant="outlined">
+        <Button href={`/api/admin/logout`} variant="outlined">
           Sign out
         </Button>
       </Box>

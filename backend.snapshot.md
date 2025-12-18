@@ -1,6 +1,6 @@
 # Backend Snapshot
 
-Generated: 2025-12-16T02:52:24.032Z
+Generated: 2025-12-18T16:39:37.150Z
 
 ## What this is
 This file is a **reference snapshot** of the Supabase backend as seen by type generation.
@@ -1017,6 +1017,7 @@ export type Database = {
       }
       media_assets: {
         Row: {
+          asset_key: string | null
           asset_type: Database["public"]["Enums"]["asset_type"]
           bucket: string
           category: Database["public"]["Enums"]["photo_category"]
@@ -1031,6 +1032,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          asset_key?: string | null
           asset_type?: Database["public"]["Enums"]["asset_type"]
           bucket: string
           category?: Database["public"]["Enums"]["photo_category"]
@@ -1045,6 +1047,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          asset_key?: string | null
           asset_type?: Database["public"]["Enums"]["asset_type"]
           bucket?: string
           category?: Database["public"]["Enums"]["photo_category"]
@@ -1145,6 +1148,7 @@ export type Database = {
       admin_list_media_assets: {
         Args: never
         Returns: {
+          asset_key: string | null
           asset_type: Database["public"]["Enums"]["asset_type"]
           bucket: string
           category: Database["public"]["Enums"]["photo_category"]
@@ -1236,40 +1240,78 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      admin_upsert_media_asset: {
-        Args: {
-          p_asset_type: Database["public"]["Enums"]["asset_type"]
-          p_bucket: string
-          p_category: Database["public"]["Enums"]["photo_category"]
-          p_description?: string
-          p_id?: string
-          p_path: string
-          p_public: boolean
-          p_session_id?: string
-          p_sort?: number
-          p_title: string
-        }
-        Returns: {
-          asset_type: Database["public"]["Enums"]["asset_type"]
-          bucket: string
-          category: Database["public"]["Enums"]["photo_category"]
-          created_at: string | null
-          description: string | null
-          id: string
-          path: string
-          public: boolean
-          session_id: string | null
-          sort: number
-          title: string
-          updated_at: string | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "media_assets"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      admin_upsert_media_asset:
+        | {
+            Args: {
+              p_asset_type: Database["public"]["Enums"]["asset_type"]
+              p_bucket: string
+              p_category: Database["public"]["Enums"]["photo_category"]
+              p_description?: string
+              p_id?: string
+              p_path: string
+              p_public: boolean
+              p_session_id?: string
+              p_sort?: number
+              p_title: string
+            }
+            Returns: {
+              asset_key: string | null
+              asset_type: Database["public"]["Enums"]["asset_type"]
+              bucket: string
+              category: Database["public"]["Enums"]["photo_category"]
+              created_at: string | null
+              description: string | null
+              id: string
+              path: string
+              public: boolean
+              session_id: string | null
+              sort: number
+              title: string
+              updated_at: string | null
+            }
+            SetofOptions: {
+              from: "*"
+              to: "media_assets"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              p_asset_key?: string
+              p_asset_type: Database["public"]["Enums"]["asset_type"]
+              p_bucket: string
+              p_category: Database["public"]["Enums"]["photo_category"]
+              p_description?: string
+              p_id?: string
+              p_path: string
+              p_public: boolean
+              p_session_id?: string
+              p_sort?: number
+              p_title: string
+            }
+            Returns: {
+              asset_key: string | null
+              asset_type: Database["public"]["Enums"]["asset_type"]
+              bucket: string
+              category: Database["public"]["Enums"]["photo_category"]
+              created_at: string | null
+              description: string | null
+              id: string
+              path: string
+              public: boolean
+              session_id: string | null
+              sort: number
+              title: string
+              updated_at: string | null
+            }
+            SetofOptions: {
+              from: "*"
+              to: "media_assets"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       admin_upsert_page_content: {
         Args: {
           p_approved?: boolean
@@ -1291,9 +1333,58 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_public_media_asset_by_key: {
+        Args: { p_asset_key: string }
+        Returns: {
+          asset_key: string | null
+          asset_type: Database["public"]["Enums"]["asset_type"]
+          bucket: string
+          category: Database["public"]["Enums"]["photo_category"]
+          created_at: string | null
+          description: string | null
+          id: string
+          path: string
+          public: boolean
+          session_id: string | null
+          sort: number
+          title: string
+          updated_at: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "media_assets"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_public_media_assets: {
         Args: { p_category?: Database["public"]["Enums"]["photo_category"] }
         Returns: {
+          asset_key: string | null
+          asset_type: Database["public"]["Enums"]["asset_type"]
+          bucket: string
+          category: Database["public"]["Enums"]["photo_category"]
+          created_at: string | null
+          description: string | null
+          id: string
+          path: string
+          public: boolean
+          session_id: string | null
+          sort: number
+          title: string
+          updated_at: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "media_assets"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_public_media_assets_by_prefix: {
+        Args: { p_prefix: string }
+        Returns: {
+          asset_key: string | null
           asset_type: Database["public"]["Enums"]["asset_type"]
           bucket: string
           category: Database["public"]["Enums"]["photo_category"]

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '../../../../lib/supabaseAdmin';
+import { setAdminAccessTokenCookie } from '@/lib/adminAuth';
 
 export async function POST(req: Request) {
     try {
@@ -45,7 +46,7 @@ export async function POST(req: Request) {
         }
 
         const res = NextResponse.json({ ok: true });
-        res.cookies.set({ name: 'admin', value: '1', httpOnly: true, path: '/', maxAge: 60 * 60 * 24 });
+        setAdminAccessTokenCookie(res, accessToken);
         return res;
     } catch (err) {
         return NextResponse.json({ ok: false, message: 'Invalid request' }, { status: 400 });

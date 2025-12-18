@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { isAdminRequest } from '@/lib/adminAuth';
 
-export function GET() {
-    const isAdmin = cookies().get('admin')?.value === '1';
+export async function GET() {
+    const isAdmin = await isAdminRequest();
     return NextResponse.json({ ok: true, isAdmin });
 }

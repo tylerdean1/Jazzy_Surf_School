@@ -1,43 +1,10 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
-import {
-    Alert,
-    Box,
-    Button,
-    CircularProgress,
-    Container,
-    Divider,
-    FormControl,
-    InputLabel,
-    MenuItem,
-    Select,
-    Tab,
-    Tabs,
-    Typography,
-} from '@mui/material';
-import supabaseClient from '../../lib/supabaseClient';
-import { RichTextEditor, RichTextRenderer } from './RichText';
+import React, { useEffect, useState } from 'react';
+import { Alert, Box, Button, CircularProgress, Container, Tab, Tabs, Typography } from '@mui/material';
+import { usePathname } from 'next/navigation';
 import MediaManager from './MediaManager';
 import AdminLiveEditor from './AdminLiveEditor';
-import type { Database } from '../../lib/database.types';
-
-type CmsRow = Pick<
-    Database['public']['Tables']['cms_page_content']['Row'],
-    'id' | 'page_key' | 'body_en' | 'body_es_draft' | 'body_es_published' | 'approved' | 'updated_at'
->;
-
-const PAGE_KEYS = [
-    'mission_statement',
-    'about_jaz',
-    'lessons',
-    'team',
-    'faq',
-    'contact',
-    'gallery',
-] as const;
-
-type PageKey = (typeof PAGE_KEYS)[number];
 
 function TabPanel({ value, index, children }: { value: number; index: number; children: React.ReactNode }) {
     if (value !== index) return null;
@@ -48,15 +15,13 @@ export default function AdminDashboard() {
     const [tab, setTab] = useState(0);
     const [loading, setLoading] = useState(true);
     const [authError, setAuthError] = useState<string | null>(null);
+    const pathname = usePathname();
 
-    const [selectedKey, setSelectedKey] = useState<PageKey>('mission_statement');
-    const [row, setRow] = useState<CmsRow | null>(null);
-    const [bodyEn, setBodyEn] = useState<string>('');
-    const [bodyEsDraft, setBodyEsDraft] = useState<string>('');
-    const [saving, setSaving] = useState(false);
-    const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-    const canShowCms = useMemo(() => tab === 1, [tab]);
+    const locale = (() => {
+        const p = String(pathname || '/');
+        const seg = p.split('/').filter(Boolean)[0];
+        return seg === 'en' || seg === 'es' ? seg : 'en';
+    })();
 
     useEffect(() => {
         // Auth is enforced by the server via the httpOnly `admin` cookie.
@@ -65,107 +30,6 @@ export default function AdminDashboard() {
         setAuthError(null);
     }, []);
 
-    const loadPage = async (pageKey: PageKey) => {
-        setMessage(null);
-
-        const res = await fetch(`/api/admin/cms/page-content?page_key=${encodeURIComponent(pageKey)}`);
-        const body = await res.json().catch(() => ({}));
-
-        if (!res.ok || !body?.ok) {
-            setRow(null);
-            setBodyEn('');
-            setBodyEsDraft('');
-            setMessage({ type: 'error', text: body?.message || `Failed to load page (${res.status})` });
-            return;
-        }
-
-        const next = (body?.row as CmsRow | null) ?? null;
-        setRow(next);
-        setBodyEn(next?.body_en ?? '');
-        setBodyEsDraft(next?.body_es_draft ?? '');
-    };
-
-    useEffect(() => {
-        if (!canShowCms) return;
-        loadPage(selectedKey);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedKey, canShowCms]);
-
-    const saveCms = async () => {
-        setSaving(true);
-        setMessage(null);
-        try {
-            const res = await fetch('/api/admin/cms/page-content', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    op: 'save',
-                    page_key: selectedKey,
-                    body_en: bodyEn || null,
-                    body_es_draft: bodyEsDraft || null,
-                }),
-            });
-
-            const body = await res.json().catch(() => ({}));
-            if (!res.ok || !body?.ok) {
-                setMessage({ type: 'error', text: body?.message || `Save failed (${res.status})` });
-                return;
-            }
-
-            await loadPage(selectedKey);
-            setMessage({ type: 'success', text: 'Saved.' });
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const publishSpanish = async () => {
-        setSaving(true);
-        setMessage(null);
-        try {
-            const res = await fetch('/api/admin/cms/page-content', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ op: 'publish_es', page_key: selectedKey }),
-            });
-            const body = await res.json().catch(() => ({}));
-            if (!res.ok || !body?.ok) {
-                setMessage({ type: 'error', text: body?.message || `Publish failed (${res.status})` });
-                return;
-            }
-
-            await loadPage(selectedKey);
-            setMessage({ type: 'success', text: 'Spanish published.' });
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const deletePage = async () => {
-        if (!confirm(`Delete CMS content for ${selectedKey}?`)) return;
-
-        setSaving(true);
-        setMessage(null);
-        try {
-            const res = await fetch('/api/admin/cms/page-content', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ op: 'delete', page_key: selectedKey }),
-            });
-            const body = await res.json().catch(() => ({}));
-            if (!res.ok || !body?.ok) {
-                setMessage({ type: 'error', text: body?.message || `Delete failed (${res.status})` });
-                return;
-            }
-
-            setRow(null);
-            setBodyEn('');
-            setBodyEsDraft('');
-            setMessage({ type: 'success', text: 'Deleted.' });
-        } finally {
-            setSaving(false);
-        }
-    };
 
     return (
         <Container maxWidth="lg" sx={{ py: 6 }}>
@@ -188,7 +52,6 @@ export default function AdminDashboard() {
                     <Box sx={{ borderBottom: 1, borderColor: 'divider', mt: 3 }}>
                         <Tabs value={tab} onChange={(_, v) => setTab(v)}>
                             <Tab label="Edit" />
-                            <Tab label="Pages" />
                             <Tab label="Sessions" />
                             <Tab label="Media" />
                         </Tabs>
@@ -202,92 +65,15 @@ export default function AdminDashboard() {
                     </TabPanel>
 
                     <TabPanel value={tab} index={1}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                            <FormControl size="small" sx={{ minWidth: 260 }}>
-                                <InputLabel id="page-key-label">Page</InputLabel>
-                                <Select
-                                    labelId="page-key-label"
-                                    label="Page"
-                                    value={selectedKey}
-                                    onChange={(e) => setSelectedKey(e.target.value as PageKey)}
-                                >
-                                    {PAGE_KEYS.map((k) => (
-                                        <MenuItem key={k} value={k}>
-                                            {k}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Typography variant="body2" color="text.secondary">
-                                    Approved ES:
-                                </Typography>
-                                <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                                    {row?.approved ? 'Yes' : 'No'}
-                                </Typography>
-                            </Box>
-
-                            <Box sx={{ flex: 1 }} />
-
-                            <Button variant="outlined" color="error" onClick={deletePage} disabled={saving}>
-                                Delete
-                            </Button>
-                            <Button variant="contained" onClick={saveCms} disabled={saving} sx={{ backgroundColor: '#20B2AA' }}>
-                                {saving ? 'Saving…' : 'Save'}
-                            </Button>
-                        </Box>
-
-                        {message ? (
-                            <Alert severity={message.type} sx={{ mt: 2 }}>
-                                {message.text}
-                            </Alert>
-                        ) : null}
-
-                        <Box sx={{ mt: 3, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
-                            <Box>
-                                <RichTextEditor label="English body (source)" value={bodyEn} onChange={setBodyEn} />
-                            </Box>
-                            <Box>
-                                <RichTextEditor label="Spanish body (draft)" value={bodyEsDraft} onChange={setBodyEsDraft} />
-                                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-                                    <Button variant="outlined" onClick={publishSpanish} disabled={saving}>
-                                        Publish Spanish
-                                    </Button>
-                                </Box>
-                            </Box>
-                        </Box>
-
-                        <Divider sx={{ my: 4 }} />
-
-                        <Typography variant="h6" sx={{ mb: 1 }}>
-                            Public preview
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                            English always shows; Spanish shows only after Publish.
-                        </Typography>
-
-                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
-                            <Box>
-                                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                                    EN
-                                </Typography>
-                                <RichTextRenderer json={row?.body_en ?? bodyEn} />
-                            </Box>
-                            <Box>
-                                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                                    ES (published)
-                                </Typography>
-                                <RichTextRenderer json={row?.body_es_published ?? ''} />
-                            </Box>
-                        </Box>
-                    </TabPanel>
-
-                    <TabPanel value={tab} index={2}>
                         <Alert severity="info">Sessions tab next (wiring to admin_*_session RPCs).</Alert>
                     </TabPanel>
 
-                    <TabPanel value={tab} index={3}>
+                    <TabPanel value={tab} index={2}>
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                            <Button href={`/${locale}/admin/media-upload`} variant="outlined">
+                                Go to Upload Page
+                            </Button>
+                        </Box>
                         <MediaManager />
                     </TabPanel>
                 </>

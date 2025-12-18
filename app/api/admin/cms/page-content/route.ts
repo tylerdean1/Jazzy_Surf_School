@@ -1,19 +1,11 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import type { Database } from '@/lib/database.types';
-
-function requireAdmin() {
-    const isAdmin = cookies().get('admin')?.value === '1';
-    if (!isAdmin) {
-        return NextResponse.json({ ok: false, message: 'Not authorized' }, { status: 401 });
-    }
-    return null;
-}
+import { requireAdminApi } from '@/lib/adminAuth';
 
 export async function GET(req: Request) {
-    const notAllowed = requireAdmin();
-    if (notAllowed) return notAllowed;
+    const gate = await requireAdminApi(req);
+    if (!gate.ok) return gate.response;
 
     const url = new URL(req.url);
     const pageKey = String(url.searchParams.get('page_key') || '').trim();
@@ -41,8 +33,8 @@ type PostBody =
     | { op: 'delete'; page_key: string };
 
 export async function POST(req: Request) {
-    const notAllowed = requireAdmin();
-    if (notAllowed) return notAllowed;
+    const gate = await requireAdminApi(req);
+    if (!gate.ok) return gate.response;
 
     let body: PostBody;
     try {

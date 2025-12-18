@@ -23,7 +23,6 @@ import useTheme from '@mui/material/styles/useTheme';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { Menu, Waves } from '@mui/icons-material';
 import LanguageToggle from './LanguageToggle';
-import { ADMIN_PAGES } from '@/components/admin/adminPages';
 
 const Navigation: React.FC = () => {
   const t = useTranslations('navigation');
@@ -80,7 +79,7 @@ const Navigation: React.FC = () => {
       <List>
         {navItems.map((item) => (
           <ListItem key={item.key} disablePadding>
-            <Link href={item.href} style={{ textDecoration: 'none', width: '100%' }}>
+            {onAdminPage && isAdmin ? (
               <ListItemText
                 primary={t(item.key)}
                 sx={{
@@ -90,13 +89,29 @@ const Navigation: React.FC = () => {
                     color: '#20B2AA',
                     fontWeight: 500,
                     fontSize: '1.1rem',
-                    '&:hover': {
-                      color: '#1a9488'
-                    }
+                    opacity: 0.6,
                   }
                 }}
               />
-            </Link>
+            ) : (
+              <Link href={item.href} style={{ textDecoration: 'none', width: '100%' }}>
+                <ListItemText
+                  primary={t(item.key)}
+                  sx={{
+                    textAlign: 'center',
+                    py: 1,
+                    '& .MuiTypography-root': {
+                      color: '#20B2AA',
+                      fontWeight: 500,
+                      fontSize: '1.1rem',
+                      '&:hover': {
+                        color: '#1a9488'
+                      }
+                    }
+                  }}
+                />
+              </Link>
+            )}
           </ListItem>
         ))}
       </List>
@@ -122,52 +137,47 @@ const Navigation: React.FC = () => {
             component="div"
             sx={{ flexGrow: 1, fontWeight: 600 }}
           >
-            <Link
-              href={`/${locale}`}
-              style={{ textDecoration: 'none', color: 'inherit' }}
-            >
-              Sunset Surf Academy
-            </Link>
+            {onAdminPage && isAdmin ? (
+              <span>Sunset Surf Academy</span>
+            ) : (
+              <Link
+                href={`/${locale}`}
+                style={{ textDecoration: 'none', color: 'inherit' }}
+              >
+                Sunset Surf Academy
+              </Link>
+            )}
           </Typography>
 
           {isMobile ? (
             <>
               <LanguageToggle />
               {onAdminPage && isAdmin ? (
-                <Box sx={{ ml: 2, minWidth: 160 }}>
-                  <FormControl size="small" fullWidth>
-                    <InputLabel id="admin-page-label">Page</InputLabel>
-                    <Select
-                      labelId="admin-page-label"
-                      label="Page"
-                      value={selectedAdminPage}
-                      onChange={(e) => {
-                        const next = String(e.target.value);
-                        router.push(`/${locale}/admin?page=${encodeURIComponent(next)}`);
-                      }}
-                    >
-                      {ADMIN_PAGES.map((p) => (
-                        <MenuItem key={p} value={p}>
-                          {p}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', marginLeft: '0.5rem', opacity: 0.85 }}>
+                  <Image
+                    src="/Logo/SSA_Orange_Logo.png"
+                    alt="Surf School orange logo"
+                    width={40}
+                    height={40}
+                    priority
+                    style={{ borderRadius: 8 }}
+                  />
                 </Box>
-              ) : null}
-              <Link
-                href={`/${locale}`}
-                style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '0.5rem' }}
-              >
-                <Image
-                  src="/Logo/SSA_Orange_Logo.png"
-                  alt="Surf School orange logo"
-                  width={40}
-                  height={40}
-                  priority
-                  style={{ borderRadius: 8 }}
-                />
-              </Link>
+              ) : (
+                <Link
+                  href={`/${locale}`}
+                  style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '0.5rem' }}
+                >
+                  <Image
+                    src="/Logo/SSA_Orange_Logo.png"
+                    alt="Surf School orange logo"
+                    width={40}
+                    height={40}
+                    priority
+                    style={{ borderRadius: 8 }}
+                  />
+                </Link>
+              )}
               <IconButton
                 color="inherit"
                 aria-label="open drawer"
@@ -182,63 +192,70 @@ const Navigation: React.FC = () => {
             <>
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                 {navItems.map((item) => (
-                  <Link key={item.key} href={item.href} style={{ textDecoration: 'none' }}>
+                  onAdminPage && isAdmin ? (
                     <Button
+                      key={item.key}
                       color="inherit"
+                      disabled
                       sx={{
                         color: 'white',
                         fontWeight: 500,
                         textTransform: 'none',
                         fontSize: '1rem',
-                        '&:hover': {
-                          backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                          color: '#ffffff',
-                          transform: 'translateY(-1px)'
-                        },
-                        transition: 'all 0.2s ease'
+                        opacity: 0.7,
                       }}
                     >
                       {t(item.key)}
                     </Button>
-                  </Link>
-                ))}
-                {onAdminPage && isAdmin ? (
-                  <Box sx={{ minWidth: 200 }}>
-                    <FormControl size="small" fullWidth>
-                      <InputLabel id="admin-page-label">Page</InputLabel>
-                      <Select
-                        labelId="admin-page-label"
-                        label="Page"
-                        value={selectedAdminPage}
-                        onChange={(e) => {
-                          const next = String(e.target.value);
-                          router.push(`/${locale}/admin?page=${encodeURIComponent(next)}`);
+                  ) : (
+                    <Link key={item.key} href={item.href} style={{ textDecoration: 'none' }}>
+                      <Button
+                        color="inherit"
+                        sx={{
+                          color: 'white',
+                          fontWeight: 500,
+                          textTransform: 'none',
+                          fontSize: '1rem',
+                          '&:hover': {
+                            backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                            color: '#ffffff',
+                            transform: 'translateY(-1px)'
+                          },
+                          transition: 'all 0.2s ease'
                         }}
-                        sx={{ backgroundColor: 'rgba(255,255,255,0.15)', color: 'white' }}
                       >
-                        {ADMIN_PAGES.map((p) => (
-                          <MenuItem key={p} value={p}>
-                            {p}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Box>
-                ) : null}
+                        {t(item.key)}
+                      </Button>
+                    </Link>
+                  )
+                ))}
                 <LanguageToggle />
-                <Link
-                  href={`/${locale}`}
-                  style={{ display: 'inline-flex', alignItems: 'center' }}
-                >
-                  <Image
-                    src="/Logo/SSA_Orange_Logo.png"
-                    alt="Surf School orange logo"
-                    width={44}
-                    height={44}
-                    priority
-                    style={{ borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}
-                  />
-                </Link>
+                {onAdminPage && isAdmin ? (
+                  <Box sx={{ display: 'inline-flex', alignItems: 'center', opacity: 0.9 }}>
+                    <Image
+                      src="/Logo/SSA_Orange_Logo.png"
+                      alt="Surf School orange logo"
+                      width={44}
+                      height={44}
+                      priority
+                      style={{ borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}
+                    />
+                  </Box>
+                ) : (
+                  <Link
+                    href={`/${locale}`}
+                    style={{ display: 'inline-flex', alignItems: 'center' }}
+                  >
+                    <Image
+                      src="/Logo/SSA_Orange_Logo.png"
+                      alt="Surf School orange logo"
+                      width={44}
+                      height={44}
+                      priority
+                      style={{ borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}
+                    />
+                  </Link>
+                )}
               </Box>
             </>
           )}
