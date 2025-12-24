@@ -14,6 +14,7 @@ import Check from '@mui/icons-material/Check';
 import Upload from '@mui/icons-material/Upload';
 import { useAdminEdit } from './AdminEditContext';
 import { publishCmsSpanish, saveCmsStringValue, useCmsStringValue } from '@/hooks/useCmsStringValue';
+import useContentBundle from '@/hooks/useContentBundle';
 
 export default function EditableInlineText({
     cmsKey,
@@ -30,6 +31,7 @@ export default function EditableInlineText({
 }) {
     const { enabled } = useAdminEdit();
     const locale = useLocale();
+    const admin = useContentBundle('admin.');
     const { value } = useCmsStringValue(cmsKey, fallback);
 
     const [editing, setEditing] = useState(false);
@@ -57,7 +59,7 @@ export default function EditableInlineText({
             await saveCmsStringValue(cmsKey, locale, draft);
             setEditing(false);
         } catch (e: any) {
-            setError(e?.message || 'Save failed');
+            setError(e?.message || admin.t('admin.edit.errors.saveFailed', 'Save failed'));
         } finally {
             setSaving(false);
         }
@@ -69,7 +71,7 @@ export default function EditableInlineText({
         try {
             await publishCmsSpanish(cmsKey);
         } catch (e: any) {
-            setError(e?.message || 'Publish failed');
+            setError(e?.message || admin.t('admin.edit.errors.publishFailed', 'Publish failed'));
         } finally {
             setSaving(false);
         }
@@ -99,21 +101,21 @@ export default function EditableInlineText({
                                 disabled={saving}
                                 startIcon={<Upload />}
                             >
-                                Publish
+                                {admin.t('admin.common.publish', 'Publish')}
                             </Button>
                         ) : null}
                         <Button variant="outlined" onClick={cancelEdit} disabled={saving} startIcon={<Close />}>
-                            Cancel
+                            {admin.t('admin.common.cancel', 'Cancel')}
                         </Button>
                         <Button variant="contained" onClick={save} disabled={saving} startIcon={<Check />}>
-                            Save
+                            {admin.t('admin.common.save', 'Save')}
                         </Button>
                     </Box>
                 </Box>
             ) : (
                 <>
                     {children(value)}
-                    <Tooltip title="Edit">
+                    <Tooltip title={admin.t('admin.common.edit', 'Edit')}>
                         <IconButton
                             size="small"
                             onClick={startEdit}

@@ -22,6 +22,7 @@ import {
     TextField,
     Typography,
 } from '@mui/material';
+import useContentBundle from '@/hooks/useContentBundle';
 
 type AssetType = 'photo' | 'video';
 type PhotoCategory = 'logo' | 'hero' | 'lessons' | 'web_content' | 'uncategorized';
@@ -55,6 +56,7 @@ async function getSignedUrl(bucket: string, path: string): Promise<string> {
 }
 
 export default function MediaManager() {
+    const admin = useContentBundle('admin.');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [items, setItems] = useState<MediaAsset[]>([]);
@@ -117,7 +119,7 @@ export default function MediaManager() {
             if (!res.ok || !body?.ok) throw new Error(body?.message || `Load failed (${res.status})`);
             setItems(((body?.items ?? []) as MediaAsset[]) ?? []);
         } catch (e: any) {
-            setError(e?.message || 'Load failed');
+            setError(e?.message || admin.t('admin.media.errors.loadFailed', 'Load failed'));
             setItems([]);
         } finally {
             setLoading(false);
@@ -127,6 +129,18 @@ export default function MediaManager() {
     useEffect(() => {
         load();
     }, []);
+
+    const categoryLabel = (c: PhotoCategory) => {
+        const key = `admin.media.category.${c}`;
+        const fallback = c === 'web_content' ? 'Web content' : c === 'uncategorized' ? 'Uncategorized' : c;
+        return admin.t(key, fallback);
+    };
+
+    const typeLabel = (t: AssetType) => {
+        const key = `admin.media.type.${t}`;
+        const fallback = t === 'photo' ? 'Photo' : t === 'video' ? 'Video' : t;
+        return admin.t(key, fallback);
+    };
 
     const rows = useMemo(() => items, [items]);
 
@@ -164,7 +178,7 @@ export default function MediaManager() {
             resetForm();
             await load();
         } catch (e: any) {
-            setError(e?.message || 'Save failed');
+            setError(e?.message || admin.t('admin.media.errors.saveFailed', 'Save failed'));
         } finally {
             setLoading(false);
         }
@@ -175,20 +189,20 @@ export default function MediaManager() {
             const url = await getSignedUrl(b, p);
             if (url) window.open(url, '_blank', 'noopener,noreferrer');
         } catch (e: any) {
-            setError(e?.message || 'Preview failed');
+            setError(e?.message || admin.t('admin.media.errors.previewFailed', 'Preview failed'));
         }
     };
 
     return (
         <Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                <Typography variant="h6">Media</Typography>
+                <Typography variant="h6">{admin.t('admin.media.title', 'Media')}</Typography>
                 <Box sx={{ flex: 1 }} />
                 <Button variant="outlined" onClick={load} disabled={loading}>
-                    Refresh
+                    {admin.t('admin.common.refresh', 'Refresh')}
                 </Button>
                 <Button variant="contained" onClick={openAdd} sx={{ backgroundColor: '#20B2AA' }}>
-                    Add Media
+                    {admin.t('admin.media.actions.add', 'Add Media')}
                 </Button>
             </Box>
 
@@ -202,27 +216,31 @@ export default function MediaManager() {
                 <Table size="small">
                     <TableHead>
                         <TableRow>
-                            <TableCell>Asset Key</TableCell>
-                            <TableCell>Title</TableCell>
-                            <TableCell>Category</TableCell>
-                            <TableCell>Type</TableCell>
-                            <TableCell>Public</TableCell>
-                            <TableCell>Bucket / Path</TableCell>
-                            <TableCell>Sort</TableCell>
-                            <TableCell>Preview</TableCell>
-                            <TableCell align="right">Actions</TableCell>
+                            <TableCell>{admin.t('admin.media.table.assetKey', 'Asset Key')}</TableCell>
+                            <TableCell>{admin.t('admin.media.table.title', 'Title')}</TableCell>
+                            <TableCell>{admin.t('admin.media.table.category', 'Category')}</TableCell>
+                            <TableCell>{admin.t('admin.media.table.type', 'Type')}</TableCell>
+                            <TableCell>{admin.t('admin.media.table.public', 'Public')}</TableCell>
+                            <TableCell>{admin.t('admin.media.table.bucketPath', 'Bucket / Path')}</TableCell>
+                            <TableCell>{admin.t('admin.media.table.sort', 'Sort')}</TableCell>
+                            <TableCell>{admin.t('admin.media.table.preview', 'Preview')}</TableCell>
+                            <TableCell align="right">{admin.t('admin.media.table.actions', 'Actions')}</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
                         {rows.map((i) => (
                             <TableRow key={i.id}>
                                 <TableCell>
-                                    <Box sx={{ fontFamily: 'monospace', fontSize: 12 }}>{i.asset_key || '—'}</Box>
+                                    <Box sx={{ fontFamily: 'monospace', fontSize: 12 }}>
+                                        {i.asset_key || admin.t('admin.common.none', '—')}
+                                    </Box>
                                 </TableCell>
                                 <TableCell>{i.title}</TableCell>
-                                <TableCell>{i.category}</TableCell>
-                                <TableCell>{i.asset_type}</TableCell>
-                                <TableCell>{i.public ? 'Yes' : 'No'}</TableCell>
+                                <TableCell>{categoryLabel(i.category)}</TableCell>
+                                <TableCell>{typeLabel(i.asset_type)}</TableCell>
+                                <TableCell>
+                                    {i.public ? admin.t('admin.common.yes', 'Yes') : admin.t('admin.common.no', 'No')}
+                                </TableCell>
                                 <TableCell>
                                     <Box sx={{ fontFamily: 'monospace', fontSize: 12 }}>
                                         {i.bucket}/{i.path}
@@ -231,12 +249,12 @@ export default function MediaManager() {
                                 <TableCell>{i.sort}</TableCell>
                                 <TableCell>
                                     <Button size="small" onClick={() => openPreview(i.bucket, i.path)}>
-                                        Open
+                                        {admin.t('admin.media.actions.open', 'Open')}
                                     </Button>
                                 </TableCell>
                                 <TableCell align="right">
                                     <Button size="small" onClick={() => openEdit(i)}>
-                                        Edit
+                                        {admin.t('admin.media.actions.edit', 'Edit')}
                                     </Button>
                                 </TableCell>
                             </TableRow>
@@ -244,7 +262,11 @@ export default function MediaManager() {
                         {!rows.length ? (
                             <TableRow>
                                 <TableCell colSpan={9}>
-                                    <Typography color="text.secondary">{loading ? 'Loading…' : 'No media yet.'}</Typography>
+                                    <Typography color="text.secondary">
+                                        {loading
+                                            ? admin.t('admin.common.loading', 'Loading…')
+                                            : admin.t('admin.media.empty', 'No media yet.')}
+                                    </Typography>
                                 </TableCell>
                             </TableRow>
                         ) : null}
@@ -253,18 +275,25 @@ export default function MediaManager() {
             </Box>
 
             <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle>{editing ? 'Edit Media' : 'Add Media'}</DialogTitle>
+                <DialogTitle>
+                    {editing ? admin.t('admin.media.dialog.editTitle', 'Edit Media') : admin.t('admin.media.dialog.addTitle', 'Add Media')}
+                </DialogTitle>
                 <DialogContent sx={{ display: 'grid', gap: 2, pt: 2 }}>
                     <TextField
-                        label="Asset Key (stable pointer)"
+                        label={admin.t('admin.media.fields.assetKey', 'Asset Key (stable pointer)')}
                         value={assetKey}
                         onChange={(e) => setAssetKey(e.target.value)}
                         fullWidth
-                        helperText="Example: home.hero or home.photo_stream.001"
+                        helperText={admin.t('admin.media.fields.assetKeyHelp', 'Example: home.hero or home.photo_stream.001')}
                     />
-                    <TextField label="Title" value={title} onChange={(e) => setTitle(e.target.value)} fullWidth />
                     <TextField
-                        label="Description"
+                        label={admin.t('admin.media.fields.title', 'Title')}
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        fullWidth
+                    />
+                    <TextField
+                        label={admin.t('admin.media.fields.description', 'Description')}
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         fullWidth
@@ -273,38 +302,48 @@ export default function MediaManager() {
                     />
 
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                        <TextField label="Bucket" value={bucket} onChange={(e) => setBucket(e.target.value)} fullWidth />
-                        <TextField label="Path" value={path} onChange={(e) => setPath(e.target.value)} fullWidth />
+                        <TextField
+                            label={admin.t('admin.media.fields.bucket', 'Bucket')}
+                            value={bucket}
+                            onChange={(e) => setBucket(e.target.value)}
+                            fullWidth
+                        />
+                        <TextField
+                            label={admin.t('admin.media.fields.path', 'Path')}
+                            value={path}
+                            onChange={(e) => setPath(e.target.value)}
+                            fullWidth
+                        />
                     </Box>
 
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
                         <FormControl fullWidth>
-                            <InputLabel id="media-category">Category</InputLabel>
+                            <InputLabel id="media-category">{admin.t('admin.media.fields.category', 'Category')}</InputLabel>
                             <Select
                                 labelId="media-category"
-                                label="Category"
+                                label={admin.t('admin.media.fields.category', 'Category')}
                                 value={category}
                                 onChange={(e) => setCategory(e.target.value as PhotoCategory)}
                             >
                                 {CATEGORIES.map((c) => (
                                     <MenuItem key={c} value={c}>
-                                        {c}
+                                        {categoryLabel(c)}
                                     </MenuItem>
                                 ))}
                             </Select>
                         </FormControl>
 
                         <FormControl fullWidth>
-                            <InputLabel id="media-type">Type</InputLabel>
+                            <InputLabel id="media-type">{admin.t('admin.media.fields.type', 'Type')}</InputLabel>
                             <Select
                                 labelId="media-type"
-                                label="Type"
+                                label={admin.t('admin.media.fields.type', 'Type')}
                                 value={assetType}
                                 onChange={(e) => setAssetType(e.target.value as AssetType)}
                             >
                                 {ASSET_TYPES.map((t) => (
                                     <MenuItem key={t} value={t}>
-                                        {t}
+                                        {typeLabel(t)}
                                     </MenuItem>
                                 ))}
                             </Select>
@@ -313,14 +352,14 @@ export default function MediaManager() {
 
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, alignItems: 'center' }}>
                         <TextField
-                            label="Sort"
+                            label={admin.t('admin.media.fields.sort', 'Sort')}
                             type="number"
                             value={String(sort)}
                             onChange={(e) => setSort(parseInt(e.target.value || '0', 10))}
                             fullWidth
                         />
                         <TextField
-                            label="Session ID (optional)"
+                            label={admin.t('admin.media.fields.sessionId', 'Session ID (optional)')}
                             value={sessionId}
                             onChange={(e) => setSessionId(e.target.value)}
                             fullWidth
@@ -329,19 +368,19 @@ export default function MediaManager() {
 
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Checkbox checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} />
-                        <Typography>Public</Typography>
+                        <Typography>{admin.t('admin.media.fields.public', 'Public')}</Typography>
                     </Box>
 
                     {bucket && path ? (
                         <Typography variant="body2" color="text.secondary">
-                            Preview uses a signed URL (works for private buckets).
+                            {admin.t('admin.media.previewHint', 'Preview uses a signed URL (works for private buckets).')}
                         </Typography>
                     ) : null}
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={() => setDialogOpen(false)}>{admin.t('admin.common.cancel', 'Cancel')}</Button>
                     <Button variant="contained" onClick={save} disabled={loading} sx={{ backgroundColor: '#20B2AA' }}>
-                        Save
+                        {admin.t('admin.common.save', 'Save')}
                     </Button>
                 </DialogActions>
             </Dialog>

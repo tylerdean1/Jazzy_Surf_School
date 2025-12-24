@@ -8,6 +8,7 @@ import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
 import { generateHTML } from '@tiptap/html';
 import { safeParseJsonDoc, serializeJsonDoc } from '../../lib/cmsRichText';
+import useContentBundle from '@/hooks/useContentBundle';
 
 type TipTapDoc = Record<string, any>;
 
@@ -43,6 +44,7 @@ export function RichTextEditor({
     value: string | null | undefined;
     onChange: (nextJson: string) => void;
 }) {
+    const admin = useContentBundle('admin.');
     const [color, setColor] = useState<string>('#000000');
 
     const doc = useMemo(() => safeParseJsonDoc(value), [value]);
@@ -89,30 +91,30 @@ export function RichTextEditor({
                         onClick={() => editor.chain().focus().toggleBold().run()}
                         disabled={!editor.can().chain().focus().toggleBold().run()}
                     >
-                        Bold
+                        {admin.t('admin.richText.bold', 'Bold')}
                     </Button>
                     <Button
                         onClick={() => editor.chain().focus().toggleItalic().run()}
                         disabled={!editor.can().chain().focus().toggleItalic().run()}
                     >
-                        Italic
+                        {admin.t('admin.richText.italic', 'Italic')}
                     </Button>
                     <Button
                         onClick={() => editor.chain().focus().toggleBulletList().run()}
                     >
-                        Bullets
+                        {admin.t('admin.richText.bullets', 'Bullets')}
                     </Button>
                     <Button
                         onClick={() => editor.chain().focus().toggleOrderedList().run()}
                     >
-                        Numbered
+                        {admin.t('admin.richText.numbered', 'Numbered')}
                     </Button>
                 </ButtonGroup>
 
                 <TextField
                     type="color"
                     size="small"
-                    label="Text color"
+                    label={admin.t('admin.richText.textColor', 'Text color')}
                     value={color}
                     onChange={(e) => {
                         const next = e.target.value;
@@ -131,7 +133,7 @@ export function RichTextEditor({
                         editor.chain().focus().unsetColor().run();
                     }}
                 >
-                    Reset color
+                    {admin.t('admin.richText.resetColor', 'Reset color')}
                 </Button>
             </Box>
 

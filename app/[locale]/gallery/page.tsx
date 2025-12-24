@@ -1,77 +1,55 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Container, Typography, Grid, Box, Card, Alert } from '@mui/material';
-import supabaseClient from '../../../lib/supabaseClient';
-import type { Database } from '../../../lib/database.types';
-
-type AssetType = 'photo' | 'video';
-type PhotoCategory = 'logo' | 'hero' | 'lessons' | 'web_content' | 'uncategorized';
-
-type MediaAsset = {
-  id: string;
-  title: string;
-  description: string | null;
-  bucket: string;
-  path: string;
-  public: boolean;
-  category: PhotoCategory;
-  asset_type: AssetType;
-  sort: number;
-  created_at: string | null;
-};
-
-function publicUrl(bucket: string, path: string): string {
-  try {
-    return supabaseClient.storage.from(bucket).getPublicUrl(path).data.publicUrl;
-  } catch {
-    return '';
-  }
-}
+import ContentBundleProvider from '@/components/content/ContentBundleContext';
+import { useContentBundleContext } from '@/components/content/ContentBundleContext';
+import type { ContentBundleMediaItem } from '@/types/contentBundle';
 
 export default function GalleryPage() {
-  const [error, setError] = useState<string | null>(null);
-  const [items, setItems] = useState<MediaAsset[]>([]);
+  return (
+    <ContentBundleProvider prefix="gallery.">
+      <GalleryInner />
+    </ContentBundleProvider>
+  );
+}
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setError(null);
-      const { data, error } = await supabaseClient.rpc('get_public_media_assets', {
-        p_category: 'web_content',
-      });
+function GalleryInner() {
+  const ctx = useContentBundleContext();
+  const loading = ctx?.loading ?? true;
+  const error = ctx?.error ?? null;
+  const strings = ctx?.strings ?? {};
+  const media = ctx?.media ?? [];
 
-      if (cancelled) return;
-      if (error) {
-        setError(error.message);
-        setItems([]);
-        return;
-      }
+  const tDb = (key: string, fallback: string) => {
+    const v = strings[key];
+    return typeof v === 'string' && v.trim().length > 0 ? v : fallback;
+  };
 
-      const rows = (data ?? []) as Database['public']['Functions']['get_public_media_assets']['Returns'];
-      setItems(rows as unknown as MediaAsset[]);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const desiredCount = (() => {
+    const raw = strings['gallery.images.count'];
+    const n = raw != null ? Number(raw) : NaN;
+    if (!Number.isFinite(n)) return null;
+    return Math.max(0, Math.min(100, Math.floor(n)));
+  })();
 
   const rows = useMemo(() => {
-    return items
-      .filter((i) => i.public)
-      .map((i) => ({ ...i, url: publicUrl(i.bucket, i.path) }))
-      .filter((i) => !!i.url);
-  }, [items]);
+    const items = [...media]
+      .filter((m) => String(m?.slot_key || '').startsWith('gallery.images.'))
+      .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+
+    const sliced = desiredCount == null ? items : items.slice(0, desiredCount);
+    return sliced.filter((m) => !!m.url);
+  }, [media, desiredCount]);
 
   return (
     <Container maxWidth="lg" sx={{ py: 8 }}>
       <Box textAlign="center" sx={{ mb: 6 }}>
         <Typography variant="h2" gutterBottom color="#20B2AA">
-          Gallery
+          {tDb('gallery.title', 'Gallery')}
         </Typography>
         <Typography variant="h5" color="text.secondary">
-          Check out some of the content from our past lessons :)
+          {tDb('gallery.subtitle', 'Check out some of the content from our past lessons :)')}
         </Typography>
       </Box>
 
@@ -81,9 +59,15 @@ export default function GalleryPage() {
         </Alert>
       ) : null}
 
+      {!error && !loading && rows.length === 0 ? (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          {tDb('gallery.empty', 'No gallery media selected yet.')}
+        </Alert>
+      ) : null}
+
       <Grid container spacing={3}>
-        {rows.map((item) => (
-          <Grid item xs={12} sm={6} md={4} key={item.id}>
+        {rows.map((item: ContentBundleMediaItem) => (
+          <Grid item xs={12} sm={6} md={4} key={item.slot_key}>
             <Card sx={{ borderRadius: 2, overflow: 'hidden' }}>
               <Box sx={{ position: 'relative', height: 250, background: 'hsl(var(--background))' }}>
                 {item.asset_type === 'photo' ? (

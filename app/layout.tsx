@@ -7,6 +7,9 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'Sunset Surf Academy',
   description: 'Learn from some of the best surfers in the world at Sunset Surf Academy in Rincón, Puerto Rico.',
+  icons: {
+    icon: [{ url: '/SSA_Orange_Logo.png', type: 'image/png' }],
+  },
 };
 
 export default function RootLayout({

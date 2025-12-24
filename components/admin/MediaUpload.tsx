@@ -15,6 +15,7 @@ import {
     TextField,
     Typography,
 } from '@mui/material';
+import useContentBundle from '@/hooks/useContentBundle';
 
 type AssetType = 'photo' | 'video';
 type PhotoCategory = 'logo' | 'hero' | 'lessons' | 'web_content' | 'uncategorized';
@@ -26,6 +27,7 @@ const ASSET_TYPES: AssetType[] = ['photo', 'video'];
 const BUCKETS = ['Lesson_Photos', 'Private_Photos'] as const;
 
 export default function MediaUpload() {
+    const admin = useContentBundle('admin.');
     const [mode, setMode] = useState<Mode>('single');
     const [bucket, setBucket] = useState<(typeof BUCKETS)[number]>('Lesson_Photos');
     const [folder, setFolder] = useState('');
@@ -49,6 +51,24 @@ export default function MediaUpload() {
 
     const publicDefault = useMemo(() => bucket === 'Lesson_Photos', [bucket]);
 
+    const categoryLabel = (c: PhotoCategory) => {
+        const key = `admin.media.category.${c}`;
+        const fallback = c === 'web_content' ? 'Web content' : c === 'uncategorized' ? 'Uncategorized' : c;
+        return admin.t(key, fallback);
+    };
+
+    const typeLabel = (t: AssetType) => {
+        const key = `admin.media.type.${t}`;
+        const fallback = t === 'photo' ? 'Photo' : t === 'video' ? 'Video' : t;
+        return admin.t(key, fallback);
+    };
+
+    const bucketLabel = (b: (typeof BUCKETS)[number]) => {
+        const key = `admin.upload.bucket.${b}`;
+        const fallback = b;
+        return admin.t(key, fallback);
+    };
+
     const onChangeBucket = (b: (typeof BUCKETS)[number]) => {
         setBucket(b);
         // Keep it convenient: default public mirrors bucket intent.
@@ -61,12 +81,12 @@ export default function MediaUpload() {
         setUploaded([]);
 
         if (!files || files.length === 0) {
-            setError('Choose at least one file.');
+            setError(admin.t('admin.upload.errors.chooseFile', 'Choose at least one file.'));
             return;
         }
 
         if (mode === 'single' && !title.trim()) {
-            setError('Title is required for single upload.');
+            setError(admin.t('admin.upload.errors.titleRequiredSingle', 'Title is required for single upload.'));
             return;
         }
 
@@ -99,7 +119,7 @@ export default function MediaUpload() {
 
             const up = ((body?.uploaded ?? []) as Array<{ bucket: string; path: string; id: string }>) ?? [];
             setUploaded(up);
-            setSuccess(`Uploaded ${up.length} file(s).`);
+            setSuccess(admin.t('admin.upload.success', 'Uploaded {count} file(s).').replace('{count}', String(up.length)));
             setFiles(null);
             if (mode === 'single') {
                 setTitle('');
@@ -108,7 +128,7 @@ export default function MediaUpload() {
                 setAssetKeyPrefix('');
             }
         } catch (e: any) {
-            setError(e?.message || 'Upload failed');
+            setError(e?.message || admin.t('admin.upload.errors.uploadFailed', 'Upload failed'));
         } finally {
             setLoading(false);
         }
@@ -116,14 +136,17 @@ export default function MediaUpload() {
 
     return (
         <Box sx={{ display: 'grid', gap: 2, mt: 2 }}>
-            <Typography variant="h5">Upload Media</Typography>
+            <Typography variant="h5">{admin.t('admin.upload.title', 'Upload Media')}</Typography>
             <Typography variant="body2" color="text.secondary">
-                Upload to Supabase Storage and create matching rows in <Box component="span" sx={{ fontFamily: 'monospace' }}>media_assets</Box>.
+                {admin.t(
+                    'admin.upload.subtitle',
+                    'Upload to Supabase Storage and create matching rows in media_assets.'
+                )}
             </Typography>
 
             <Tabs value={mode} onChange={(_, v) => setMode(v)}>
-                <Tab value="single" label="Single" />
-                <Tab value="bulk" label="Bulk" />
+                <Tab value="single" label={admin.t('admin.upload.mode.single', 'Single')} />
+                <Tab value="bulk" label={admin.t('admin.upload.mode.bulk', 'Bulk')} />
             </Tabs>
 
             {error ? <Alert severity="error">{error}</Alert> : null}
@@ -132,56 +155,64 @@ export default function MediaUpload() {
             <Box sx={{ display: 'grid', gap: 2 }}>
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
                     <FormControl fullWidth>
-                        <InputLabel id="upload-bucket">Bucket</InputLabel>
+                        <InputLabel id="upload-bucket">{admin.t('admin.upload.fields.bucket', 'Bucket')}</InputLabel>
                         <Select
                             labelId="upload-bucket"
-                            label="Bucket"
+                            label={admin.t('admin.upload.fields.bucket', 'Bucket')}
                             value={bucket}
                             onChange={(e) => onChangeBucket(e.target.value as any)}
                         >
                             {BUCKETS.map((b) => (
                                 <MenuItem key={b} value={b}>
-                                    {b}
+                                    {bucketLabel(b)}
                                 </MenuItem>
                             ))}
                         </Select>
                     </FormControl>
 
                     <TextField
-                        label="Folder (optional)"
+                        label={admin.t('admin.upload.fields.folder', 'Folder (optional)')}
                         value={folder}
                         onChange={(e) => setFolder(e.target.value)}
-                        helperText="Example: hero_shot or lessons/session_123"
+                        helperText={admin.t('admin.upload.fields.folderHelp', 'Example: hero_shot or lessons/session_123')}
                         fullWidth
                     />
                 </Box>
 
                 {mode === 'single' ? (
                     <Box sx={{ display: 'grid', gap: 2 }}>
-                        <TextField label="Title" value={title} onChange={(e) => setTitle(e.target.value)} fullWidth />
                         <TextField
-                            label="Asset Key (optional)"
+                            label={admin.t('admin.upload.fields.title', 'Title')}
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            fullWidth
+                        />
+                        <TextField
+                            label={admin.t('admin.upload.fields.assetKey', 'Asset Key (optional)')}
                             value={assetKey}
                             onChange={(e) => setAssetKey(e.target.value)}
-                            helperText="Stable pointer used by components, e.g. home.hero"
+                            helperText={admin.t('admin.upload.fields.assetKeyHelp', 'Stable pointer used by components, e.g. home.hero')}
                             fullWidth
                         />
                     </Box>
                 ) : (
                     <Box sx={{ display: 'grid', gap: 2 }}>
-                        <Alert severity="info">Bulk titles are derived from the filename and a generated UUID.</Alert>
+                        <Alert severity="info">{admin.t('admin.upload.bulk.hint', 'Bulk titles are derived from the filename and a generated UUID.')}</Alert>
                         <TextField
-                            label="Asset Key Prefix (optional)"
+                            label={admin.t('admin.upload.fields.assetKeyPrefix', 'Asset Key Prefix (optional)')}
                             value={assetKeyPrefix}
                             onChange={(e) => setAssetKeyPrefix(e.target.value)}
-                            helperText="If set, keys are auto-generated like prefix.001, prefix.002 (upload order)."
+                            helperText={admin.t(
+                                'admin.upload.fields.assetKeyPrefixHelp',
+                                'If set, keys are auto-generated like prefix.001, prefix.002 (upload order).'
+                            )}
                             fullWidth
                         />
                     </Box>
                 )}
 
                 <TextField
-                    label="Description"
+                    label={admin.t('admin.upload.fields.description', 'Description')}
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     fullWidth
@@ -191,39 +222,39 @@ export default function MediaUpload() {
 
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' }, gap: 2 }}>
                     <FormControl fullWidth>
-                        <InputLabel id="upload-category">Category</InputLabel>
+                        <InputLabel id="upload-category">{admin.t('admin.upload.fields.category', 'Category')}</InputLabel>
                         <Select
                             labelId="upload-category"
-                            label="Category"
+                            label={admin.t('admin.upload.fields.category', 'Category')}
                             value={category}
                             onChange={(e) => setCategory(e.target.value as PhotoCategory)}
                         >
                             {CATEGORIES.map((c) => (
                                 <MenuItem key={c} value={c}>
-                                    {c}
+                                    {categoryLabel(c)}
                                 </MenuItem>
                             ))}
                         </Select>
                     </FormControl>
 
                     <FormControl fullWidth>
-                        <InputLabel id="upload-type">Type</InputLabel>
+                        <InputLabel id="upload-type">{admin.t('admin.upload.fields.type', 'Type')}</InputLabel>
                         <Select
                             labelId="upload-type"
-                            label="Type"
+                            label={admin.t('admin.upload.fields.type', 'Type')}
                             value={assetType}
                             onChange={(e) => setAssetType(e.target.value as AssetType)}
                         >
                             {ASSET_TYPES.map((t) => (
                                 <MenuItem key={t} value={t}>
-                                    {t}
+                                    {typeLabel(t)}
                                 </MenuItem>
                             ))}
                         </Select>
                     </FormControl>
 
                     <TextField
-                        label="Sort"
+                        label={admin.t('admin.upload.fields.sort', 'Sort')}
                         type="number"
                         value={String(sort)}
                         onChange={(e) => setSort(parseInt(e.target.value || '0', 10))}
@@ -233,17 +264,19 @@ export default function MediaUpload() {
 
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, alignItems: 'center' }}>
                     <TextField
-                        label="Session ID (optional)"
+                        label={admin.t('admin.upload.fields.sessionId', 'Session ID (optional)')}
                         value={sessionId}
                         onChange={(e) => setSessionId(e.target.value)}
                         fullWidth
                     />
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Checkbox checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} />
-                        <Typography>Public (DB flag)</Typography>
+                        <Typography>{admin.t('admin.upload.fields.publicFlag', 'Public (DB flag)')}</Typography>
                         {isPublic !== publicDefault ? (
                             <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                                Bucket default is {publicDefault ? 'public' : 'private'}
+                                {publicDefault
+                                    ? admin.t('admin.upload.publicDefault.public', 'Bucket default is public')
+                                    : admin.t('admin.upload.publicDefault.private', 'Bucket default is private')}
                             </Typography>
                         ) : null}
                     </Box>
@@ -252,8 +285,16 @@ export default function MediaUpload() {
                 <Box>
                     <input
                         type="file"
-                        aria-label={mode === 'bulk' ? 'Select files for bulk upload' : 'Select file for upload'}
-                        title={mode === 'bulk' ? 'Select files for bulk upload' : 'Select file for upload'}
+                        aria-label={
+                            mode === 'bulk'
+                                ? admin.t('admin.upload.fileInput.bulkAria', 'Select files for bulk upload')
+                                : admin.t('admin.upload.fileInput.singleAria', 'Select file for upload')
+                        }
+                        title={
+                            mode === 'bulk'
+                                ? admin.t('admin.upload.fileInput.bulkTitle', 'Select files for bulk upload')
+                                : admin.t('admin.upload.fileInput.singleTitle', 'Select file for upload')
+                        }
                         multiple={mode === 'bulk'}
                         onChange={(e) => setFiles(e.target.files)}
                     />
@@ -261,14 +302,14 @@ export default function MediaUpload() {
 
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                     <Button variant="contained" onClick={submit} disabled={loading}>
-                        {loading ? 'Uploading…' : 'Upload'}
+                        {loading ? admin.t('admin.upload.uploading', 'Uploading…') : admin.t('admin.upload.upload', 'Upload')}
                     </Button>
                 </Box>
 
                 {uploaded.length ? (
                     <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
                         <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                            Uploaded
+                            {admin.t('admin.upload.uploadedTitle', 'Uploaded')}
                         </Typography>
                         {uploaded.map((u) => (
                             <Box key={u.id} sx={{ fontFamily: 'monospace', fontSize: 12 }}>

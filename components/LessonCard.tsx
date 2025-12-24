@@ -18,6 +18,7 @@ import { CheckCircle, AccessTime, LocationOn, Group } from '@mui/icons-material'
 import Link from 'next/link';
 import { useLocale } from 'next-intl';
 import EditableInlineText from '@/components/admin/edit/EditableInlineText';
+import { useCmsStringValue } from '@/hooks/useCmsStringValue';
 
 interface LessonCardProps {
   title: string;
@@ -44,6 +45,27 @@ const LessonCard: React.FC<LessonCardProps> = ({
 }) => {
   const locale = useLocale();
   const bookHref = bookLessonTypeId ? `/${locale}/book?lesson=${encodeURIComponent(bookLessonTypeId)}` : `/${locale}/book`;
+
+  const perPersonLabel = useCmsStringValue('lessons.card.perPersonLabel', 'per person').value;
+  const includesLabel = useCmsStringValue('lessons.card.includesLabel', "What's Included:").value;
+  const bookCta = useCmsStringValue('lessons.card.bookCta', 'Book This Lesson').value;
+  const contactPricingValue = useCmsStringValue('lessons.card.contactPricingValue', 'Contact for pricing').value;
+
+  const durationLabel = cmsKeyBase ? (
+    <EditableInlineText cmsKey={`${cmsKeyBase}.duration`} fallback={duration}>
+      {(v) => <>{v}</>}
+    </EditableInlineText>
+  ) : (
+    duration
+  );
+
+  const locationLabel = cmsKeyBase ? (
+    <EditableInlineText cmsKey={`${cmsKeyBase}.location`} fallback={location}>
+      {(v) => <>{v}</>}
+    </EditableInlineText>
+  ) : (
+    location
+  );
 
   return (
     <Card
@@ -83,16 +105,16 @@ const LessonCard: React.FC<LessonCardProps> = ({
               price
             )}
           </Typography>
-          {price !== "Contact for pricing" && (
+          {price !== contactPricingValue && (
             <Typography variant="body2" color="text.secondary">
-              per person
+              {perPersonLabel}
             </Typography>
           )}
         </Box>
 
         <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-          <Chip icon={<AccessTime />} label={duration} size="small" />
-          <Chip icon={<LocationOn />} label={location} size="small" />
+          <Chip icon={<AccessTime />} label={durationLabel} size="small" />
+          <Chip icon={<LocationOn />} label={locationLabel} size="small" />
         </Box>
 
         <Typography variant="body1" paragraph sx={{ mb: 3 }}>
@@ -106,13 +128,7 @@ const LessonCard: React.FC<LessonCardProps> = ({
         </Typography>
 
         <Typography variant="h6" gutterBottom color="#20B2AA">
-          {cmsKeyBase ? (
-            <EditableInlineText cmsKey={`${cmsKeyBase}.includesLabel`} fallback={"What's Included:"}>
-              {(v) => <>{v}</>}
-            </EditableInlineText>
-          ) : (
-            "What's Included:"
-          )}
+          {includesLabel}
         </Typography>
         <List dense>
           {includes.map((item, index) => (
@@ -151,7 +167,7 @@ const LessonCard: React.FC<LessonCardProps> = ({
               fontWeight: 600
             }}
           >
-            Book This Lesson
+            {bookCta}
           </Button>
         </Link>
       </CardActions>

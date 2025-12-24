@@ -21,6 +21,7 @@ import {
     TableRow,
     Typography,
 } from '@mui/material';
+import useContentBundle from '@/hooks/useContentBundle';
 
 type AssetType = 'photo' | 'video';
 type PhotoCategory = 'logo' | 'hero' | 'lessons' | 'web_content' | 'uncategorized';
@@ -96,6 +97,7 @@ export default function MediaPickerDialog({
     onSelect: (selection: MediaSelection) => void;
     defaultCategory?: PhotoCategory | 'all';
 }) {
+    const admin = useContentBundle('admin.');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [items, setItems] = useState<MediaAsset[]>([]);
@@ -124,7 +126,7 @@ export default function MediaPickerDialog({
                 setItems(list);
             } catch (e: any) {
                 if (cancelled) return;
-                setError(e?.message || 'Failed to load media');
+                setError(e?.message || admin.t('admin.mediaPicker.errors.loadFailed', 'Failed to load media'));
                 setItems([]);
             } finally {
                 if (!cancelled) setLoading(false);
@@ -143,6 +145,11 @@ export default function MediaPickerDialog({
             return true;
         });
     }, [items, category, bucket]);
+
+    const countLabel = useMemo(() => {
+        const tmpl = admin.t('admin.mediaPicker.count', '{count} item(s)');
+        return tmpl.replace('{count}', String(filtered.length));
+    }, [admin, filtered.length]);
 
     // Prefetch thumbnails for the first 24 visible photos.
     useEffect(() => {
@@ -195,7 +202,7 @@ export default function MediaPickerDialog({
 
     const confirm = () => {
         if (!selected) {
-            setError('Select an item first.');
+            setError(admin.t('admin.mediaPicker.errors.selectFirst', 'Select an item first.'));
             return;
         }
         onSelect(selected);
@@ -204,16 +211,16 @@ export default function MediaPickerDialog({
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-            <DialogTitle>Select Media</DialogTitle>
+            <DialogTitle>{admin.t('admin.mediaPicker.title', 'Select Media')}</DialogTitle>
             <DialogContent sx={{ display: 'grid', gap: 2, pt: 2 }}>
                 {error ? <Alert severity="error">{error}</Alert> : null}
 
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                     <FormControl size="small" sx={{ minWidth: 220 }}>
-                        <InputLabel id="media-picker-category">Category</InputLabel>
+                        <InputLabel id="media-picker-category">{admin.t('admin.mediaPicker.fields.category', 'Category')}</InputLabel>
                         <Select
                             labelId="media-picker-category"
-                            label="Category"
+                            label={admin.t('admin.mediaPicker.fields.category', 'Category')}
                             value={category}
                             onChange={(e) => setCategory(e.target.value as any)}
                         >
@@ -226,10 +233,10 @@ export default function MediaPickerDialog({
                     </FormControl>
 
                     <FormControl size="small" sx={{ minWidth: 220 }}>
-                        <InputLabel id="media-picker-bucket">Bucket</InputLabel>
+                        <InputLabel id="media-picker-bucket">{admin.t('admin.mediaPicker.fields.bucket', 'Bucket')}</InputLabel>
                         <Select
                             labelId="media-picker-bucket"
-                            label="Bucket"
+                            label={admin.t('admin.mediaPicker.fields.bucket', 'Bucket')}
                             value={bucket}
                             onChange={(e) => setBucket(String(e.target.value))}
                         >
@@ -243,7 +250,8 @@ export default function MediaPickerDialog({
 
                     <Box sx={{ flex: 1 }} />
                     <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
-                        {loading ? 'Loading…' : `${filtered.length} item(s)`}
+                        {loading ? admin.t('admin.common.loading', 'Loading…') : admin.t('admin.mediaPicker.count', `${filtered.length} item(s)`)}
+                        {loading ? admin.t('admin.common.loading', 'Loading…') : countLabel}
                     </Typography>
                 </Box>
 
@@ -251,12 +259,12 @@ export default function MediaPickerDialog({
                     <Table size="small">
                         <TableHead>
                             <TableRow>
-                                <TableCell padding="checkbox">Select</TableCell>
-                                <TableCell>Preview</TableCell>
-                                <TableCell>Asset Key</TableCell>
-                                <TableCell>Title</TableCell>
-                                <TableCell>Category</TableCell>
-                                <TableCell>Bucket / Path</TableCell>
+                                <TableCell padding="checkbox">{admin.t('admin.mediaPicker.table.select', 'Select')}</TableCell>
+                                <TableCell>{admin.t('admin.mediaPicker.table.preview', 'Preview')}</TableCell>
+                                <TableCell>{admin.t('admin.mediaPicker.table.assetKey', 'Asset Key')}</TableCell>
+                                <TableCell>{admin.t('admin.mediaPicker.table.title', 'Title')}</TableCell>
+                                <TableCell>{admin.t('admin.mediaPicker.table.category', 'Category')}</TableCell>
+                                <TableCell>{admin.t('admin.mediaPicker.table.bucketPath', 'Bucket / Path')}</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -282,7 +290,7 @@ export default function MediaPickerDialog({
                                                 />
                                             ) : (
                                                 <Box component="span" sx={{ color: 'text.disabled' }}>
-                                                    —
+                                                    {admin.t('admin.common.none', '—')}
                                                 </Box>
                                             )}
                                         </TableCell>
@@ -303,7 +311,9 @@ export default function MediaPickerDialog({
                             {!loading && !filtered.length ? (
                                 <TableRow>
                                     <TableCell colSpan={6}>
-                                        <Typography color="text.secondary">No media matches your filters.</Typography>
+                                        <Typography color="text.secondary">
+                                            {admin.t('admin.mediaPicker.empty', 'No media matches your filters.')}
+                                        </Typography>
                                     </TableCell>
                                 </TableRow>
                             ) : null}
@@ -312,9 +322,9 @@ export default function MediaPickerDialog({
                 </Box>
             </DialogContent>
             <DialogActions>
-                <Button onClick={onClose}>Cancel</Button>
+                <Button onClick={onClose}>{admin.t('admin.common.cancel', 'Cancel')}</Button>
                 <Button variant="contained" onClick={confirm} disabled={!selectedKey}>
-                    Select
+                    {admin.t('admin.mediaPicker.actions.select', 'Select')}
                 </Button>
             </DialogActions>
         </Dialog>

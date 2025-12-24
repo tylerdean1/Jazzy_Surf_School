@@ -1,26 +1,47 @@
 "use client";
 
-import { useTranslations } from 'next-intl';
 import { Container, Typography, Box, List, ListItem, ListItemText } from '@mui/material';
 import { useLocale } from 'next-intl';
 import useCmsPageBody from '../../../hooks/useCmsPageBody';
 import CmsRichTextRenderer from '../../../components/CmsRichTextRenderer';
 import { isEmptyDoc } from '../../../lib/cmsRichText';
+import ContentBundleProvider, { useContentBundleContext } from '@/components/content/ContentBundleContext';
 
 export default function AboutJazPage() {
-    const t = useTranslations('about');
+    return (
+        <ContentBundleProvider prefix="about.">
+            <AboutInner />
+        </ContentBundleProvider>
+    );
+}
+
+function AboutInner() {
     const locale = useLocale();
     const cms = useCmsPageBody('about_jaz', locale);
     const hasCms = !cms.loading && !cms.error && !isEmptyDoc(cms.body);
-    const accolades = t.raw('accolades');
+
+    const ctx = useContentBundleContext();
+    const strings = ctx?.strings ?? {};
+    const tDb = (key: string, fallback: string) => {
+        const v = strings[key];
+        return typeof v === 'string' && v.trim().length > 0 ? v : fallback;
+    };
+
+    const accolades = [
+        tDb('about.accolades.0', '4x East Coast Champion'),
+        tDb('about.accolades.1', 'Pan-American Games 2nd Place'),
+        tDb('about.accolades.2', 'ISA World Surfing Games Competitor'),
+        tDb('about.accolades.3', 'Team Puerto Rico Member'),
+        tDb('about.accolades.4', 'Professional Surf Instructor'),
+    ].filter((s) => !!String(s).trim());
 
     return (
         <Container maxWidth="md" sx={{ py: 8 }}>
             <Typography variant="h2" gutterBottom color="#20B2AA">
-                {t('title')}
+                {tDb('about.title', 'About Jazmine Dean Perez')}
             </Typography>
             <Typography variant="h5" gutterBottom color="text.secondary">
-                {t('subtitle')}
+                {tDb('about.subtitle', 'Professional Surfer & Instructor')}
             </Typography>
 
             <Box sx={{ mt: 4 }}>
@@ -29,18 +50,21 @@ export default function AboutJazPage() {
                 ) : (
                     <>
                         <Typography variant="body1" paragraph sx={{ fontSize: '1.05rem', lineHeight: 1.7 }}>
-                            {t('bio')}
+                            {tDb(
+                                'about.bio',
+                                'Jazmine Dean is a professional surfer representing Team Puerto Rico with an impressive competitive record. Based in the world-renowned surf town of Rincón, she brings years of experience and passion to every lesson.'
+                            )}
                         </Typography>
 
                         <Typography variant="h5" gutterBottom color="#20B2AA" sx={{ mt: 4 }}>
-                            {t('achievements')}
+                            {tDb('about.achievements', 'Achievements')}
                         </Typography>
 
-                        {Array.isArray(accolades) ? (
+                        {accolades.length ? (
                             <List sx={{ pt: 0 }}>
-                                {accolades.map((item) => (
-                                    <ListItem key={String(item)} sx={{ py: 0.5 }}>
-                                        <ListItemText primary={String(item)} />
+                                {accolades.map((item, i) => (
+                                    <ListItem key={`${i}:${String(item)}`} sx={{ py: 0.5 }}>
+                                        <ListItemText primary={item} />
                                     </ListItem>
                                 ))}
                             </List>

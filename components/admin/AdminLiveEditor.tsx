@@ -11,6 +11,7 @@ import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import { AdminEditProvider } from '@/components/admin/edit/AdminEditContext';
+import useContentBundle from '@/hooks/useContentBundle';
 
 import { ADMIN_PAGES, type AdminPageKey } from './adminPages';
 
@@ -23,8 +24,10 @@ import ContactPage from '@/app/[locale]/contact/page';
 import GalleryPage from '@/app/[locale]/gallery/page';
 import AboutJazPage from '@/app/[locale]/about_jaz/page';
 import BookPage from '@/app/[locale]/book/page';
+import GalleryMediaSlotsEditor from '@/components/admin/GalleryMediaSlotsEditor';
 
 export default function AdminLiveEditor() {
+    const admin = useContentBundle('admin.');
     const searchParams = useSearchParams();
     const router = useRouter();
     const locale = useLocale();
@@ -56,7 +59,8 @@ export default function AdminLiveEditor() {
     }, [page]);
 
     if (!Component) {
-        return <Alert severity="error">Unknown page: {page}</Alert>;
+        const msg = admin.t('admin.liveEditor.unknownPage', 'Unknown page: {page}').replace('{page}', String(page));
+        return <Alert severity="error">{msg}</Alert>;
     }
 
     const onChangePage = (next: string) => {
@@ -80,10 +84,10 @@ export default function AdminLiveEditor() {
             <Box sx={{ mt: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                     <FormControl size="small" sx={{ minWidth: 260 }}>
-                        <InputLabel id="admin-edit-page-label">Page</InputLabel>
+                        <InputLabel id="admin-edit-page-label">{admin.t('admin.liveEditor.pageLabel', 'Page')}</InputLabel>
                         <Select
                             labelId="admin-edit-page-label"
-                            label="Page"
+                            label={admin.t('admin.liveEditor.pageLabel', 'Page')}
                             value={page}
                             onChange={(e) => onChangePage(String(e.target.value))}
                         >
@@ -95,6 +99,8 @@ export default function AdminLiveEditor() {
                         </Select>
                     </FormControl>
                 </Box>
+
+                {page === 'gallery' ? <GalleryMediaSlotsEditor /> : null}
 
                 <Box
                     onClickCapture={blockNavigationCapture}

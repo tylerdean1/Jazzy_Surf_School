@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useLocale } from 'next-intl';
 import { Card, CardContent, IconButton, Box, Typography } from '@mui/material';
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
+import { useCmsStringValue } from '@/hooks/useCmsStringValue';
 
 interface Props {
     name: string;
@@ -13,6 +14,11 @@ interface Props {
 
 export default function TeamCard({ name, images }: Props) {
     const [index, setIndex] = useState(0);
+
+    const noPhotosText = useCmsStringValue('team.card.noPhotos', 'No photos yet').value;
+    const browseHintText = useCmsStringValue('team.card.browseHint', 'Click the arrows to browse photos.').value;
+    const prevAria = useCmsStringValue('team.card.prevAria', 'previous').value;
+    const nextAria = useCmsStringValue('team.card.nextAria', 'next').value;
 
     const hasImages = images.length > 0;
     const prev = () => {
@@ -74,7 +80,7 @@ export default function TeamCard({ name, images }: Props) {
                             }}
                         >
                             <Typography variant="body2" color="text.secondary">
-                                No photos yet
+                                {noPhotosText}
                             </Typography>
                         </Box>
                     )}
@@ -82,7 +88,7 @@ export default function TeamCard({ name, images }: Props) {
 
                 {hasImages ? (
                     <IconButton
-                        aria-label="previous"
+                        aria-label={prevAria}
                         onClick={(e) => { e.stopPropagation(); prev(); }}
                         sx={{
                             position: 'absolute',
@@ -100,7 +106,7 @@ export default function TeamCard({ name, images }: Props) {
 
                 {hasImages ? (
                     <IconButton
-                        aria-label="next"
+                        aria-label={nextAria}
                         onClick={(e) => { e.stopPropagation(); next(); }}
                         sx={{
                             position: 'absolute',
@@ -118,7 +124,7 @@ export default function TeamCard({ name, images }: Props) {
             </Box>
 
             <CardContent>
-                <Typography variant="body1">Click the arrows to browse photos.</Typography>
+                <Typography variant="body1">{browseHintText}</Typography>
             </CardContent>
         </Card>
     );

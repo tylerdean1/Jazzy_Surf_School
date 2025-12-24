@@ -21,6 +21,7 @@ import {
 import Checkbox from '@mui/material/Checkbox';
 import ListItemText from '@mui/material/ListItemText';
 import { sendBookingNotification } from '@/lib/notifications';
+import { useCmsStringValue } from '@/hooks/useCmsStringValue';
 
 export type BookingData = {
   date: string; // yyyy-mm-dd
@@ -49,15 +50,54 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
     customerPhone: ''
   });
 
-  const steps = ['Choose Lesson', 'Select Date & Time', 'Customer Info'];
+  const stepChooseLesson = useCmsStringValue('booking.steps.chooseLesson', 'Choose Lesson').value;
+  const stepSelectDateTime = useCmsStringValue('booking.steps.selectDateTime', 'Select Date & Time').value;
+  const stepCustomerInfo = useCmsStringValue('booking.steps.customerInfo', 'Customer Info').value;
+  const steps = [stepChooseLesson, stepSelectDateTime, stepCustomerInfo];
+
+  const lessonTypeLabel = useCmsStringValue('booking.lessonTypeLabel', 'Lesson Type').value;
+  const partySizeLabel = useCmsStringValue('booking.partySizeLabel', 'Party Size').value;
+  const totalLabel = useCmsStringValue('booking.totalLabel', 'Total').value;
+  const totalBreakdownTemplate = useCmsStringValue('booking.totalBreakdown', '{count} person(s) × ${price}').value;
+
+  const step0Title = useCmsStringValue('booking.step0.title', 'Choose Your Lesson and Party Size').value;
+  const step1Title = useCmsStringValue('booking.step1.title', 'Select Your Preferred Date and Time').value;
+  const dateLabel = useCmsStringValue('booking.dateLabel', 'Date').value;
+  const timeLabel = useCmsStringValue('booking.timeLabel', 'Time').value;
+  const timeHelp = useCmsStringValue(
+    'booking.timeHelp',
+    'Pick one or more 30-minute time blocks that work for you; we will send these to the coach for confirmation.'
+  ).value;
+
+  const step2Title = useCmsStringValue('booking.step2.title', 'Customer Information').value;
+  const fullNameLabel = useCmsStringValue('booking.fullNameLabel', 'Full Name').value;
+  const emailLabel = useCmsStringValue('booking.emailLabel', 'Email Address').value;
+  const phoneLabel = useCmsStringValue('booking.phoneLabel', 'Phone Number').value;
+
+  const summaryTitle = useCmsStringValue('booking.summary.title', 'Booking Summary').value;
+  const summaryDateLabel = useCmsStringValue('booking.summary.dateLabel', 'Date').value;
+  const summaryTimeLabel = useCmsStringValue('booking.summary.timeLabel', 'Time').value;
+  const summaryLessonLabel = useCmsStringValue('booking.summary.lessonLabel', 'Lesson').value;
+  const summaryPartySizeLabel = useCmsStringValue('booking.summary.partySizeLabel', 'Party Size').value;
+
+  const backLabel = useCmsStringValue('booking.actions.back', 'Back').value;
+  const nextLabel = useCmsStringValue('booking.actions.next', 'Next').value;
+  const submitLabel = useCmsStringValue('booking.actions.submit', 'Submit Request').value;
+
+  const adminPhone = useCmsStringValue('booking.adminPhone', '939-525-0307').value;
+  const adminEmail = useCmsStringValue('booking.adminEmail', 'sunsetsurfacademy@gmail.com').value;
 
   type LessonType = { id: string; name: string; price: number };
 
   // Frontend-only placeholder data (no Supabase / no API dependency)
+  const lessonBeginnerName = useCmsStringValue('booking.lessonTypes.beginner', 'Beginner Lesson (2 hours)').value;
+  const lessonIntermediateName = useCmsStringValue('booking.lessonTypes.intermediate', 'Intermediate Lesson (2 hours)').value;
+  const lessonAdvancedName = useCmsStringValue('booking.lessonTypes.advanced', 'Advanced Coaching (2 hours)').value;
+
   const lessonTypes: LessonType[] = [
-    { id: 'beginner', name: 'Beginner Lesson (2 hours)', price: 100 },
-    { id: 'intermediate', name: 'Intermediate Lesson (2 hours)', price: 100 },
-    { id: 'advanced', name: 'Advanced Coaching (2 hours)', price: 100 }
+    { id: 'beginner', name: lessonBeginnerName, price: 100 },
+    { id: 'intermediate', name: lessonIntermediateName, price: 100 },
+    { id: 'advanced', name: lessonAdvancedName, price: 100 }
   ];
 
   // generate 30-minute slots from 07:00 to 15:30 (last slot ends at 16:00)
@@ -103,8 +143,8 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
       customerName: bookingData.customerName,
       customerEmail: bookingData.customerEmail,
       customerPhone: bookingData.customerPhone,
-      adminPhone: '939-525-0307',
-      adminEmail: 'sunsetsurfacademy@gmail.com'
+      adminPhone,
+      adminEmail
     };
 
     try {
@@ -150,16 +190,16 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
           {activeStep === 0 && (
             <Box>
               <Typography variant="h6" gutterBottom>
-                Choose Your Lesson and Party Size
+                {step0Title}
               </Typography>
 
               <Grid container spacing={3}>
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth>
-                    <InputLabel>Lesson Type</InputLabel>
+                    <InputLabel>{lessonTypeLabel}</InputLabel>
                     <Select
                       value={bookingData.lessonType}
-                      label="Lesson Type"
+                      label={lessonTypeLabel}
                       onChange={(e: any) => setBookingData({
                         ...bookingData,
                         lessonType: e.target.value
@@ -177,7 +217,7 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
-                    label="Party Size"
+                    label={partySizeLabel}
                     type="number"
                     value={bookingData.partySize}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBookingData({
@@ -191,10 +231,12 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
 
               <Paper sx={{ p: 3, mt: 3, backgroundColor: '#f5f5f5' }}>
                 <Typography variant="h6">
-                  Total: ${calculateTotal()}
+                  {totalLabel}: ${calculateTotal()}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {bookingData.partySize} person(s) × ${lessonTypes.find((lt: LessonType) => lt.id === bookingData.lessonType)?.price || 0}
+                  {String(totalBreakdownTemplate)
+                    .replace('{count}', String(bookingData.partySize))
+                    .replace('{price}', String(lessonTypes.find((lt: LessonType) => lt.id === bookingData.lessonType)?.price || 0))}
                 </Typography>
               </Paper>
             </Box>
@@ -203,14 +245,14 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
           {activeStep === 1 && (
             <Box>
               <Typography variant="h6" gutterBottom>
-                Select Your Preferred Date and Time
+                {step1Title}
               </Typography>
 
               <Grid container spacing={3} sx={{ mt: 1 }}>
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
-                    label="Date"
+                    label={dateLabel}
                     type="date"
                     value={bookingData.date}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
@@ -222,11 +264,11 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
 
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth>
-                    <InputLabel>Time</InputLabel>
+                    <InputLabel>{timeLabel}</InputLabel>
                     <Select
                       multiple
                       value={bookingData.timeSlots}
-                      label="Time"
+                      label={timeLabel}
                       onChange={(e: any) =>
                         setBookingData({ ...bookingData, timeSlots: typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value })
                       }
@@ -245,7 +287,7 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
               </Grid>
 
               <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-                Pick one or more 30-minute time blocks that work for you; we will send these to the coach for confirmation.
+                {timeHelp}
               </Typography>
             </Box>
           )}
@@ -253,14 +295,14 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
           {activeStep === 2 && (
             <Box>
               <Typography variant="h6" gutterBottom>
-                Customer Information
+                {step2Title}
               </Typography>
 
               <Grid container spacing={3}>
                 <Grid item xs={12}>
                   <TextField
                     fullWidth
-                    label="Full Name"
+                    label={fullNameLabel}
                     value={bookingData.customerName}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBookingData({
                       ...bookingData,
@@ -272,7 +314,7 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
-                    label="Email Address"
+                    label={emailLabel}
                     type="email"
                     value={bookingData.customerEmail}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBookingData({
@@ -285,7 +327,7 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
-                    label="Phone Number"
+                    label={phoneLabel}
                     value={bookingData.customerPhone}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBookingData({
                       ...bookingData,
@@ -297,22 +339,22 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
 
               <Paper sx={{ p: 3, mt: 3, backgroundColor: '#e8f5e8' }}>
                 <Typography variant="h6" gutterBottom>
-                  Booking Summary
+                  {summaryTitle}
                 </Typography>
                 <Typography variant="body1">
-                  <strong>Date:</strong> {bookingData.date}
+                  <strong>{summaryDateLabel}:</strong> {bookingData.date}
                 </Typography>
                 <Typography variant="body1">
-                  <strong>Time:</strong> {bookingData.timeSlots?.length ? bookingData.timeSlots.join(', ') : ''}
+                  <strong>{summaryTimeLabel}:</strong> {bookingData.timeSlots?.length ? bookingData.timeSlots.join(', ') : ''}
                 </Typography>
                 <Typography variant="body1">
-                  <strong>Lesson:</strong> {lessonTypes.find(lt => lt.id === bookingData.lessonType)?.name}
+                  <strong>{summaryLessonLabel}:</strong> {lessonTypes.find(lt => lt.id === bookingData.lessonType)?.name}
                 </Typography>
                 <Typography variant="body1">
-                  <strong>Party Size:</strong> {bookingData.partySize}
+                  <strong>{summaryPartySizeLabel}:</strong> {bookingData.partySize}
                 </Typography>
                 <Typography variant="h6" sx={{ mt: 2 }}>
-                  <strong>Total: ${calculateTotal()}</strong>
+                  <strong>{totalLabel}: ${calculateTotal()}</strong>
                 </Typography>
               </Paper>
             </Box>
@@ -323,7 +365,7 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
               disabled={activeStep === 0}
               onClick={handleBack}
             >
-              Back
+              {backLabel}
             </Button>
             <Button
               variant="contained"
@@ -334,7 +376,7 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
                 '&:hover': { backgroundColor: '#1A9A9A' }
               }}
             >
-              {activeStep === steps.length - 1 ? 'Submit Request' : 'Next'}
+              {activeStep === steps.length - 1 ? submitLabel : nextLabel}
             </Button>
           </Box>
         </CardContent>

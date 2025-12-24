@@ -1,6 +1,5 @@
 "use client";
 
-import { useTranslations } from 'next-intl';
 import { Container, Typography, Box, Grid, Card, CardContent } from '@mui/material';
 import TeamCard from '../../../components/TeamCard';
 import { useLocale } from 'next-intl';
@@ -8,6 +7,7 @@ import useCmsPageBody from '../../../hooks/useCmsPageBody';
 import CmsRichTextRenderer from '../../../components/CmsRichTextRenderer';
 import { isEmptyDoc } from '../../../lib/cmsRichText';
 import ContentBundleProvider, { useContentBundleContext } from '@/components/content/ContentBundleContext';
+import { useCmsStringValue } from '@/hooks/useCmsStringValue';
 
 export default function TeamPage() {
     return (
@@ -18,10 +18,20 @@ export default function TeamPage() {
 }
 
 function TeamInner() {
-    const t = useTranslations('team');
     const locale = useLocale();
     const cms = useCmsPageBody('team', locale);
     const hasCms = !cms.loading && !cms.error && !isEmptyDoc(cms.body);
+
+    const title = useCmsStringValue('team.title', 'Meet the Team').value;
+    const subtitle = useCmsStringValue('team.subtitle', 'Learn from some of the best surfers in the world.').value;
+    const intro = useCmsStringValue(
+        'team.intro',
+        'These are our top coaches who will take you to the next level in your surfing. Click on their profiles to learn a little about them!'
+    ).value;
+    const jazName = useCmsStringValue('team.jaz.name', 'Jazmine Dean Perez').value;
+    const moreTitle = useCmsStringValue('team.moreDetailsTitle', 'More team details').value;
+    const moreBody = useCmsStringValue('team.moreDetailsBody', 'More team details, bios, and highlights are coming soon.').value;
+    const logoAlt = useCmsStringValue('team.logoAlt', 'SSA logo').value;
 
     const ctx = useContentBundleContext();
     const media = ctx?.media || [];
@@ -36,10 +46,10 @@ function TeamInner() {
     return (
         <Container maxWidth="lg" sx={{ py: 8 }}>
             <Typography variant="h2" gutterBottom color="#20B2AA">
-                {t('title')}
+                {title}
             </Typography>
             <Typography variant="h5" gutterBottom color="text.secondary">
-                {t('subtitle')}
+                {subtitle}
             </Typography>
             {hasCms ? (
                 <Box sx={{ mt: 2 }}>
@@ -47,29 +57,29 @@ function TeamInner() {
                 </Box>
             ) : (
                 <Typography variant="body1" sx={{ fontSize: '1.05rem', lineHeight: 1.6 }}>
-                    {t('intro')}
+                    {intro}
                 </Typography>
             )}
             <Grid container spacing={4} sx={{ mt: 6 }}>
                 <Grid item xs={12} md={6}>
-                    <TeamCard name="Jazmine Dean Perez" images={images} />
+                    <TeamCard name={jazName} images={images} />
                 </Grid>
 
                 <Grid item xs={12} md={6}>
                     <Card sx={{ maxWidth: 700, mx: 'auto' }}>
                         <CardContent>
                             <Typography variant="h5" gutterBottom color="#20B2AA">
-                                More team details
+                                {moreTitle}
                             </Typography>
                             <Typography variant="body1" color="text.secondary" paragraph>
-                                More team details, bios, and highlights are coming soon.
+                                {moreBody}
                             </Typography>
                         </CardContent>
                         {teamLogo ? (
                             <Box
                                 component="img"
                                 src={teamLogo}
-                                alt="SSA logo"
+                                alt={logoAlt}
                                 sx={{ width: '100%', height: 240, objectFit: 'contain', background: 'hsl(var(--background))' }}
                             />
                         ) : null}

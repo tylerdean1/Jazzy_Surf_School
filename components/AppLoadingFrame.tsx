@@ -39,10 +39,10 @@ export default function AppLoadingFrame({
         <>
             <LoadingOverlay
                 appReady={appReady}
-                minMs={1000}
+                minMs={2000}
                 maxMs={8000}
-                title="Sunset Surf Academy"
-                subtitle="Loading…"
+                title={nav.t('nav.brandName', 'Sunset Surf Academy')}
+                subtitle={nav.t('nav.loading', 'Loading…')}
                 videoSrc="/loading_video.mp4"
             />
             {children}

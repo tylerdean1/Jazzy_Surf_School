@@ -1,4 +1,9 @@
 {
+  "common": {
+    "brandName": "Sunset Surf Academy",
+    "loading": "Loading…",
+    "logoAlt": "Sunset Surf Academy logo"
+  },
   "navigation": {
     "home": "Home",
     "lessons": "Lessons",
@@ -75,7 +80,8 @@
     "name": "Full Name",
     "email": "Email Address",
     "phone": "Phone Number",
-    "proceedToPayment": "Proceed to Payment"
+    "proceedToPayment": "Proceed to Payment",
+    "requestReceived": "Booking request received!"
   },
   "about": {
     "title": "About Jazmine Dean Perez",
@@ -135,11 +141,15 @@
     "title": "Contact Jazmine",
     "subtitle": "Ready to book or have questions? Get in touch!",
     "location": "Rincón, Puerto Rico",
-    "followUs": "Follow Us"
+    "followUs": "Follow Us",
+    "linksIntro": "Have questions or want to check our online presence? Check the links below.",
+    "logoAlt": "Sunset Surf Academy"
   },
   "team": {
     "title": "Meet the Team",
     "subtitle": "Learn from some of the best surfers in the world.",
-    "intro": "These are our top coaches who will take you to the next level in your surfing. Click on their profiles to learn a little about them!"
+    "intro": "These are our top coaches who will take you to the next level in your surfing. Click on their profiles to learn a little about them!",
+    "moreDetailsTitle": "More team details",
+    "moreDetailsBody": "More team details, bios, and highlights are coming soon."
   }
 }

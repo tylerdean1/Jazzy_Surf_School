@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useTranslations, useLocale } from 'next-intl';
+import { useLocale } from 'next-intl';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
@@ -25,7 +25,6 @@ import LanguageToggle from './LanguageToggle';
 import useContentBundle from '@/hooks/useContentBundle';
 
 const Navigation: React.FC = () => {
-  const t = useTranslations('navigation');
   const locale = useLocale();
   const pathname = usePathname();
   const router = useRouter();
@@ -37,6 +36,10 @@ const Navigation: React.FC = () => {
 
   const bundle = useContentBundle('nav.');
   const logoUrl = bundle.mediaByKey('nav.logo')?.url || '';
+
+  const brandName = bundle.t('nav.brandName', 'Sunset Surf Academy');
+  const logoAlt = bundle.t('nav.logoAlt', 'Sunset Surf Academy logo');
+  const openDrawerAria = bundle.t('nav.aria.openDrawer', 'open navigation');
 
   const onAdminPage = pathname === `/${locale}/admin`;
   const selectedAdminPage = searchParams.get('page') || 'home';
@@ -61,13 +64,13 @@ const Navigation: React.FC = () => {
   }, [onAdminPage]);
 
   const navItems = [
-    { key: 'home', href: `/${locale}` },
-    { key: 'lessons', href: `/${locale}/lessons` },
-    { key: 'schedule', href: `/${locale}/book` },
-    { key: 'gallery', href: `/${locale}/gallery` },
-    { key: 'about', href: `/${locale}/mission_statement` },
-    { key: 'faq', href: `/${locale}/faq` },
-    { key: 'contact', href: `/${locale}/contact` }
+    { key: 'home', href: `/${locale}`, label: bundle.t('nav.home', 'Home') },
+    { key: 'lessons', href: `/${locale}/lessons`, label: bundle.t('nav.lessons', 'Lessons') },
+    { key: 'schedule', href: `/${locale}/book`, label: bundle.t('nav.schedule', 'Book Now') },
+    { key: 'gallery', href: `/${locale}/gallery`, label: bundle.t('nav.gallery', 'Gallery') },
+    { key: 'about', href: `/${locale}/mission_statement`, label: bundle.t('nav.about', 'About') },
+    { key: 'faq', href: `/${locale}/faq`, label: bundle.t('nav.faq', 'FAQ') },
+    { key: 'contact', href: `/${locale}/contact`, label: bundle.t('nav.contact', 'Contact') }
   ];
 
   const handleDrawerToggle = () => {
@@ -77,14 +80,14 @@ const Navigation: React.FC = () => {
   const drawer = (
     <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center' }}>
       <Typography variant="h6" sx={{ my: 2, color: '#20B2AA' }}>
-        Sunset Surf Academy
+        {brandName}
       </Typography>
       <List>
         {navItems.map((item) => (
           <ListItem key={item.key} disablePadding>
             {onAdminPage && isAdmin ? (
               <ListItemText
-                primary={t(item.key)}
+                primary={item.label}
                 sx={{
                   textAlign: 'center',
                   py: 1,
@@ -99,7 +102,7 @@ const Navigation: React.FC = () => {
             ) : (
               <Link href={item.href} style={{ textDecoration: 'none', width: '100%' }}>
                 <ListItemText
-                  primary={t(item.key)}
+                  primary={item.label}
                   sx={{
                     textAlign: 'center',
                     py: 1,
@@ -141,13 +144,13 @@ const Navigation: React.FC = () => {
             sx={{ flexGrow: 1, fontWeight: 600 }}
           >
             {onAdminPage && isAdmin ? (
-              <span>Sunset Surf Academy</span>
+              <span>{brandName}</span>
             ) : (
               <Link
                 href={`/${locale}`}
                 style={{ textDecoration: 'none', color: 'inherit' }}
               >
-                Sunset Surf Academy
+                {brandName}
               </Link>
             )}
           </Typography>
@@ -158,7 +161,7 @@ const Navigation: React.FC = () => {
               {onAdminPage && isAdmin ? (
                 <Box sx={{ display: 'inline-flex', alignItems: 'center', marginLeft: '0.5rem', opacity: 0.85 }}>
                   {logoUrl ? (
-                    <Box component="img" src={logoUrl} alt="Surf School logo" sx={{ width: 40, height: 40, borderRadius: 1 }} />
+                    <Box component="img" src={logoUrl} alt={logoAlt} sx={{ width: 40, height: 40, borderRadius: 1 }} />
                   ) : null}
                 </Box>
               ) : (
@@ -167,13 +170,13 @@ const Navigation: React.FC = () => {
                   style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '0.5rem' }}
                 >
                   {logoUrl ? (
-                    <Box component="img" src={logoUrl} alt="Surf School logo" sx={{ width: 40, height: 40, borderRadius: 1 }} />
+                    <Box component="img" src={logoUrl} alt={logoAlt} sx={{ width: 40, height: 40, borderRadius: 1 }} />
                   ) : null}
                 </Link>
               )}
               <IconButton
                 color="inherit"
-                aria-label="open drawer"
+                aria-label={openDrawerAria}
                 edge="end"
                 onClick={handleDrawerToggle}
                 sx={{ ml: 1 }}
@@ -198,7 +201,7 @@ const Navigation: React.FC = () => {
                         opacity: 0.7,
                       }}
                     >
-                      {t(item.key)}
+                      {item.label}
                     </Button>
                   ) : (
                     <Link key={item.key} href={item.href} style={{ textDecoration: 'none' }}>
@@ -217,7 +220,7 @@ const Navigation: React.FC = () => {
                           transition: 'all 0.2s ease'
                         }}
                       >
-                        {t(item.key)}
+                        {item.label}
                       </Button>
                     </Link>
                   )

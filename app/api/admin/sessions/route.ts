@@ -38,8 +38,8 @@ export async function GET(req: Request) {
 
     const supabase = getSupabaseAdmin();
 
-    const args = includeDeleted ? ({ include_deleted: true } as any) : ({} as any);
-    const { data, error } = await supabase.rpc('admin_list_sessions', args);
+    // Always pass include_deleted to disambiguate overloaded RPC signatures.
+    const { data, error } = await supabase.rpc('admin_list_sessions', { include_deleted: includeDeleted } as any);
 
     if (error) {
         return NextResponse.json({ ok: false, message: error.message }, { status: 500 });

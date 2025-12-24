@@ -1,5 +1,4 @@
 "use client";
-import { useTranslations } from 'next-intl';
 import { useLocale } from 'next-intl';
 import Hero from '../../components/Hero';
 import { Container, Grid, Card, CardContent, Typography, Box } from '@mui/material';
@@ -8,6 +7,7 @@ import Link from 'next/link';
 import EditableInlineText from '@/components/admin/edit/EditableInlineText';
 import ContentBundleProvider from '@/components/content/ContentBundleContext';
 import { useContentBundleContext } from '@/components/content/ContentBundleContext';
+import { useCmsStringValue } from '@/hooks/useCmsStringValue';
 
 const TARGET_AUDIENCE_FALLBACK_IMAGES: string[] = [];
 
@@ -20,7 +20,6 @@ export default function HomePage() {
 }
 
 function HomeInner() {
-  const t = useTranslations('home');
   const locale = useLocale();
   const ctx = useContentBundleContext();
   const strings = ctx?.strings || {};
@@ -49,14 +48,16 @@ function HomeInner() {
   const heroBg = mediaByKey('home.hero')?.url || '';
   const teamCardImage = mediaByKey('home.cards.team.image')?.url || '';
 
+  const teamImageAlt = useCmsStringValue('home.cards.team.imageAlt', 'Meet the team').value;
+
   return (
     <>
       <Hero
-        title={tDb('home.heroTitle', t('heroTitle'))}
-        subtitle={tDb('home.heroSubtitle', t('heroSubtitle'))}
+        title={tDb('home.hero.title', 'Learn to Surf at Sunset Surf Academy')}
+        subtitle={tDb('home.hero.subtitle', 'Professional surf instruction in the beautiful waters of Rincón, Puerto Rico')}
         backgroundUrl={heroBg || undefined}
-        primaryAction={t('bookNow')}
-        secondaryAction={t('learnMore')}
+        primaryAction={tDb('home.hero.primaryAction', 'Book Your Lesson')}
+        secondaryAction={tDb('home.hero.secondaryAction', 'Learn More')}
         primaryHref={`/${locale}/book`}
         secondaryHref={`/${locale}/mission_statement`}
         cmsKeyBase="home.hero"
@@ -65,7 +66,7 @@ function HomeInner() {
       <Container maxWidth="lg" sx={{ py: 8 }}>
         <Box textAlign="center" sx={{ mb: 6 }}>
           <Typography variant="h3" gutterBottom color="#20B2AA">
-            <EditableInlineText cmsKey="home.aboutPreview" fallback={t('aboutPreview')}>
+            <EditableInlineText cmsKey="home.aboutPreview" fallback={'Learn from some of the best surfers in the world.'}>
               {(v) => <>{v}</>}
             </EditableInlineText>
           </Typography>
@@ -93,12 +94,12 @@ function HomeInner() {
                     />
                   </Box>
                   <Typography variant="h5" gutterBottom color="#20B2AA">
-                    <EditableInlineText cmsKey="home.cards.lessons.title" fallback={t('lessonsTitle')}>
+                    <EditableInlineText cmsKey="home.cards.lessons.title" fallback={'Surf Lessons'}>
                       {(v) => <>{v}</>}
                     </EditableInlineText>
                   </Typography>
                   <Typography variant="body1">
-                    <EditableInlineText cmsKey="home.cards.lessons.description" fallback={t('lessonsDescription')} multiline fullWidth>
+                    <EditableInlineText cmsKey="home.cards.lessons.description" fallback={'From beginner-friendly sessions to advanced coaching'} multiline fullWidth>
                       {(v) => <>{v}</>}
                     </EditableInlineText>
                   </Typography>
@@ -124,12 +125,12 @@ function HomeInner() {
                     <GalleryCarousel images={galleryCardImages} mode="ordered" />
                   </Box>
                   <Typography variant="h5" gutterBottom color="#20B2AA">
-                    <EditableInlineText cmsKey="home.cards.gallery.title" fallback={t('galleryTitle')}>
+                    <EditableInlineText cmsKey="home.cards.gallery.title" fallback={'Experience the Journey'}>
                       {(v) => <>{v}</>}
                     </EditableInlineText>
                   </Typography>
                   <Typography variant="body1">
-                    <EditableInlineText cmsKey="home.cards.gallery.description" fallback={t('galleryDescription')} multiline fullWidth>
+                    <EditableInlineText cmsKey="home.cards.gallery.description" fallback={'Watch videos and see photos from our surf adventures'} multiline fullWidth>
                       {(v) => <>{v}</>}
                     </EditableInlineText>
                   </Typography>
@@ -162,18 +163,18 @@ function HomeInner() {
                         mb: 3
                       }}
                       src={teamCardImage}
-                      alt="Meet the team"
+                      alt={teamImageAlt}
                     />
                   ) : (
                     <Box sx={{ height: 200, borderRadius: 2, mb: 3, background: 'hsl(var(--background))' }} />
                   )}
                   <Typography variant="h5" gutterBottom color="#20B2AA">
-                    <EditableInlineText cmsKey="home.cards.team.title" fallback={t('teamTitle')}>
+                    <EditableInlineText cmsKey="home.cards.team.title" fallback={'Meet the Team'}>
                       {(v) => <>{v}</>}
                     </EditableInlineText>
                   </Typography>
                   <Typography variant="body1">
-                    <EditableInlineText cmsKey="home.cards.team.description" fallback={t('teamDescription')} multiline fullWidth>
+                    <EditableInlineText cmsKey="home.cards.team.description" fallback={'Get to know the coaches who make Sunset Surf Academy special'} multiline fullWidth>
                       {(v) => <>{v}</>}
                     </EditableInlineText>
                   </Typography>

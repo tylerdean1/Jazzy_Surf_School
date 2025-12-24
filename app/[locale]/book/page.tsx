@@ -1,16 +1,27 @@
 'use client';
 
 import { useState } from 'react';
-import { useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { Container, Typography, Box, Alert } from '@mui/material';
 import BookingCalendar, { type BookingData } from '../../../components/BookingCalendar';
+import ContentBundleProvider from '@/components/content/ContentBundleContext';
+import { useCmsStringValue } from '@/hooks/useCmsStringValue';
 
 export default function BookPage() {
-  const t = useTranslations('booking');
+  return (
+    <ContentBundleProvider prefix="booking.">
+      <BookInner />
+    </ContentBundleProvider>
+  );
+}
+
+function BookInner() {
   const searchParams = useSearchParams();
   const [bookingComplete, setBookingComplete] = useState(false);
   const initialLessonTypeId = searchParams.get('lesson') || undefined;
+
+  const title = useCmsStringValue('booking.title', 'Book Your Lesson').value;
+  const requestReceived = useCmsStringValue('booking.requestReceived', 'Booking request received!').value;
 
   const handleBookingComplete = (booking: BookingData) => {
     console.log('Booking completed:', booking);
@@ -22,13 +33,13 @@ export default function BookPage() {
     <Container maxWidth="lg" sx={{ py: 8 }}>
       <Box textAlign="center" sx={{ mb: 6 }}>
         <Typography variant="h2" gutterBottom color="#20B2AA">
-          {t('title')}
+          {title}
         </Typography>
       </Box>
 
       {bookingComplete ? (
         <Alert severity="success" sx={{ mb: 4 }}>
-          Booking request received!
+          {requestReceived}
         </Alert>
       ) : (
         <BookingCalendar onBookingComplete={handleBookingComplete} initialLessonTypeId={initialLessonTypeId} />

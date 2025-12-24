@@ -17,6 +17,7 @@ import { useAdminEdit } from './AdminEditContext';
 import { publishCmsSpanish } from '@/hooks/useCmsStringValue';
 import { RichTextEditor, RichTextRenderer } from '@/components/admin/RichText';
 import { docToPlainText, plainTextToDocJson } from '@/lib/cmsRichText';
+import useContentBundle from '@/hooks/useContentBundle';
 
 async function saveRich(pageKey: string, locale: string, json: string) {
     const payload: any = { op: 'save', page_key: pageKey };
@@ -44,6 +45,7 @@ export default function EditableRichTextBlock({
 }) {
     const { enabled } = useAdminEdit();
     const locale = useLocale();
+    const admin = useContentBundle('admin.');
 
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState('');
@@ -84,7 +86,7 @@ export default function EditableRichTextBlock({
 
             setEditing(false);
         } catch (e: any) {
-            setError(e?.message || 'Save failed');
+            setError(e?.message || admin.t('admin.edit.errors.saveFailed', 'Save failed'));
         } finally {
             setSaving(false);
         }
@@ -96,7 +98,7 @@ export default function EditableRichTextBlock({
         try {
             const sourceText = docToPlainText(draft);
             if (!sourceText.trim()) {
-                setTranslateError('Nothing to translate yet.');
+                setTranslateError(admin.t('admin.edit.translate.nothingToTranslate', 'Nothing to translate yet.'));
                 return;
             }
 
@@ -114,7 +116,7 @@ export default function EditableRichTextBlock({
             setSpanishDraft(plainTextToDocJson(translated));
             setShowSpanishDraft(true);
         } catch (e: any) {
-            setTranslateError(e?.message || 'Translate failed');
+            setTranslateError(e?.message || admin.t('admin.edit.translate.failed', 'Translate failed'));
         } finally {
             setTranslating(false);
         }
@@ -126,7 +128,7 @@ export default function EditableRichTextBlock({
         try {
             await publishCmsSpanish(cmsKey);
         } catch (e: any) {
-            setError(e?.message || 'Publish failed');
+            setError(e?.message || admin.t('admin.edit.errors.publishFailed', 'Publish failed'));
         } finally {
             setSaving(false);
         }
@@ -151,7 +153,11 @@ export default function EditableRichTextBlock({
                 }}
             >
                 {error ? <Alert severity="error">{error}</Alert> : null}
-                <RichTextEditor label={emptyPlaceholder || 'Content'} value={draft} onChange={setDraft} />
+                <RichTextEditor
+                    label={emptyPlaceholder || admin.t('admin.edit.richText.contentLabel', 'Content')}
+                    value={draft}
+                    onChange={setDraft}
+                />
 
                 {locale !== 'es' ? (
                     <Box sx={{ display: 'grid', gap: 1 }}>
@@ -163,13 +169,15 @@ export default function EditableRichTextBlock({
                                 disabled={saving || translating}
                                 startIcon={<Translate />}
                             >
-                                {translating ? 'Translating…' : 'Translate to Spanish'}
+                                {translating
+                                    ? admin.t('admin.edit.translate.translating', 'Translating…')
+                                    : admin.t('admin.edit.translate.action', 'Translate to Spanish')}
                             </Button>
                         </Box>
 
                         {showSpanishDraft ? (
                             <RichTextEditor
-                                label="Spanish (draft)"
+                                label={admin.t('admin.edit.translate.spanishDraftLabel', 'Spanish (draft)')}
                                 value={spanishDraft}
                                 onChange={setSpanishDraft}
                             />
@@ -180,14 +188,14 @@ export default function EditableRichTextBlock({
                 <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                     {canPublish ? (
                         <Button variant="outlined" onClick={publish} disabled={saving} startIcon={<Upload />}>
-                            Publish
+                            {admin.t('admin.common.publish', 'Publish')}
                         </Button>
                     ) : null}
                     <Button variant="outlined" onClick={cancelEdit} disabled={saving} startIcon={<Close />}>
-                        Cancel
+                        {admin.t('admin.common.cancel', 'Cancel')}
                     </Button>
                     <Button variant="contained" onClick={save} disabled={saving} startIcon={<Check />}>
-                        Save
+                        {admin.t('admin.common.save', 'Save')}
                     </Button>
                 </Box>
             </Paper>
@@ -197,7 +205,7 @@ export default function EditableRichTextBlock({
     return (
         <Box sx={{ position: 'relative' }}>
             {value ? <RichTextRenderer json={value} /> : null}
-            <Tooltip title="Edit">
+            <Tooltip title={admin.t('admin.common.edit', 'Edit')}>
                 <IconButton
                     size="small"
                     onClick={startEdit}

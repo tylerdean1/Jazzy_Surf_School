@@ -1,6 +1,6 @@
 "use client";
 
-import { useLocale, useTranslations } from 'next-intl';
+import { useLocale } from 'next-intl';
 import { Container, Typography, Grid, Box } from '@mui/material';
 import LessonCard from '../../../components/LessonCard';
 import useCmsPageBody from '../../../hooks/useCmsPageBody';
@@ -10,6 +10,7 @@ import { useAdminEdit } from '@/components/admin/edit/AdminEditContext';
 import EditableRichTextBlock from '@/components/admin/edit/EditableRichTextBlock';
 import EditableInlineText from '@/components/admin/edit/EditableInlineText';
 import ContentBundleProvider, { useContentBundleContext } from '@/components/content/ContentBundleContext';
+import { useCmsStringValue } from '@/hooks/useCmsStringValue';
 
 export default function LessonsPage() {
   return (
@@ -20,24 +21,29 @@ export default function LessonsPage() {
 }
 
 function LessonsInner() {
-  const t = useTranslations('lessons');
   const locale = useLocale();
   const { enabled: adminEdit } = useAdminEdit();
   const cms = useCmsPageBody('lessons', locale);
   const hasCms = !cms.loading && !cms.error && !isEmptyDoc(cms.body);
   const ctx = useContentBundleContext();
   const pricesUrl = (ctx?.media || []).find((m) => m?.slot_key === 'lessons.prices')?.url || '';
+  const pricesAlt = useCmsStringValue('lessons.pricesAlt', 'Prices').value;
 
   return (
     <Container maxWidth="lg" sx={{ py: 8 }}>
       <Box textAlign="center" sx={{ mb: 6 }}>
         <Typography variant="h2" gutterBottom color="#20B2AA">
-          <EditableInlineText cmsKey="lessons.title" fallback={t('title')}>
+          <EditableInlineText cmsKey="lessons.title" fallback={'Surf Lessons'}>
             {(v) => <>{v}</>}
           </EditableInlineText>
         </Typography>
         <Typography variant="h5" color="text.secondary">
-          <EditableInlineText cmsKey="lessons.subtitle" fallback={t('subtitle')} multiline fullWidth>
+          <EditableInlineText
+            cmsKey="lessons.subtitle"
+            fallback={'Professional instruction tailored to your skill level'}
+            multiline
+            fullWidth
+          >
             {(v) => <>{v}</>}
           </EditableInlineText>
         </Typography>
@@ -50,7 +56,7 @@ function LessonsInner() {
         {/* Main prices image */}
         <Box sx={{ mt: 4 }}>
           {pricesUrl ? (
-            <Box component="img" src={pricesUrl} alt="Prices" sx={{ width: '100%', height: 'auto', maxHeight: 600, objectFit: 'contain', borderRadius: 1 }} />
+            <Box component="img" src={pricesUrl} alt={pricesAlt} sx={{ width: '100%', height: 'auto', maxHeight: 600, objectFit: 'contain', borderRadius: 1 }} />
           ) : null}
 
           {/* Photo bar removed per request */}
@@ -60,16 +66,16 @@ function LessonsInner() {
       <Grid container spacing={4} justifyContent="center">
         <Grid item xs={12} md={4}>
           <LessonCard
-            title={t('beginner.title')}
-            price={t('beginner.price')}
-            duration={t('beginner.duration')}
-            location={t('beginner.location')}
-            description={t('beginner.description')}
+            title={'Lessons'}
+            price={'$100'}
+            duration={'2 hours'}
+            location={'Rincón to Isabela/Jobos'}
+            description={'The beginner lessons teach the fundamentals of surfing.'}
             includes={[
-              t('beginner.includes.0'),
-              t('beginner.includes.1'),
-              t('beginner.includes.2'),
-              t('beginner.includes.3')
+              'Surfboard rental',
+              'Safety briefing',
+              'Personalized beach & water coaching',
+              'Photos of your session'
             ]}
             cmsKeyBase="lessons.beginner"
             bookLessonTypeId="beginner"
@@ -78,16 +84,16 @@ function LessonsInner() {
 
         <Grid item xs={12} md={4}>
           <LessonCard
-            title={t('intermediate.title')}
-            price={t('intermediate.price')}
-            duration={t('intermediate.duration')}
-            location={t('intermediate.location')}
-            description={t('intermediate.description')}
+            title={'Advanced Coaching'}
+            price={'$100'}
+            duration={'2 hours'}
+            location={'Rincón to Isabela/Jobos'}
+            description={'Intermediate lessons teach how to read waves, interact in any lineup, and gain practical skills to surf more confidently.'}
             includes={[
-              t('intermediate.includes.0'),
-              t('intermediate.includes.1'),
-              t('intermediate.includes.2'),
-              t('intermediate.includes.3')
+              'Surfboard rental',
+              'Wave reading & lineup etiquette',
+              'Skills development',
+              'Photos and short video clips'
             ]}
             cmsKeyBase="lessons.intermediate"
             bookLessonTypeId="intermediate"
@@ -96,16 +102,16 @@ function LessonsInner() {
 
         <Grid item xs={12} md={4}>
           <LessonCard
-            title={t('advanced.title')}
-            price={t('advanced.price')}
-            duration={t('advanced.duration')}
-            location={t('advanced.location')}
-            description={t('advanced.description')}
+            title={'Surf Guide'}
+            price={'$100'}
+            duration={'2 hours'}
+            location={'Various locations'}
+            description={'Advanced lessons cover advanced skills, video analysis, competition preparation, and custom programs.'}
             includes={[
-              t('advanced.includes.0'),
-              t('advanced.includes.1'),
-              t('advanced.includes.2'),
-              t('advanced.includes.3')
+              'Video review',
+              'Technique analysis',
+              'Competition prep',
+              'Custom programs'
             ]}
             cmsKeyBase="lessons.advanced"
             bookLessonTypeId="advanced"

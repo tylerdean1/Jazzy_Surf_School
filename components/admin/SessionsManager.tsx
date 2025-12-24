@@ -17,6 +17,7 @@ import {
     Typography,
 } from '@mui/material';
 import type { Database } from '@/lib/database.types';
+import useContentBundle from '@/hooks/useContentBundle';
 
 type SessionRow = Database['public']['Tables']['sessions']['Row'];
 
@@ -63,6 +64,7 @@ async function adminFetch(path: string, init?: RequestInit) {
 }
 
 export default function SessionsManager() {
+    const admin = useContentBundle('admin.');
     const [includeDeleted, setIncludeDeleted] = useState(false);
     const [items, setItems] = useState<SessionRow[]>([]);
     const [loading, setLoading] = useState(true);
@@ -73,6 +75,21 @@ export default function SessionsManager() {
     const [newGroupSize, setNewGroupSize] = useState<number>(1);
     const [newSessionTime, setNewSessionTime] = useState('');
 
+    const statusLabel = (st: LessonStatus) => {
+        const key = `admin.sessions.status.${st}`;
+        const fallback =
+            st === 'booked'
+                ? 'Booked'
+                : st === 'completed'
+                    ? 'Completed'
+                    : st === 'canceled_with_refund'
+                        ? 'Canceled (with refund)'
+                        : st === 'canceled_without_refund'
+                            ? 'Canceled (without refund)'
+                            : st;
+        return admin.t(key, fallback);
+    };
+
     const refresh = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -81,7 +98,7 @@ export default function SessionsManager() {
             const data = await adminFetch(`/api/admin/sessions${q}`);
             setItems((data.items || []) as SessionRow[]);
         } catch (e: any) {
-            setError(e?.message || 'Failed to load sessions');
+            setError(e?.message || admin.t('admin.sessions.errors.loadFailed', 'Failed to load sessions'));
         } finally {
             setLoading(false);
         }
@@ -119,7 +136,7 @@ export default function SessionsManager() {
             setNewSessionTime('');
             await refresh();
         } catch (e: any) {
-            setError(e?.message || 'Failed to create session');
+            setError(e?.message || admin.t('admin.sessions.errors.createFailed', 'Failed to create session'));
         } finally {
             setBusyId(null);
         }
@@ -143,7 +160,7 @@ export default function SessionsManager() {
             });
             await refresh();
         } catch (e: any) {
-            setError(e?.message || 'Failed to update session');
+            setError(e?.message || admin.t('admin.sessions.errors.updateFailed', 'Failed to update session'));
         } finally {
             setBusyId(null);
         }
@@ -159,7 +176,7 @@ export default function SessionsManager() {
             });
             await refresh();
         } catch (e: any) {
-            setError(e?.message || 'Operation failed');
+            setError(e?.message || admin.t('admin.sessions.errors.operationFailed', 'Operation failed'));
         } finally {
             setBusyId(null);
         }
@@ -168,10 +185,13 @@ export default function SessionsManager() {
     return (
         <Box>
             <Typography variant="h6" sx={{ mb: 1 }}>
-                Sessions
+                {admin.t('admin.sessions.title', 'Sessions')}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Uses existing `admin_*_session` RPCs. Deleted sessions are soft-deleted via `deleted_at`.
+                {admin.t(
+                    'admin.sessions.subtitle',
+                    'Uses existing `admin_*_session` RPCs. Deleted sessions are soft-deleted via `deleted_at`.'
+                )}
             </Typography>
 
             {error ? (
@@ -183,12 +203,12 @@ export default function SessionsManager() {
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 3 }}>
                 <TextField
                     fullWidth
-                    label="Client names (comma-separated)"
+                    label={admin.t('admin.sessions.create.clientNamesLabel', 'Client names (comma-separated)')}
                     value={newClientNames}
                     onChange={(e) => setNewClientNames(e.target.value)}
                 />
                 <TextField
-                    label="Group size"
+                    label={admin.t('admin.sessions.create.groupSizeLabel', 'Group size')}
                     type="number"
                     value={newGroupSize}
                     onChange={(e) => setNewGroupSize(Number(e.target.value))}
@@ -196,7 +216,7 @@ export default function SessionsManager() {
                     sx={{ width: 140 }}
                 />
                 <TextField
-                    label="Session time"
+                    label={admin.t('admin.sessions.create.sessionTimeLabel', 'Session time')}
                     type="datetime-local"
                     value={newSessionTime}
                     onChange={(e) => setNewSessionTime(e.target.value)}
@@ -208,27 +228,29 @@ export default function SessionsManager() {
                     onClick={createSession}
                     disabled={busyId === 'create' || !newClientNames.trim() || !newSessionTime}
                 >
-                    {busyId === 'create' ? 'Creating…' : 'Create'}
+                    {busyId === 'create'
+                        ? admin.t('admin.sessions.create.creating', 'Creating…')
+                        : admin.t('admin.sessions.create.create', 'Create')}
                 </Button>
             </Stack>
 
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <FormControlLabel
                     control={<Checkbox checked={includeDeleted} onChange={(e) => setIncludeDeleted(e.target.checked)} />}
-                    label="Include deleted"
+                    label={admin.t('admin.sessions.includeDeleted', 'Include deleted')}
                 />
                 <Button variant="outlined" onClick={refresh} disabled={loading}>
-                    Refresh
+                    {admin.t('admin.common.refresh', 'Refresh')}
                 </Button>
             </Box>
 
             {loading ? (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2 }}>
                     <CircularProgress size={22} />
-                    <Typography>Loading…</Typography>
+                    <Typography>{admin.t('admin.common.loading', 'Loading…')}</Typography>
                 </Box>
             ) : sorted.length === 0 ? (
-                <Alert severity="info">No sessions found.</Alert>
+                <Alert severity="info">{admin.t('admin.sessions.empty', 'No sessions found.')}</Alert>
             ) : (
                 <Stack spacing={2}>
                     {sorted.map((s) => {
@@ -248,15 +270,17 @@ export default function SessionsManager() {
                             >
                                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }}>
                                     <Box sx={{ flex: 1, minWidth: 260 }}>
-                                        <Typography sx={{ fontWeight: 600 }}>{(s.client_names || []).join(', ') || '—'}</Typography>
+                                        <Typography sx={{ fontWeight: 600 }}>
+                                            {(s.client_names || []).join(', ') || admin.t('admin.common.none', '—')}
+                                        </Typography>
                                         <Typography variant="body2" color="text.secondary">
                                             {formatDateTime(s.session_time)}
-                                            {isDeleted ? ' • Deleted' : ''}
+                                            {isDeleted ? admin.t('admin.sessions.deletedMarker', ' • Deleted') : ''}
                                         </Typography>
                                     </Box>
 
                                     <TextField
-                                        label="Group"
+                                        label={admin.t('admin.sessions.fields.group', 'Group')}
                                         type="number"
                                         value={s.group_size ?? 1}
                                         onChange={(e) => updateSession(s.id, { group_size: Number(e.target.value) || 1 })}
@@ -266,7 +290,7 @@ export default function SessionsManager() {
                                     />
 
                                     <TextField
-                                        label="Paid"
+                                        label={admin.t('admin.sessions.fields.paid', 'Paid')}
                                         type="number"
                                         value={s.paid ?? 0}
                                         onChange={(e) => updateSession(s.id, { paid: Number(e.target.value) || 0 })}
@@ -275,7 +299,7 @@ export default function SessionsManager() {
                                     />
 
                                     <TextField
-                                        label="Tip"
+                                        label={admin.t('admin.sessions.fields.tip', 'Tip')}
                                         type="number"
                                         value={s.tip ?? 0}
                                         onChange={(e) => updateSession(s.id, { tip: Number(e.target.value) || 0 })}
@@ -284,23 +308,23 @@ export default function SessionsManager() {
                                     />
 
                                     <FormControl sx={{ width: 240 }} disabled={busy}>
-                                        <InputLabel id={`status-${s.id}`}>Status</InputLabel>
+                                        <InputLabel id={`status-${s.id}`}>{admin.t('admin.sessions.fields.status', 'Status')}</InputLabel>
                                         <Select
                                             labelId={`status-${s.id}`}
-                                            label="Status"
+                                            label={admin.t('admin.sessions.fields.status', 'Status')}
                                             value={s.lesson_status || 'booked'}
                                             onChange={(e) => updateSession(s.id, { lesson_status: e.target.value as LessonStatus })}
                                         >
                                             {STATUSES.map((st) => (
                                                 <MenuItem key={st} value={st}>
-                                                    {st}
+                                                    {statusLabel(st)}
                                                 </MenuItem>
                                             ))}
                                         </Select>
                                     </FormControl>
 
                                     <TextField
-                                        label="Time"
+                                        label={admin.t('admin.sessions.fields.time', 'Time')}
                                         type="datetime-local"
                                         value={toDatetimeLocal(s.session_time)}
                                         onChange={(e) =>
@@ -317,7 +341,7 @@ export default function SessionsManager() {
                                         {isDeleted ? (
                                             <>
                                                 <Button variant="outlined" onClick={() => op(s.id, 'restore')} disabled={busy}>
-                                                    Restore
+                                                    {admin.t('admin.sessions.actions.restore', 'Restore')}
                                                 </Button>
                                                 <Button
                                                     variant="outlined"
@@ -325,12 +349,12 @@ export default function SessionsManager() {
                                                     onClick={() => op(s.id, 'hard_delete')}
                                                     disabled={busy}
                                                 >
-                                                    Hard delete
+                                                    {admin.t('admin.sessions.actions.hardDelete', 'Hard delete')}
                                                 </Button>
                                             </>
                                         ) : (
                                             <Button variant="outlined" color="error" onClick={() => op(s.id, 'soft_delete')} disabled={busy}>
-                                                Delete
+                                                {admin.t('admin.sessions.actions.delete', 'Delete')}
                                             </Button>
                                         )}
                                     </Stack>
