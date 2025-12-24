@@ -374,7 +374,7 @@ $$;
 
 CREATE FUNCTION public.admin_delete_page_content(p_page_key text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    SET search_path TO 'public'
     AS $$
 begin
   if not public.is_admin() then
@@ -450,7 +450,6 @@ CREATE TABLE public.media_assets (
     asset_type public.asset_type DEFAULT 'photo'::public.asset_type NOT NULL,
     sort smallint DEFAULT 32767 NOT NULL,
     category public.photo_category DEFAULT 'uncategorized'::public.photo_category NOT NULL,
-    asset_key text,
     CONSTRAINT media_assets_bucket_not_empty CHECK ((length(TRIM(BOTH FROM bucket)) > 0)),
     CONSTRAINT media_assets_path_not_empty CHECK ((length(TRIM(BOTH FROM path)) > 0)),
     CONSTRAINT media_assets_sort_check CHECK (((sort >= '-32768'::integer) AND (sort <= 32767))),
@@ -515,18 +514,12 @@ COMMENT ON COLUMN public.media_assets.category IS 'What category does this fall 
 
 
 --
--- Name: COLUMN media_assets.asset_key; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.media_assets.asset_key IS 'Stable frontend pointer. Use exact keys for single assets (e.g., home.hero) and prefix namespaces for streams (e.g., home.photo_stream.001).';
-
-
---
 -- Name: admin_list_media_assets(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.admin_list_media_assets() RETURNS SETOF public.media_assets
     LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
     AS $$
 begin
   if not public.is_admin() then
@@ -596,7 +589,7 @@ $$;
 
 CREATE FUNCTION public.admin_publish_es(p_page_key text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    SET search_path TO 'public'
     AS $$
 begin
   if not public.is_admin() then
@@ -801,7 +794,7 @@ $$;
 
 CREATE FUNCTION public.admin_upsert_page_content(p_page_key text, p_body_en text DEFAULT NULL::text, p_body_es_draft text DEFAULT NULL::text, p_body_es_published text DEFAULT NULL::text, p_approved boolean DEFAULT NULL::boolean, p_sort smallint DEFAULT NULL::smallint, p_category text DEFAULT NULL::text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    SET search_path TO 'public'
     AS $$
 begin
   if not public.is_admin() then
@@ -849,7 +842,7 @@ $$;
 
 CREATE FUNCTION public.get_page_content(p_page_key text, p_locale text DEFAULT 'en'::text) RETURNS TABLE(page_key text, locale text, body text, updated_at timestamp with time zone)
     LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'public', 'pg_temp'
+    SET search_path TO 'public'
     AS $$
 declare
   v_row public.cms_page_content%rowtype;
@@ -889,15 +882,29 @@ $$;
 -- Name: get_public_media_asset_by_key(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_public_media_asset_by_key(p_asset_key text) RETURNS SETOF public.media_assets
+CREATE FUNCTION public.get_public_media_asset_by_key(p_slot_key text) RETURNS TABLE(slot_key text, sort smallint, id uuid, title text, description text, created_at timestamp with time zone, updated_at timestamp with time zone, public boolean, bucket text, path text, session_id uuid, asset_type public.asset_type, category public.photo_category)
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
-  select *
-  from public.media_assets
-  where public = true
-    and asset_key = p_asset_key
-  order by sort asc, created_at desc;
+  select
+    ms.slot_key,
+    ms.sort,
+    ma.id,
+    ma.title,
+    ma.description,
+    ma.created_at,
+    ma.updated_at,
+    ma.public,
+    ma.bucket,
+    ma.path,
+    ma.session_id,
+    ma.asset_type,
+    ma.category
+  from public.media_slots ms
+  join public.media_assets ma on ma.id = ms.asset_id
+  where ms.slot_key = p_slot_key
+    and ma.public = true
+  limit 1;
 $$;
 
 
@@ -921,16 +928,29 @@ $$;
 -- Name: get_public_media_assets_by_prefix(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_public_media_assets_by_prefix(p_prefix text) RETURNS SETOF public.media_assets
+CREATE FUNCTION public.get_public_media_assets_by_prefix(p_prefix text) RETURNS TABLE(slot_key text, sort smallint, id uuid, title text, description text, created_at timestamp with time zone, updated_at timestamp with time zone, public boolean, bucket text, path text, session_id uuid, asset_type public.asset_type, category public.photo_category)
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO 'public'
     AS $$
-  select *
-  from public.media_assets
-  where public = true
-    and asset_key is not null
-    and asset_key like (p_prefix || '%')
-  order by sort asc, created_at desc;
+  select
+    ms.slot_key,
+    ms.sort,
+    ma.id,
+    ma.title,
+    ma.description,
+    ma.created_at,
+    ma.updated_at,
+    ma.public,
+    ma.bucket,
+    ma.path,
+    ma.session_id,
+    ma.asset_type,
+    ma.category
+  from public.media_slots ms
+  join public.media_assets ma on ma.id = ms.asset_id
+  where ms.slot_key like (p_prefix || '%')
+    and ma.public = true
+  order by ms.sort asc, ms.slot_key asc;
 $$;
 
 
@@ -955,7 +975,8 @@ $$;
 --
 
 CREATE FUNCTION public.is_admin() RETURNS boolean
-    LANGUAGE sql STABLE
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO 'public'
     AS $$
   select exists (
     select 1
@@ -971,6 +992,7 @@ $$;
 
 CREATE FUNCTION public.is_valid_json(p_text text) RETURNS boolean
     LANGUAGE plpgsql IMMUTABLE
+    SET search_path TO 'public'
     AS $$ BEGIN IF p_text IS NULL OR btrim(p_text) = '' THEN RETURN true; END IF; PERFORM p_text::jsonb; RETURN true; EXCEPTION WHEN others THEN RETURN false; END; $$;
 
 
@@ -980,12 +1002,97 @@ CREATE FUNCTION public.is_valid_json(p_text text) RETURNS boolean
 
 CREATE FUNCTION public.set_updated_at() RETURNS trigger
     LANGUAGE plpgsql
+    SET search_path TO 'public'
     AS $$
 begin
   new.updated_at := now();
   return new;
 end;
 $$;
+
+
+--
+-- Name: sync_media_assets_from_storage(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.sync_media_assets_from_storage() RETURNS TABLE(inserted integer, updated integer)
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public', 'storage'
+    AS $_$
+declare
+  v_inserted int := 0;
+  v_updated  int := 0;
+begin
+  with src as (
+    select
+      o.bucket_id::text as bucket,
+      o.name::text      as path,
+
+      -- filename (last path segment) without extension
+      regexp_replace(
+        (string_to_array(o.name::text, '/'))[
+          array_length(string_to_array(o.name::text, '/'), 1)
+        ],
+        '\.[^.]+$',
+        ''
+      ) as title,
+
+      coalesce(b.public, false) as is_public,
+
+      case
+        when lower(regexp_replace(o.name::text, '^.*\.', '')) in
+          ('jpg','jpeg','png','webp','gif','avif','heic','heif')
+          then 'photo'::public.asset_type
+        when lower(regexp_replace(o.name::text, '^.*\.', '')) in
+          ('mp4','mov','webm','m4v')
+          then 'video'::public.asset_type
+        else
+          'photo'::public.asset_type
+      end as asset_type
+    from storage.objects o
+    join storage.buckets b on b.id = o.bucket_id
+    where o.name is not null
+      and o.name <> ''
+      and right(o.name::text, 1) <> '/'  -- skip folder markers
+  ),
+  upserted as (
+    insert into public.media_assets (
+      bucket,
+      path,
+      title,
+      description,
+      public,
+      asset_type,
+      sort,
+      category
+    )
+    select
+      s.bucket,
+      s.path,
+      s.title,
+      null::text,
+      s.is_public,
+      s.asset_type,
+      32767::smallint,
+      'lessons'::public.photo_category  -- default; change if you want
+    from src s
+    on conflict (bucket, path) do update
+      set
+        title      = excluded.title,
+        public     = excluded.public,
+        asset_type = excluded.asset_type,
+        updated_at = now()
+    returning (xmax = 0) as was_inserted
+  )
+  select
+    count(*) filter (where was_inserted),
+    count(*) filter (where not was_inserted)
+  into v_inserted, v_updated
+  from upserted;
+
+  return query select v_inserted, v_updated;
+end;
+$_$;
 
 
 --
@@ -1588,6 +1695,20 @@ COMMENT ON TABLE public.cms_page_content IS 'Lets the admin dashboard change the
 
 
 --
+-- Name: media_slots; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.media_slots (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    slot_key text NOT NULL,
+    asset_id uuid,
+    sort smallint DEFAULT 32767 NOT NULL
+);
+
+
+--
 -- Name: refresh_tokens id; Type: DEFAULT; Schema: auth; Owner: -
 --
 
@@ -1622,6 +1743,10 @@ COPY auth.audit_log_entries (instance_id, id, payload, created_at, ip_address) F
 00000000-0000-0000-0000-000000000000	28b427d7-196c-4945-8baa-06a50b5b1371	{"action":"token_refreshed","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"token"}	2025-12-16 13:21:53.383632+00	
 00000000-0000-0000-0000-000000000000	59269160-cce9-4ee6-a50d-3c23fa10faaf	{"action":"token_revoked","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"token"}	2025-12-16 13:21:53.405888+00	
 00000000-0000-0000-0000-000000000000	5e4d2a14-3c36-4ea4-a399-ce0f51680ea4	{"action":"login","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"account","traits":{"provider":"email"}}	2025-12-16 14:13:05.82302+00	
+00000000-0000-0000-0000-000000000000	6fc0f392-91dd-473f-b1cd-da537047dfdb	{"action":"token_refreshed","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"token"}	2025-12-18 22:37:40.201275+00	
+00000000-0000-0000-0000-000000000000	f9bf6f5f-2c5c-40d1-b327-02876d00b6e0	{"action":"token_revoked","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"token"}	2025-12-18 22:37:40.22831+00	
+00000000-0000-0000-0000-000000000000	ac95dbc5-ae80-4713-b920-0ccbce3a882d	{"action":"token_refreshed","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"token"}	2025-12-19 00:26:13.330356+00	
+00000000-0000-0000-0000-000000000000	251ed620-8272-4a5d-9f21-f325943d43c6	{"action":"token_revoked","actor_id":"d17a1bd1-5f6c-4c80-8813-30d927cb3809","actor_username":"tyler.adean93@yahoo.com","actor_via_sso":false,"log_type":"token"}	2025-12-19 00:26:13.343325+00	
 \.
 
 
@@ -1737,7 +1862,9 @@ COPY auth.refresh_tokens (instance_id, id, token, user_id, revoked, created_at, 
 00000000-0000-0000-0000-000000000000	10	2pyvw4cdzfum	d17a1bd1-5f6c-4c80-8813-30d927cb3809	t	2025-12-16 11:24:53.213859+00	2025-12-16 12:23:23.295007+00	e4gxtl3u6iql	66664f43-54ef-4369-acc3-86608be5887b
 00000000-0000-0000-0000-000000000000	11	yv6uwrmuvuq4	d17a1bd1-5f6c-4c80-8813-30d927cb3809	t	2025-12-16 12:23:23.306592+00	2025-12-16 13:21:53.407756+00	2pyvw4cdzfum	66664f43-54ef-4369-acc3-86608be5887b
 00000000-0000-0000-0000-000000000000	12	4yir7ce77ibz	d17a1bd1-5f6c-4c80-8813-30d927cb3809	f	2025-12-16 13:21:53.42782+00	2025-12-16 13:21:53.42782+00	yv6uwrmuvuq4	66664f43-54ef-4369-acc3-86608be5887b
-00000000-0000-0000-0000-000000000000	13	3iu7pfvcrrgi	d17a1bd1-5f6c-4c80-8813-30d927cb3809	f	2025-12-16 14:13:05.890998+00	2025-12-16 14:13:05.890998+00	\N	1fea6750-eade-4801-9782-1a3b2fa9b65b
+00000000-0000-0000-0000-000000000000	13	3iu7pfvcrrgi	d17a1bd1-5f6c-4c80-8813-30d927cb3809	t	2025-12-16 14:13:05.890998+00	2025-12-18 22:37:40.229027+00	\N	1fea6750-eade-4801-9782-1a3b2fa9b65b
+00000000-0000-0000-0000-000000000000	14	7v5ztaqphjq7	d17a1bd1-5f6c-4c80-8813-30d927cb3809	t	2025-12-18 22:37:40.251213+00	2025-12-19 00:26:13.344094+00	3iu7pfvcrrgi	1fea6750-eade-4801-9782-1a3b2fa9b65b
+00000000-0000-0000-0000-000000000000	15	egfmr73apx7p	d17a1bd1-5f6c-4c80-8813-30d927cb3809	f	2025-12-19 00:26:13.358349+00	2025-12-19 00:26:13.358349+00	7v5ztaqphjq7	1fea6750-eade-4801-9782-1a3b2fa9b65b
 \.
 
 
@@ -1846,7 +1973,7 @@ COPY auth.sessions (id, user_id, created_at, updated_at, factor_id, aal, not_aft
 9463713b-ba32-4123-8d3c-cf7e5664ea1e	d17a1bd1-5f6c-4c80-8813-30d927cb3809	2025-12-16 05:07:12.601426+00	2025-12-16 05:07:12.601426+00	\N	aal1	\N	\N	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36	76.106.161.12	\N	\N	\N	\N	\N
 4acb6be0-74c9-4e18-9351-ea41f43a7089	d17a1bd1-5f6c-4c80-8813-30d927cb3809	2025-12-16 05:18:52.757574+00	2025-12-16 05:18:52.757574+00	\N	aal1	\N	\N	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36	76.106.161.12	\N	\N	\N	\N	\N
 66664f43-54ef-4369-acc3-86608be5887b	d17a1bd1-5f6c-4c80-8813-30d927cb3809	2025-12-16 05:34:20.113733+00	2025-12-16 13:21:53.451719+00	\N	aal1	\N	2025-12-16 13:21:53.449354	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36	76.106.161.12	\N	\N	\N	\N	\N
-1fea6750-eade-4801-9782-1a3b2fa9b65b	d17a1bd1-5f6c-4c80-8813-30d927cb3809	2025-12-16 14:13:05.84819+00	2025-12-16 14:13:05.84819+00	\N	aal1	\N	\N	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36	76.106.161.12	\N	\N	\N	\N	\N
+1fea6750-eade-4801-9782-1a3b2fa9b65b	d17a1bd1-5f6c-4c80-8813-30d927cb3809	2025-12-16 14:13:05.84819+00	2025-12-19 00:26:13.374316+00	\N	aal1	\N	2025-12-19 00:26:13.373118	Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36	76.106.161.12	\N	\N	\N	\N	\N
 \.
 
 
@@ -1872,7 +1999,7 @@ COPY auth.sso_providers (id, resource_id, created_at, updated_at, disabled) FROM
 
 COPY auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, invited_at, confirmation_token, confirmation_sent_at, recovery_token, recovery_sent_at, email_change_token_new, email_change, email_change_sent_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data, is_super_admin, created_at, updated_at, phone, phone_confirmed_at, phone_change, phone_change_token, phone_change_sent_at, email_change_token_current, email_change_confirm_status, banned_until, reauthentication_token, reauthentication_sent_at, is_sso_user, deleted_at, is_anonymous) FROM stdin;
 00000000-0000-0000-0000-000000000000	e8238f2b-601f-49a6-b837-21b1d5512415	authenticated	authenticated	sunsetsurfacademy@gmail.com	$2a$10$e8SW3.NRsF10rGP6hNLVZObQ53IixhAa8AkZzDMCChFFJI/5SV6tO	2025-12-15 23:50:54.198465+00	\N		\N		\N			\N	\N	{"provider": "email", "providers": ["email"]}	{"email_verified": true}	\N	2025-12-15 23:50:54.170638+00	2025-12-15 23:50:54.204739+00	\N	\N			\N		0	\N		\N	f	\N	f
-00000000-0000-0000-0000-000000000000	d17a1bd1-5f6c-4c80-8813-30d927cb3809	authenticated	authenticated	tyler.adean93@yahoo.com	$2a$10$qxKnDUaauQ1saQ0qIoJsfOIwsmlYvizRST2Xj.PRRUsegQ3Tw1vjq	2025-12-16 00:16:17.594882+00	\N		\N		\N			\N	2025-12-16 14:13:05.847469+00	{"provider": "email", "providers": ["email"]}	{"email_verified": true}	\N	2025-12-16 00:16:17.555897+00	2025-12-16 14:13:05.925312+00	\N	\N			\N		0	\N		\N	f	\N	f
+00000000-0000-0000-0000-000000000000	d17a1bd1-5f6c-4c80-8813-30d927cb3809	authenticated	authenticated	tyler.adean93@yahoo.com	$2a$10$qxKnDUaauQ1saQ0qIoJsfOIwsmlYvizRST2Xj.PRRUsegQ3Tw1vjq	2025-12-16 00:16:17.594882+00	\N		\N		\N			\N	2025-12-16 14:13:05.847469+00	{"provider": "email", "providers": ["email"]}	{"email_verified": true}	\N	2025-12-16 00:16:17.555897+00	2025-12-19 00:26:13.365808+00	\N	\N			\N		0	\N		\N	f	\N	f
 \.
 
 
@@ -1891,6 +2018,101 @@ e8238f2b-601f-49a6-b837-21b1d5512415	2025-12-16 00:14:23+00	Jazmine Dean Perez	s
 --
 
 COPY public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) FROM stdin;
+760fa9d5-316e-48bf-86c5-d38c5180aa95	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	navigation.home	Home	Inicio	Inicio	t	32767	messages
+4c333d75-6b6e-4a29-9e85-3a00bda35583	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	navigation.lessons	Lessons	Lecciones	Lecciones	t	32767	messages
+38179c07-b6fc-4b2f-936f-c2b16c7abf62	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	navigation.schedule	Book Now	Reservar	Reservar	t	32767	messages
+0a919283-e9d4-40f0-b34c-9ba8a34f57b8	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	navigation.gallery	Gallery	Galería	Galería	t	32767	messages
+8c901b2c-432b-4bff-b019-10762b0d47c0	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	navigation.about	About	Acerca de	Acerca de	t	32767	messages
+11d5eb3b-eda7-4caf-bfa2-f8ca88965a69	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	navigation.faq	FAQ	Preguntas	Preguntas	t	32767	messages
+41d9f9cf-409b-4273-a5e4-4ccb560cdbee	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	navigation.contact	Contact	Contacto	Contacto	t	32767	messages
+9a7c560a-bac0-4aee-b6b6-9aa64fd04dde	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	home.heroTitle	Learn to Surf at Sunset Surf Academy	Aprende a surfear en Sunset Surf Academy	Aprende a surfear en Sunset Surf Academy	t	32767	messages
+7ce559f6-1ac5-4c3a-a7e0-c608235c3199	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	home.heroSubtitle	Professional surf instruction in the beautiful waters of Rincón, Puerto Rico	Instrucción profesional de surf en las hermosas aguas de Rincón, Puerto Rico	Instrucción profesional de surf en las hermosas aguas de Rincón, Puerto Rico	t	32767	messages
+2f35fe0e-96be-448c-ab09-a063f4166242	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	home.bookNow	Book Your Lesson	Reserva tu lección	Reserva tu lección	t	32767	messages
+27417dd4-90a2-4939-853e-e990b791436d	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	home.learnMore	Learn More	Saber más	Saber más	t	32767	messages
+81b98972-8770-413c-af6f-680cf1e6e3c5	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	home.aboutPreview	Learn from some of the best surfers in the world.	Aprende con algunos de los mejores surfistas del mundo.	Aprende con algunos de los mejores surfistas del mundo.	t	32767	messages
+00efa412-55e3-4547-bb24-879b03319905	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	home.lessonsTitle	Surf Lessons	Lecciones de surf	Lecciones de surf	t	32767	messages
+7de4b4b8-c24f-4f9e-b401-815d8b87b9e4	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	home.lessonsDescription	From beginner-friendly sessions to advanced coaching	Desde sesiones para principiantes hasta coaching avanzado	Desde sesiones para principiantes hasta coaching avanzado	t	32767	messages
+46a4be42-c0e6-426b-a28d-8c0ae44f775d	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	home.galleryTitle	Experience the Journey	Vive la experiencia	Vive la experiencia	t	32767	messages
+46bd6ebb-213c-4d89-a77d-dd92f7ffdf66	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	home.galleryDescription	Watch videos and see photos from our surf adventures	Mira videos y fotos de nuestras aventuras de surf	Mira videos y fotos de nuestras aventuras de surf	t	32767	messages
+30fe8bc6-7e01-4831-818a-ae5841a0e43f	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	home.teamTitle	Meet the Team	Conoce al equipo	Conoce al equipo	t	32767	messages
+9c2abbe0-80ea-443e-b6a8-0d8ee4db8a8f	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	home.teamDescription	Get to know the coaches who make Sunset Surf Academy special	Conoce a los entrenadores que hacen especial a Sunset Surf Academy	Conoce a los entrenadores que hacen especial a Sunset Surf Academy	t	32767	messages
+46b6614c-e851-4708-9bab-d65996aa9111	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.title	Surf Lessons	Lecciones de surf	Lecciones de surf	t	32767	messages
+a0315bfd-e033-4b03-abd8-246737c1350b	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.subtitle	Professional instruction tailored to your skill level	Instrucción profesional adaptada a tu nivel	Instrucción profesional adaptada a tu nivel	t	32767	messages
+52296c4e-2ccc-4285-bed0-5c4d82e74172	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.beginner.title	Lessons	Lecciones	Lecciones	t	32767	messages
+01593580-2c50-4213-9429-534bc799290b	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.beginner.price	$100	$100	$100	t	32767	messages
+4fc13111-e239-4e20-a234-248e9a8d203b	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.beginner.duration	2 hours	2 horas	2 horas	t	32767	messages
+8ca8d5c2-ab9e-4c00-946f-e2846caa121e	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.beginner.location	Rincón to Isabela/Jobos	Rincón a Isabela/Jobos	Rincón a Isabela/Jobos	t	32767	messages
+ac44fe56-15f6-4e7c-ba3b-b3ac8e1f1c09	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.beginner.description	The beginner lessons teach the fundamentals of surfing.	Las lecciones para principiantes enseñan los fundamentos del surf.	Las lecciones para principiantes enseñan los fundamentos del surf.	t	32767	messages
+e74051b4-0413-48a8-984b-2a2e0117a32e	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.beginner.includes.0	Surfboard rental	Alquiler de tabla de surf	Alquiler de tabla de surf	t	32767	messages
+8177b659-a1a8-4b8b-a962-611be19ae10d	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.beginner.includes.1	Safety briefing	Briefing de seguridad	Briefing de seguridad	t	32767	messages
+aefe7f2a-1a03-4f3e-a8c3-acf2ed546ff5	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.beginner.includes.2	Personalized beach & water coaching	Coaching personalizado en playa y agua	Coaching personalizado en playa y agua	t	32767	messages
+73e77bc3-459f-4887-8618-836931f42d92	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.beginner.includes.3	Photos of your session	Fotos de tu sesión	Fotos de tu sesión	t	32767	messages
+bed7e86a-eaff-4f05-849e-1421d5df7103	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.intermediate.title	Advanced Coaching	Coaching avanzado	Coaching avanzado	t	32767	messages
+f391351b-5f62-4063-a08e-62e225c4f0d0	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.intermediate.price	$100	$100	$100	t	32767	messages
+9cb6e12c-97f6-48d3-a417-e4d7c8e042e7	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.intermediate.duration	2 hours	2 horas	2 horas	t	32767	messages
+6d64d2cc-f5e3-4467-9c77-6219e28d2950	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.intermediate.location	Rincón to Isabela/Jobos	Rincón a Isabela/Jobos	Rincón a Isabela/Jobos	t	32767	messages
+fc3e282d-90de-4a4a-b3d9-da0ee7925067	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.intermediate.description	Intermediate lessons teach how to read waves, interact in any lineup, and gain practical skills to surf more confidently.	Las lecciones intermedias enseñan a leer las olas, interactuar en cualquier line up y desarrollar habilidades prácticas para surfear con más confianza.	Las lecciones intermedias enseñan a leer las olas, interactuar en cualquier line up y desarrollar habilidades prácticas para surfear con más confianza.	t	32767	messages
+d5438f49-13b4-44ed-81a7-bd8951964dd9	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.intermediate.includes.0	Surfboard rental	Alquiler de tabla de surf	Alquiler de tabla de surf	t	32767	messages
+eeb40f15-43c9-4d28-a498-3bd5b43cf42b	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.intermediate.includes.1	Wave reading & lineup etiquette	Lectura de olas y etiqueta en el line up	Lectura de olas y etiqueta en el line up	t	32767	messages
+d90f7470-1c7e-44c8-8b38-7db6a32f82b0	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.intermediate.includes.2	Skills development	Desarrollo de habilidades	Desarrollo de habilidades	t	32767	messages
+89e88ca2-ac4c-47ac-a9ba-83ed7c784231	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.intermediate.includes.3	Photos and short video clips	Fotos y clips cortos de video	Fotos y clips cortos de video	t	32767	messages
+ec891b25-6df4-4941-9b8b-fbb4105b37eb	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.advanced.title	Surf Guide	Guía de surf	Guía de surf	t	32767	messages
+9bc32b42-780b-4512-9fd9-8eaa191ab82c	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.advanced.price	$100	$100	$100	t	32767	messages
+743f1b1c-2130-4b8a-af0c-62dcf9159704	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.advanced.duration	2 hours	2 horas	2 horas	t	32767	messages
+b887f9ae-ea46-4e64-a4b1-6d03039d85de	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.advanced.location	Various locations	Varias ubicaciones	Varias ubicaciones	t	32767	messages
+52903d25-e381-45aa-a46a-e8e75f8f0923	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	faq.questions.6.question	What's your refund policy?	¿Cuál es su política de reembolso?	¿Cuál es su política de reembolso?	t	32767	messages
+159fa519-b513-41eb-91f5-5577907a4762	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.advanced.description	Advanced lessons cover advanced skills, video analysis, competition preparation, and custom programs.	Las lecciones avanzadas cubren habilidades avanzadas, análisis de video, preparación para competencias y programas personalizados.	Las lecciones avanzadas cubren habilidades avanzadas, análisis de video, preparación para competencias y programas personalizados.	t	32767	messages
+01aba9c5-47bc-42b1-8561-e467de29480f	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.advanced.includes.0	Video review	Revisión de video	Revisión de video	t	32767	messages
+11226537-9602-4098-a87e-5c996ba5fcab	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.advanced.includes.1	Technique analysis	Análisis de técnica	Análisis de técnica	t	32767	messages
+71ef26ea-40ca-44c6-9c3f-7ab2961bea4d	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.advanced.includes.2	Competition prep	Preparación para competencias	Preparación para competencias	t	32767	messages
+6f2828d4-b638-4a09-85d9-459ae49c932c	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	lessons.advanced.includes.3	Custom programs	Programas personalizados	Programas personalizados	t	32767	messages
+4a2f2061-6d3a-4c7a-910c-a5fe8536c61c	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	booking.title	Book Your Lesson	Reserva tu lección	Reserva tu lección	t	32767	messages
+ba5ee7f5-38f2-47d6-af92-7d483697bc5e	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	booking.selectDate	Select Date	Selecciona una fecha	Selecciona una fecha	t	32767	messages
+2bb75792-21e5-463f-b5b3-5d4c349cb531	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	booking.selectTime	Select Time	Selecciona una hora	Selecciona una hora	t	32767	messages
+c373ef25-b9e3-45f0-89ee-0c2a8b6b0a5a	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	booking.partySize	Party Size	Tamaño del grupo	Tamaño del grupo	t	32767	messages
+b2bf256d-5457-4fb4-b040-f2e1b47f8cc2	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	booking.lessonType	Lesson Type	Tipo de lección	Tipo de lección	t	32767	messages
+73dd1e24-9f75-4ed7-b0db-b8352f53be82	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	booking.totalPrice	Total Price	Precio total	Precio total	t	32767	messages
+a4c0cdc8-ecf2-454a-98a7-8e442518a7e5	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	booking.customerInfo	Customer Information	Información del cliente	Información del cliente	t	32767	messages
+9c07821f-c9fa-48a0-ad94-d9b2d988bf8d	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	booking.name	Full Name	Nombre completo	Nombre completo	t	32767	messages
+eee444fb-0274-4ddf-800f-8471f74bb4e9	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	booking.email	Email Address	Correo electrónico	Correo electrónico	t	32767	messages
+420cfdaa-0cad-490c-a992-077b2c4780c9	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	booking.phone	Phone Number	Número de teléfono	Número de teléfono	t	32767	messages
+834b5d67-13ec-4827-93a7-90e301ec6b77	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	booking.proceedToPayment	Proceed to Payment	Continuar al pago	Continuar al pago	t	32767	messages
+da6d9f6f-0a44-4a89-b71e-8d7173f7d1eb	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	about.title	About Jazmine Dean Perez	Sobre Jazmine Dean Perez	Sobre Jazmine Dean Perez	t	32767	messages
+57ca93f9-81b1-4003-b0f3-a7bfcedfaf8c	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	about.subtitle	Professional Surfer & Instructor	Surfista profesional e instructora	Surfista profesional e instructora	t	32767	messages
+84eef7bb-6a3d-4b4e-bdf7-49067f09f07a	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	about.bio	Jazmine Dean is a professional surfer representing Team Puerto Rico with an impressive competitive record. Based in the world-renowned surf town of Rincón, she brings years of experience and passion to every lesson.	Jazmine Dean es una surfista profesional que representa al Equipo Puerto Rico con un impresionante historial competitivo. Basada en el mundialmente reconocido pueblo de surf de Rincón, aporta años de experiencia y pasión a cada lección.	Jazmine Dean es una surfista profesional que representa al Equipo Puerto Rico con un impresionante historial competitivo. Basada en el mundialmente reconocido pueblo de surf de Rincón, aporta años de experiencia y pasión a cada lección.	t	32767	messages
+90b4cfeb-cf3e-4d85-8f2c-90e74d324959	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	about.achievements	Achievements	Logros	Logros	t	32767	messages
+f9533725-bf69-432c-947e-099891972eee	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	about.accolades.0	4x East Coast Champion	4x campeona de la Costa Este	4x campeona de la Costa Este	t	32767	messages
+669d2655-effa-4c73-ac32-acd6e0f3ee3f	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	about.accolades.1	Pan-American Games 2nd Place	2.º lugar en los Juegos Panamericanos	2.º lugar en los Juegos Panamericanos	t	32767	messages
+2a67ee68-e58d-437a-976c-450b92df767e	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	about.accolades.2	ISA World Surfing Games Competitor	Competidora en los Juegos Mundiales de Surf ISA	Competidora en los Juegos Mundiales de Surf ISA	t	32767	messages
+b5bb3436-ba8a-48f6-8af6-05230a542da3	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	about.accolades.3	Team Puerto Rico Member	Miembro del Equipo Puerto Rico	Miembro del Equipo Puerto Rico	t	32767	messages
+d233132d-85b0-49db-aee8-ab2e601d6f9b	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	about.accolades.4	Professional Surf Instructor	Instructora profesional de surf	Instructora profesional de surf	t	32767	messages
+2bee4830-834a-4c13-8990-e7fd166782a5	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	mission.title	Our Mission	Nuestra misión	Nuestra misión	t	32767	messages
+a6965150-c71e-4a44-bec7-387a5094f1e7	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	mission.subtitle	Take Every Surfer To The Next Level	Llevar a cada surfista al siguiente nivel	Llevar a cada surfista al siguiente nivel	t	32767	messages
+fc420830-e002-46bf-8603-5525ee6e1969	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	mission.lead	At Sunset Surf Academy our mission is simple: to help every surfer — from complete beginners to seasoned competitors — progress, have more fun, and get better results in the water.	En Sunset Surf Academy nuestra misión es simple: ayudar a cada surfista — desde principiantes completos hasta competidores experimentados — a progresar, divertirse más y obtener mejores resultados en el agua.	En Sunset Surf Academy nuestra misión es simple: ayudar a cada surfista — desde principiantes completos hasta competidores experimentados — a progresar, divertirse más y obtener mejores resultados en el agua.	t	32767	messages
+bff309aa-5983-4d89-be70-dcd5d4dcfa87	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	mission.body1	We believe surfing is for everyone. For first-timers we focus on water safety, confidence-building and the fundamentals so your first waves are empowering and memorable. For intermediate and advanced surfers we offer technique work, video analysis and competition preparation that targets measurable improvement.	Creemos que el surf es para todos. Para quienes lo prueban por primera vez, nos enfocamos en la seguridad en el agua, construir confianza y los fundamentos para que tus primeras olas sean empoderadoras y memorables. Para surfistas intermedios y avanzados, ofrecemos técnica, análisis de video y preparación para competencias con mejoras medibles.	Creemos que el surf es para todos. Para quienes lo prueban por primera vez, nos enfocamos en la seguridad en el agua, construir confianza y los fundamentos para que tus primeras olas sean empoderadoras y memorables. Para surfistas intermedios y avanzados, ofrecemos técnica, análisis de video y preparación para competencias con mejoras medibles.	t	32767	messages
+7792a7c8-7498-4353-bbed-c990dd4d02c8	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	faq.questions.6.answer	We offer full refunds for cancellations due to unsafe weather conditions. Other cancellations require 24-hour notice.	Ofrecemos reembolsos completos por cancelaciones debido a condiciones climáticas inseguras. Otras cancelaciones requieren aviso con 24 horas de anticipación.	Ofrecemos reembolsos completos por cancelaciones debido a condiciones climáticas inseguras. Otras cancelaciones requieren aviso con 24 horas de anticipación.	t	32767	messages
+9d59ee0a-edc1-4dc3-aa55-e524fa6fa399	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	contact.title	Contact Jazmine	Contacta a Jazmine	Contacta a Jazmine	t	32767	messages
+502905b4-183e-4d56-9ac6-daec8ebef242	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	mission.body2	Our coaches design lessons around your goals — whether that’s catching your first wave, improving your bottom turns, boosting aerials, or nailing contest-worthy maneuvers. We emphasize clear coaching, practical drills, and a supportive environment that accelerates learning while keeping the stoke alive.	Nuestros entrenadores diseñan lecciones según tus objetivos — ya sea atrapar tu primera ola, mejorar tus bottom turns, perfeccionar aéreos o dominar maniobras dignas de competencia. Enfatizamos coaching claro, ejercicios prácticos y un ambiente de apoyo que acelera el aprendizaje manteniendo la emoción viva.	Nuestros entrenadores diseñan lecciones según tus objetivos — ya sea atrapar tu primera ola, mejorar tus bottom turns, perfeccionar aéreos o dominar maniobras dignas de competencia. Enfatizamos coaching claro, ejercicios prácticos y un ambiente de apoyo que acelera el aprendizaje manteniendo la emoción viva.	t	32767	messages
+6593ceb7-9d73-4630-8c0b-6c5994dfa6ba	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	mission.conclusion	Ultimately, success at Sunset Surf Academy isn’t just measured in scores; it’s measured in smiles, confidence and the endless pursuit of better surfing. Come surf with us and let’s take your surfing to the next level.	En última instancia, el éxito en Sunset Surf Academy no se mide solo en puntuaciones; se mide en sonrisas, confianza y la búsqueda interminable de un mejor surf. Ven a surfear con nosotros y llevemos tu surf al siguiente nivel.	En última instancia, el éxito en Sunset Surf Academy no se mide solo en puntuaciones; se mide en sonrisas, confianza y la búsqueda interminable de un mejor surf. Ven a surfear con nosotros y llevemos tu surf al siguiente nivel.	t	32767	messages
+bc9ece66-a6b1-4723-99df-bbc2ba2e36f4	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	faq.title	Frequently Asked Questions	Preguntas frecuentes	Preguntas frecuentes	t	32767	messages
+92cf0a54-0a85-49f6-8524-6fa20caa83be	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	faq.questions.0.question	Where do we meet for lessons?	¿Dónde nos encontramos para las lecciones?	¿Dónde nos encontramos para las lecciones?	t	32767	messages
+00111e42-0f29-4c3c-ba40-e7493dcaf00b	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	faq.questions.0.answer	We are based out of Rincón, Puerto Rico, and primarily conduct lessons at our local beach breaks. However, when conditions are favorable and upon request, we're happy to travel anywhere along the coast from Rincón up to Jobos and all the spots in between to find the perfect waves for your lesson.	Estamos ubicados en Rincón, Puerto Rico, y principalmente realizamos lecciones en nuestras playas locales. Sin embargo, cuando las condiciones son favorables y bajo pedido, podemos viajar a cualquier lugar a lo largo de la costa desde Rincón hasta Jobos y todos los lugares intermedios para encontrar las olas perfectas para tu lección.	Estamos ubicados en Rincón, Puerto Rico, y principalmente realizamos lecciones en nuestras playas locales. Sin embargo, cuando las condiciones son favorables y bajo pedido, podemos viajar a cualquier lugar a lo largo de la costa desde Rincón hasta Jobos y todos los lugares intermedios para encontrar las olas perfectas para tu lección.	t	32767	messages
+7e95692c-b5e9-49c6-b517-1be6da4d538d	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	faq.questions.1.question	What's included in beginner lessons?	¿Qué incluyen las lecciones para principiantes?	¿Qué incluyen las lecciones para principiantes?	t	32767	messages
+60212e37-2334-4dec-ba36-29fac278f054	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	faq.questions.1.answer	Beginner lessons include surfboard rental, comprehensive safety briefing, personalized coaching both on the beach and in the water, and photos of your surf session to capture your progress and memorable moments.	Las lecciones para principiantes incluyen alquiler de tabla de surf, un briefing de seguridad completo, coaching personalizado en la playa y en el agua, y fotos de tu sesión para capturar tu progreso y momentos memorables.	Las lecciones para principiantes incluyen alquiler de tabla de surf, un briefing de seguridad completo, coaching personalizado en la playa y en el agua, y fotos de tu sesión para capturar tu progreso y momentos memorables.	t	32767	messages
+9ccd3140-e00a-4e7b-b749-9e81fd1b69f6	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	faq.questions.2.question	What's included in advanced coaching?	¿Qué incluye el coaching avanzado?	¿Qué incluye el coaching avanzado?	t	32767	messages
+8ad9e73e-8b72-4dcd-b959-ed9d852805ce	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	faq.questions.2.answer	Advanced coaching is a comprehensive multi-session program that includes video analysis of your surfing. We start with a baseline session where we film your surfing, then review the footage together to identify areas for improvement. This is followed by a theory-to-practice session where you apply the techniques we've discussed, creating a complete learning cycle for advanced skill development.	El coaching avanzado es un programa completo de varias sesiones que incluye análisis de video de tu surf. Comenzamos con una sesión base donde filmamos tu surf, luego revisamos el material juntos para identificar áreas de mejora. Después, realizamos una sesión de teoría a práctica donde aplicas las técnicas discutidas, creando un ciclo completo de aprendizaje para el desarrollo de habilidades avanzadas.	El coaching avanzado es un programa completo de varias sesiones que incluye análisis de video de tu surf. Comenzamos con una sesión base donde filmamos tu surf, luego revisamos el material juntos para identificar áreas de mejora. Después, realizamos una sesión de teoría a práctica donde aplicas las técnicas discutidas, creando un ciclo completo de aprendizaje para el desarrollo de habilidades avanzadas.	t	32767	messages
+d1792923-0c5c-40ea-824a-444ec6f52455	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	faq.questions.3.question	Can I reschedule my lesson?	¿Puedo reprogramar mi lección?	¿Puedo reprogramar mi lección?	t	32767	messages
+5c39c886-3c91-4db3-a00c-942a38e5e409	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	faq.questions.3.answer	Yes, we offer flexible rescheduling options based on weather conditions and your availability.	Sí, ofrecemos opciones flexibles de reprogramación según las condiciones del clima y tu disponibilidad.	Sí, ofrecemos opciones flexibles de reprogramación según las condiciones del clima y tu disponibilidad.	t	32767	messages
+bb3239ea-9972-4175-a1bc-8dac73e2414d	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	faq.questions.4.question	Are lessons suitable for complete beginners?	¿Las lecciones son adecuadas para principiantes completos?	¿Las lecciones son adecuadas para principiantes completos?	t	32767	messages
+0d1ab06d-5c42-4d13-a1a5-7c0562aaf026	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	faq.questions.4.answer	Absolutely! Our beginner lessons are specifically designed for first-time surfers of all ages.	¡Absolutamente! Nuestras lecciones para principiantes están diseñadas específicamente para surfistas primerizos de todas las edades.	¡Absolutamente! Nuestras lecciones para principiantes están diseñadas específicamente para surfistas primerizos de todas las edades.	t	32767	messages
+ffe9ab1f-a3fa-498e-a770-6fabf968b818	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	faq.questions.5.question	Do you offer group and family lessons?	¿Ofrecen lecciones grupales y familiares?	¿Ofrecen lecciones grupales y familiares?	t	32767	messages
+8fd9e901-ae02-436e-8d53-936f8aa8a728	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	faq.questions.5.answer	Yes, we welcome groups and families. Contact us for special group rates and custom arrangements.	Sí, damos la bienvenida a grupos y familias. Contáctanos para tarifas especiales para grupos y arreglos personalizados.	Sí, damos la bienvenida a grupos y familias. Contáctanos para tarifas especiales para grupos y arreglos personalizados.	t	32767	messages
+bb6580bd-581a-4b26-86e0-5196dfa9f628	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	contact.subtitle	Ready to book or have questions? Get in touch!	¿Listo para reservar o tienes preguntas? ¡Ponte en contacto!	¿Listo para reservar o tienes preguntas? ¡Ponte en contacto!	t	32767	messages
+df35c836-1890-42b3-b454-af78f9e21624	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	contact.location	Rincón, Puerto Rico	Rincón, Puerto Rico	Rincón, Puerto Rico	t	32767	messages
+0f4296ab-5a49-46fa-ab0e-61a7da3f9473	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	contact.followUs	Follow Us	Síguenos	Síguenos	t	32767	messages
+700a8b44-5331-4307-8e23-3a86abfd9c9d	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	team.title	Meet the Team	Conoce al equipo	Conoce al equipo	t	32767	messages
+959278c4-67f3-458a-a87e-339ba2167d62	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	team.subtitle	Learn from some of the best surfers in the world.	Aprende con algunos de los mejores surfistas del mundo.	Aprende con algunos de los mejores surfistas del mundo.	t	32767	messages
+0556376d-d41a-4b63-a15d-16c1d496e69a	2025-12-21 12:59:48.629543+00	2025-12-21 12:59:48.629543+00	\N	\N	team.intro	These are our top coaches who will take you to the next level in your surfing. Click on their profiles to learn a little about them!	Estos son nuestros mejores entrenadores que te llevarán al siguiente nivel en tu surf. Haz clic en sus perfiles para conocer un poco más sobre ellos.	Estos son nuestros mejores entrenadores que te llevarán al siguiente nivel en tu surf. Haz clic en sus perfiles para conocer un poco más sobre ellos.	t	32767	messages
 \.
 
 
@@ -1898,17 +2120,76 @@ COPY public.cms_page_content (id, created_at, updated_at, created_by, updated_by
 -- Data for Name: media_assets; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category, asset_key) FROM stdin;
-15466f82-4c54-4a68-8fc4-585f680ea6c8	image_6483441 (1)	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	image_6483441 (1).JPG	\N	photo	32767	lessons	\N
-213d091e-9a44-4771-a732-b4b13e8b98d0	IMG_3856	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	IMG_3856.JPG	\N	photo	32767	lessons	\N
-3ed412c2-8fd6-486c-8bb0-4d323f57b55d	surfSchoolShot	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	surfSchoolShot.png	\N	photo	32767	lessons	\N
-47c9d39d-b885-4a77-93d1-78a877aac0da	IMG_2505	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	IMG_2505.JPG	\N	photo	32767	lessons	\N
-5553fefc-7593-4d79-b146-e28a5524b9fe	IMG_3633	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	IMG_3633.JPG	\N	photo	32767	lessons	\N
-568c4677-2653-4861-9aab-5d73389964d1	IMG_2505 2	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	IMG_2505 2.JPG	\N	photo	32767	lessons	\N
-626ad533-3bbc-4700-bf37-e6699f1735ca	IMG_3627	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	IMG_3627.JPG	\N	photo	32767	lessons	\N
-8dff0ad0-1944-4a5a-9138-027c5135b74d	IMG_3855	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	IMG_3855.JPG	\N	photo	32767	lessons	\N
-98c04638-721e-4b79-bb67-7288d175abae	IMG_3629	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	IMG_3629.JPG	\N	photo	32767	lessons	\N
-9cdfcc3f-a3d7-4a2c-b42a-218a8f0b1e7d	image_6483441 (5)	surf school content	2025-12-15 22:56:39.915498+00	2025-12-15 22:56:39.915498+00	t	Lesson_Photos	image_6483441 (5).JPG	\N	photo	32767	lessons	\N
+COPY public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) FROM stdin;
+49000f45-9f99-444a-8257-ba9f1c7d5bb1	IMG_3859	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	IMG_3859.JPG	\N	photo	32767	lessons
+36cb9cd0-7609-4602-ae76-6ac39ef2dcab	palmTree	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	palmTree.png	\N	photo	32767	lessons
+896760f0-a364-4f17-b1aa-a0ca80085115	MVI_3628	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	MVI_3628.MP4	\N	video	32767	lessons
+87094a4d-b038-4c75-8e96-fc0a6332974d	SSA_gentle waves	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	SSA_gentle waves.mp4	\N	video	32767	lessons
+3fe3618b-73da-4127-b3ae-1565e2fa9784	SSA_Orange_Logo	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	SSA_Orange_Logo.png	\N	photo	32767	lessons
+c4b18176-3271-435f-9398-4b081923df89	isasilver	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	isasilver.png	\N	photo	32767	lessons
+f0314672-4e7e-413d-bc67-f6c1cac0da71	isa	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	isa.png	\N	photo	32767	lessons
+e3c9dfab-9c02-4a36-89de-d0d7d4f3f69d	sbsnap	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	sbsnap.png	\N	photo	32767	lessons
+178a898f-a085-4363-8eb9-06a344c5586f	Want to learn cross stepping 2	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	Want to learn cross stepping 2.mp4	\N	video	32767	lessons
+9a841c26-b762-45eb-8bbd-94eda57a94ac	prices	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	prices.png	\N	photo	32767	lessons
+5ba1e743-3d5e-48a5-b3e6-d7fb611dca49	image_6483441 (1)	synced from storage	2025-12-22 19:48:26.642098+00	2025-12-22 19:48:26.642098+00	t	Lesson_Photos	image_6483441 (1).JPG	\N	photo	32767	lessons
+5342e269-d6db-4d31-abab-d736cb021066	image_6483441 (5)	synced from storage	2025-12-22 19:48:26.642098+00	2025-12-22 19:48:26.642098+00	t	Lesson_Photos	image_6483441 (5).JPG	\N	photo	32767	lessons
+47895a11-af43-4cc6-999c-26ecf72351df	surfSchoolShot	synced from storage	2025-12-22 19:48:26.642098+00	2025-12-22 19:48:26.642098+00	t	Lesson_Photos	surfSchoolShot.png	\N	photo	32767	lessons
+7ac0a6a4-b505-4229-9a18-2580b34c5a9e	IMG_3855	synced from storage	2025-12-22 19:48:26.642098+00	2025-12-22 19:48:26.642098+00	t	Lesson_Photos	IMG_3855.JPG	\N	photo	32767	lessons
+0d680a3d-60ab-4e46-9007-5a2a5f5f772b	IMG_3856	synced from storage	2025-12-22 19:48:26.642098+00	2025-12-22 19:48:26.642098+00	t	Lesson_Photos	IMG_3856.JPG	\N	photo	32767	lessons
+6b9275d1-6e88-4e78-8fe1-ef1b042ee441	IMG_2505 2	synced from storage	2025-12-22 19:48:26.642098+00	2025-12-22 19:48:26.642098+00	t	Lesson_Photos	IMG_2505 2.JPG	\N	photo	32767	lessons
+ec79eb3f-a158-43be-ab1e-56a79474e75f	IMG_2505	synced from storage	2025-12-22 19:48:26.642098+00	2025-12-22 19:48:26.642098+00	t	Lesson_Photos	IMG_2505.JPG	\N	photo	32767	lessons
+c6460107-d0de-4748-94e6-3a261efccbb0	IMG_3633	synced from storage	2025-12-22 19:48:26.642098+00	2025-12-22 19:48:26.642098+00	t	Lesson_Photos	IMG_3633.JPG	\N	photo	32767	lessons
+01593177-0e92-41fe-94b4-20fb108027ba	IMG_3629	synced from storage	2025-12-22 19:48:26.642098+00	2025-12-22 19:48:26.642098+00	t	Lesson_Photos	IMG_3629.JPG	\N	photo	32767	lessons
+305ffcac-91cf-4670-81ac-e8aa2e4705f5	IMG_3627	synced from storage	2025-12-22 19:48:26.642098+00	2025-12-22 19:48:26.642098+00	t	Lesson_Photos	IMG_3627.JPG	\N	photo	32767	lessons
+67b9bc0b-65ae-4a74-873b-36463fcb4522	contact_card	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	contact_card.png	\N	photo	32767	lessons
+7693ee08-1215-4561-92ae-7f91eb11e7ee	2	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	2.png	\N	photo	32767	lessons
+719d5909-b4d7-42c4-875c-4ca5563160b1	4	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	4.png	\N	photo	32767	lessons
+95851b90-3a70-4d6f-8a61-7316c0fd5985	3	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	3.png	\N	photo	32767	lessons
+bca089ce-4bd6-4c5a-9e32-51dfb9f8c768	Dress	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	Dress.png	\N	photo	32767	lessons
+2db64cd2-d0e6-4dfc-a308-f20733a7c9fc	dress2	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	dress2.png	\N	photo	32767	lessons
+23c089ca-3815-4873-b932-cffad1859bf7	5	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	5.png	\N	photo	32767	lessons
+55402377-6aed-4953-be21-4aea15c56fc2	1	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	1.png	\N	photo	32767	lessons
+da79e1c8-8676-4b8f-b863-bc31211a0322	hero_shot	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	hero_shot.png	\N	photo	32767	lessons
+85e71f86-4c80-4a27-aa49-f29be5f701cb	hang10	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	hang10.png	\N	photo	32767	lessons
+88a40d13-203f-496d-b76c-6007c2f53b61	SSA_BW_Logo	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	SSA_BW_Logo.png	\N	photo	32767	lessons
+43f332cb-4f08-452b-8281-9108e53d1870	lbturn	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	lbturn.png	\N	photo	32767	lessons
+ea54ad52-932a-4d3f-b657-00a1f32a6961	SSA_ Enter and exit	synced from storage	2025-12-22 21:19:52.02167+00	2025-12-22 21:19:52.02167+00	t	Lesson_Photos	SSA_ Enter and exit.mp4	\N	video	32767	lessons
+\.
+
+
+--
+-- Data for Name: media_slots; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.media_slots (id, created_at, updated_at, slot_key, asset_id, sort) FROM stdin;
+2b75297a-e03b-400a-9d06-0a96eae5c538	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	nav.logo	3fe3618b-73da-4127-b3ae-1565e2fa9784	0
+fcfb1e69-754c-4e97-ae0d-b5546f34a91b	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	contact.logo	3fe3618b-73da-4127-b3ae-1565e2fa9784	0
+fd095d85-307b-4c5d-9083-33b4a1f8ae4c	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	mission.logo	3fe3618b-73da-4127-b3ae-1565e2fa9784	0
+fbbf35c8-2fbf-44d8-9f0f-feb529388891	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	team.logo	88a40d13-203f-496d-b76c-6007c2f53b61	0
+f6215b15-0026-40c1-bb13-30cf8000b0ab	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	home.hero	da79e1c8-8676-4b8f-b863-bc31211a0322	0
+60010e47-ac57-4cc6-98bf-7360d1362347	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	home.cards.team.image	c4b18176-3271-435f-9398-4b081923df89	0
+321cea48-46c5-4cd3-b522-0e29d2489ef6	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	lessons.prices	9a841c26-b762-45eb-8bbd-94eda57a94ac	0
+16b5a0d4-bcea-443d-9f7f-2114dbd0b78e	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	team.jaz.photos.001	c4b18176-3271-435f-9398-4b081923df89	1
+5d643798-472e-43ee-aa5b-175965d4e6af	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	team.jaz.photos.002	f0314672-4e7e-413d-bc67-f6c1cac0da71	2
+945ce536-b891-42d9-a4cb-f2a4fa8a6a99	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	team.jaz.photos.003	e3c9dfab-9c02-4a36-89de-d0d7d4f3f69d	3
+20a0a3f1-ff6b-48a3-88bd-1a66e9524857	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	home.target_audience.001	55402377-6aed-4953-be21-4aea15c56fc2	1
+a2160b39-a36b-45e5-8c74-6966ceacfbec	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	home.target_audience.002	7693ee08-1215-4561-92ae-7f91eb11e7ee	2
+df415d65-8c74-4be8-917e-90f035f86179	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	home.target_audience.003	95851b90-3a70-4d6f-8a61-7316c0fd5985	3
+b7e403fe-990d-4baf-8b36-ed3b550af9cf	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	home.target_audience.004	719d5909-b4d7-42c4-875c-4ca5563160b1	4
+ad6d7e22-411d-4352-a089-afc39ec66b61	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	home.target_audience.005	23c089ca-3815-4873-b932-cffad1859bf7	5
+54e7bf14-8bda-4e8d-9657-3fca57f4e0b9	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	home.target_audience.006	bca089ce-4bd6-4c5a-9e32-51dfb9f8c768	6
+27d4205a-1831-46d6-911f-8064c625be25	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	home.target_audience.007	2db64cd2-d0e6-4dfc-a308-f20733a7c9fc	7
+4a7b4894-ad8c-441a-bcf4-e2586e06bd6c	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	home.target_audience.008	85e71f86-4c80-4a27-aa49-f29be5f701cb	8
+c3750f8a-8733-46f2-a69c-8f4bfc5db146	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	home.target_audience.009	43f332cb-4f08-452b-8281-9108e53d1870	9
+30aee2f1-cc3d-4334-8f15-407aad6f95c7	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	home.cards.gallery.images.001	7ac0a6a4-b505-4229-9a18-2580b34c5a9e	1
+2b29b9d8-083b-422e-96b8-4f929dd1e2a4	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	home.cards.gallery.images.002	0d680a3d-60ab-4e46-9007-5a2a5f5f772b	2
+9fcef6a1-71de-46b1-89d5-edf7e43af73b	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	home.cards.gallery.images.003	ec79eb3f-a158-43be-ab1e-56a79474e75f	3
+561367bc-7247-41d1-9a71-c2369ac273fe	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	home.cards.gallery.images.004	6b9275d1-6e88-4e78-8fe1-ef1b042ee441	4
+d74c9b84-d86f-452c-a690-e67d8900acf7	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	home.cards.gallery.images.005	305ffcac-91cf-4670-81ac-e8aa2e4705f5	5
+7a7e0608-b553-4bef-a743-8806a92c51ff	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	home.cards.gallery.images.006	01593177-0e92-41fe-94b4-20fb108027ba	6
+dbb22ed8-50a7-4c57-809d-ed5ad79df60f	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	home.cards.gallery.images.007	c6460107-d0de-4748-94e6-3a261efccbb0	7
+44c31824-960a-4bac-b4a7-30495441ae43	2025-12-24 03:39:44.611036+00	2025-12-24 03:39:44.611036+00	home.cards.gallery.images.008	47895a11-af43-4cc6-999c-26ecf72351df	8
+89762bbc-6ca1-41e4-9c39-e1953ed0627d	2025-12-24 03:45:23.392821+00	2025-12-24 03:45:23.392821+00	site.favicon	3fe3618b-73da-4127-b3ae-1565e2fa9784	0
 \.
 
 
@@ -1924,7 +2205,7 @@ COPY public.sessions (id, created_at, session_time, group_size, client_names, le
 -- Name: refresh_tokens_id_seq; Type: SEQUENCE SET; Schema: auth; Owner: -
 --
 
-SELECT pg_catalog.setval('auth.refresh_tokens_id_seq', 13, true);
+SELECT pg_catalog.setval('auth.refresh_tokens_id_seq', 15, true);
 
 
 --
@@ -2197,6 +2478,14 @@ ALTER TABLE ONLY public.cms_page_content
 
 ALTER TABLE ONLY public.media_assets
     ADD CONSTRAINT media_assets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: media_slots media_slots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_slots
+    ADD CONSTRAINT media_slots_pkey PRIMARY KEY (id);
 
 
 --
@@ -2551,27 +2840,6 @@ CREATE UNIQUE INDEX admin_users_email_unique ON public.admin_users USING btree (
 
 
 --
--- Name: media_assets_asset_key_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX media_assets_asset_key_idx ON public.media_assets USING btree (asset_key);
-
-
---
--- Name: media_assets_asset_key_pattern_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX media_assets_asset_key_pattern_idx ON public.media_assets USING btree (asset_key text_pattern_ops);
-
-
---
--- Name: media_assets_asset_key_unique_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX media_assets_asset_key_unique_idx ON public.media_assets USING btree (asset_key) WHERE (asset_key IS NOT NULL);
-
-
---
 -- Name: media_assets_bucket_path_unique; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2590,6 +2858,27 @@ CREATE INDEX media_assets_public_category_sort_idx ON public.media_assets USING 
 --
 
 CREATE INDEX media_assets_session_idx ON public.media_assets USING btree (session_id);
+
+
+--
+-- Name: media_slots_asset_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX media_slots_asset_id_idx ON public.media_slots USING btree (asset_id);
+
+
+--
+-- Name: media_slots_slot_key_pattern_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX media_slots_slot_key_pattern_idx ON public.media_slots USING btree (slot_key text_pattern_ops);
+
+
+--
+-- Name: media_slots_slot_key_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX media_slots_slot_key_unique ON public.media_slots USING btree (slot_key);
 
 
 --
@@ -2765,6 +3054,14 @@ ALTER TABLE ONLY public.media_assets
 
 
 --
+-- Name: media_slots media_slots_asset_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.media_slots
+    ADD CONSTRAINT media_slots_asset_id_fkey FOREIGN KEY (asset_id) REFERENCES public.media_assets(id) ON DELETE SET NULL;
+
+
+--
 -- Name: audit_log_entries; Type: ROW SECURITY; Schema: auth; Owner: -
 --
 
@@ -2875,6 +3172,15 @@ CREATE POLICY "Allow public read on media_assets" ON public.media_assets FOR SEL
 
 
 --
+-- Name: media_slots Public can read slots for public assets; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Public can read slots for public assets" ON public.media_slots FOR SELECT TO authenticated, anon USING (((asset_id IS NOT NULL) AND (EXISTS ( SELECT 1
+   FROM public.media_assets ma
+  WHERE ((ma.id = media_slots.asset_id) AND (ma.public = true))))));
+
+
+--
 -- Name: cms_page_content admin_all_cms_page_content; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -2900,10 +3206,185 @@ ALTER TABLE public.cms_page_content ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.media_assets ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: media_slots; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.media_slots ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: sessions; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.sessions ENABLE ROW LEVEL SECURITY;
+
+--
+-- PostgreSQL database dump complete
+--
+
+
+
+-- ------------------------------------------------------------
+-- DATA: public.media_assets + public.cms_page_content
+-- ------------------------------------------------------------
+
+--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 17.6
+-- Dumped by pg_dump version 17.5
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- Data for Name: cms_page_content; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('760fa9d5-316e-48bf-86c5-d38c5180aa95', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'navigation.home', 'Home', 'Inicio', 'Inicio', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('4c333d75-6b6e-4a29-9e85-3a00bda35583', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'navigation.lessons', 'Lessons', 'Lecciones', 'Lecciones', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('38179c07-b6fc-4b2f-936f-c2b16c7abf62', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'navigation.schedule', 'Book Now', 'Reservar', 'Reservar', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('0a919283-e9d4-40f0-b34c-9ba8a34f57b8', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'navigation.gallery', 'Gallery', 'Galería', 'Galería', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('8c901b2c-432b-4bff-b019-10762b0d47c0', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'navigation.about', 'About', 'Acerca de', 'Acerca de', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('11d5eb3b-eda7-4caf-bfa2-f8ca88965a69', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'navigation.faq', 'FAQ', 'Preguntas', 'Preguntas', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('41d9f9cf-409b-4273-a5e4-4ccb560cdbee', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'navigation.contact', 'Contact', 'Contacto', 'Contacto', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('9a7c560a-bac0-4aee-b6b6-9aa64fd04dde', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'home.heroTitle', 'Learn to Surf at Sunset Surf Academy', 'Aprende a surfear en Sunset Surf Academy', 'Aprende a surfear en Sunset Surf Academy', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('7ce559f6-1ac5-4c3a-a7e0-c608235c3199', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'home.heroSubtitle', 'Professional surf instruction in the beautiful waters of Rincón, Puerto Rico', 'Instrucción profesional de surf en las hermosas aguas de Rincón, Puerto Rico', 'Instrucción profesional de surf en las hermosas aguas de Rincón, Puerto Rico', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('2f35fe0e-96be-448c-ab09-a063f4166242', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'home.bookNow', 'Book Your Lesson', 'Reserva tu lección', 'Reserva tu lección', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('27417dd4-90a2-4939-853e-e990b791436d', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'home.learnMore', 'Learn More', 'Saber más', 'Saber más', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('81b98972-8770-413c-af6f-680cf1e6e3c5', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'home.aboutPreview', 'Learn from some of the best surfers in the world.', 'Aprende con algunos de los mejores surfistas del mundo.', 'Aprende con algunos de los mejores surfistas del mundo.', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('00efa412-55e3-4547-bb24-879b03319905', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'home.lessonsTitle', 'Surf Lessons', 'Lecciones de surf', 'Lecciones de surf', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('7de4b4b8-c24f-4f9e-b401-815d8b87b9e4', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'home.lessonsDescription', 'From beginner-friendly sessions to advanced coaching', 'Desde sesiones para principiantes hasta coaching avanzado', 'Desde sesiones para principiantes hasta coaching avanzado', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('46a4be42-c0e6-426b-a28d-8c0ae44f775d', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'home.galleryTitle', 'Experience the Journey', 'Vive la experiencia', 'Vive la experiencia', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('46bd6ebb-213c-4d89-a77d-dd92f7ffdf66', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'home.galleryDescription', 'Watch videos and see photos from our surf adventures', 'Mira videos y fotos de nuestras aventuras de surf', 'Mira videos y fotos de nuestras aventuras de surf', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('30fe8bc6-7e01-4831-818a-ae5841a0e43f', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'home.teamTitle', 'Meet the Team', 'Conoce al equipo', 'Conoce al equipo', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('9c2abbe0-80ea-443e-b6a8-0d8ee4db8a8f', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'home.teamDescription', 'Get to know the coaches who make Sunset Surf Academy special', 'Conoce a los entrenadores que hacen especial a Sunset Surf Academy', 'Conoce a los entrenadores que hacen especial a Sunset Surf Academy', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('46b6614c-e851-4708-9bab-d65996aa9111', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.title', 'Surf Lessons', 'Lecciones de surf', 'Lecciones de surf', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('a0315bfd-e033-4b03-abd8-246737c1350b', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.subtitle', 'Professional instruction tailored to your skill level', 'Instrucción profesional adaptada a tu nivel', 'Instrucción profesional adaptada a tu nivel', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('52296c4e-2ccc-4285-bed0-5c4d82e74172', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.beginner.title', 'Lessons', 'Lecciones', 'Lecciones', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('01593580-2c50-4213-9429-534bc799290b', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.beginner.price', '$100', '$100', '$100', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('4fc13111-e239-4e20-a234-248e9a8d203b', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.beginner.duration', '2 hours', '2 horas', '2 horas', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('8ca8d5c2-ab9e-4c00-946f-e2846caa121e', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.beginner.location', 'Rincón to Isabela/Jobos', 'Rincón a Isabela/Jobos', 'Rincón a Isabela/Jobos', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('ac44fe56-15f6-4e7c-ba3b-b3ac8e1f1c09', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.beginner.description', 'The beginner lessons teach the fundamentals of surfing.', 'Las lecciones para principiantes enseñan los fundamentos del surf.', 'Las lecciones para principiantes enseñan los fundamentos del surf.', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('e74051b4-0413-48a8-984b-2a2e0117a32e', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.beginner.includes.0', 'Surfboard rental', 'Alquiler de tabla de surf', 'Alquiler de tabla de surf', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('8177b659-a1a8-4b8b-a962-611be19ae10d', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.beginner.includes.1', 'Safety briefing', 'Briefing de seguridad', 'Briefing de seguridad', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('aefe7f2a-1a03-4f3e-a8c3-acf2ed546ff5', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.beginner.includes.2', 'Personalized beach & water coaching', 'Coaching personalizado en playa y agua', 'Coaching personalizado en playa y agua', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('73e77bc3-459f-4887-8618-836931f42d92', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.beginner.includes.3', 'Photos of your session', 'Fotos de tu sesión', 'Fotos de tu sesión', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('bed7e86a-eaff-4f05-849e-1421d5df7103', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.intermediate.title', 'Advanced Coaching', 'Coaching avanzado', 'Coaching avanzado', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('f391351b-5f62-4063-a08e-62e225c4f0d0', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.intermediate.price', '$100', '$100', '$100', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('9cb6e12c-97f6-48d3-a417-e4d7c8e042e7', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.intermediate.duration', '2 hours', '2 horas', '2 horas', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('6d64d2cc-f5e3-4467-9c77-6219e28d2950', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.intermediate.location', 'Rincón to Isabela/Jobos', 'Rincón a Isabela/Jobos', 'Rincón a Isabela/Jobos', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('fc3e282d-90de-4a4a-b3d9-da0ee7925067', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.intermediate.description', 'Intermediate lessons teach how to read waves, interact in any lineup, and gain practical skills to surf more confidently.', 'Las lecciones intermedias enseñan a leer las olas, interactuar en cualquier line up y desarrollar habilidades prácticas para surfear con más confianza.', 'Las lecciones intermedias enseñan a leer las olas, interactuar en cualquier line up y desarrollar habilidades prácticas para surfear con más confianza.', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('d5438f49-13b4-44ed-81a7-bd8951964dd9', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.intermediate.includes.0', 'Surfboard rental', 'Alquiler de tabla de surf', 'Alquiler de tabla de surf', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('eeb40f15-43c9-4d28-a498-3bd5b43cf42b', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.intermediate.includes.1', 'Wave reading & lineup etiquette', 'Lectura de olas y etiqueta en el line up', 'Lectura de olas y etiqueta en el line up', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('d90f7470-1c7e-44c8-8b38-7db6a32f82b0', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.intermediate.includes.2', 'Skills development', 'Desarrollo de habilidades', 'Desarrollo de habilidades', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('89e88ca2-ac4c-47ac-a9ba-83ed7c784231', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.intermediate.includes.3', 'Photos and short video clips', 'Fotos y clips cortos de video', 'Fotos y clips cortos de video', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('ec891b25-6df4-4941-9b8b-fbb4105b37eb', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.advanced.title', 'Surf Guide', 'Guía de surf', 'Guía de surf', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('9bc32b42-780b-4512-9fd9-8eaa191ab82c', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.advanced.price', '$100', '$100', '$100', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('743f1b1c-2130-4b8a-af0c-62dcf9159704', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.advanced.duration', '2 hours', '2 horas', '2 horas', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('b887f9ae-ea46-4e64-a4b1-6d03039d85de', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.advanced.location', 'Various locations', 'Varias ubicaciones', 'Varias ubicaciones', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('52903d25-e381-45aa-a46a-e8e75f8f0923', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'faq.questions.6.question', 'What''s your refund policy?', '¿Cuál es su política de reembolso?', '¿Cuál es su política de reembolso?', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('159fa519-b513-41eb-91f5-5577907a4762', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.advanced.description', 'Advanced lessons cover advanced skills, video analysis, competition preparation, and custom programs.', 'Las lecciones avanzadas cubren habilidades avanzadas, análisis de video, preparación para competencias y programas personalizados.', 'Las lecciones avanzadas cubren habilidades avanzadas, análisis de video, preparación para competencias y programas personalizados.', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('01aba9c5-47bc-42b1-8561-e467de29480f', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.advanced.includes.0', 'Video review', 'Revisión de video', 'Revisión de video', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('11226537-9602-4098-a87e-5c996ba5fcab', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.advanced.includes.1', 'Technique analysis', 'Análisis de técnica', 'Análisis de técnica', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('71ef26ea-40ca-44c6-9c3f-7ab2961bea4d', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.advanced.includes.2', 'Competition prep', 'Preparación para competencias', 'Preparación para competencias', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('6f2828d4-b638-4a09-85d9-459ae49c932c', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'lessons.advanced.includes.3', 'Custom programs', 'Programas personalizados', 'Programas personalizados', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('4a2f2061-6d3a-4c7a-910c-a5fe8536c61c', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'booking.title', 'Book Your Lesson', 'Reserva tu lección', 'Reserva tu lección', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('ba5ee7f5-38f2-47d6-af92-7d483697bc5e', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'booking.selectDate', 'Select Date', 'Selecciona una fecha', 'Selecciona una fecha', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('2bb75792-21e5-463f-b5b3-5d4c349cb531', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'booking.selectTime', 'Select Time', 'Selecciona una hora', 'Selecciona una hora', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('c373ef25-b9e3-45f0-89ee-0c2a8b6b0a5a', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'booking.partySize', 'Party Size', 'Tamaño del grupo', 'Tamaño del grupo', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('b2bf256d-5457-4fb4-b040-f2e1b47f8cc2', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'booking.lessonType', 'Lesson Type', 'Tipo de lección', 'Tipo de lección', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('73dd1e24-9f75-4ed7-b0db-b8352f53be82', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'booking.totalPrice', 'Total Price', 'Precio total', 'Precio total', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('a4c0cdc8-ecf2-454a-98a7-8e442518a7e5', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'booking.customerInfo', 'Customer Information', 'Información del cliente', 'Información del cliente', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('9c07821f-c9fa-48a0-ad94-d9b2d988bf8d', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'booking.name', 'Full Name', 'Nombre completo', 'Nombre completo', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('eee444fb-0274-4ddf-800f-8471f74bb4e9', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'booking.email', 'Email Address', 'Correo electrónico', 'Correo electrónico', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('420cfdaa-0cad-490c-a992-077b2c4780c9', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'booking.phone', 'Phone Number', 'Número de teléfono', 'Número de teléfono', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('834b5d67-13ec-4827-93a7-90e301ec6b77', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'booking.proceedToPayment', 'Proceed to Payment', 'Continuar al pago', 'Continuar al pago', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('da6d9f6f-0a44-4a89-b71e-8d7173f7d1eb', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'about.title', 'About Jazmine Dean Perez', 'Sobre Jazmine Dean Perez', 'Sobre Jazmine Dean Perez', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('57ca93f9-81b1-4003-b0f3-a7bfcedfaf8c', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'about.subtitle', 'Professional Surfer & Instructor', 'Surfista profesional e instructora', 'Surfista profesional e instructora', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('84eef7bb-6a3d-4b4e-bdf7-49067f09f07a', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'about.bio', 'Jazmine Dean is a professional surfer representing Team Puerto Rico with an impressive competitive record. Based in the world-renowned surf town of Rincón, she brings years of experience and passion to every lesson.', 'Jazmine Dean es una surfista profesional que representa al Equipo Puerto Rico con un impresionante historial competitivo. Basada en el mundialmente reconocido pueblo de surf de Rincón, aporta años de experiencia y pasión a cada lección.', 'Jazmine Dean es una surfista profesional que representa al Equipo Puerto Rico con un impresionante historial competitivo. Basada en el mundialmente reconocido pueblo de surf de Rincón, aporta años de experiencia y pasión a cada lección.', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('90b4cfeb-cf3e-4d85-8f2c-90e74d324959', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'about.achievements', 'Achievements', 'Logros', 'Logros', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('f9533725-bf69-432c-947e-099891972eee', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'about.accolades.0', '4x East Coast Champion', '4x campeona de la Costa Este', '4x campeona de la Costa Este', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('669d2655-effa-4c73-ac32-acd6e0f3ee3f', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'about.accolades.1', 'Pan-American Games 2nd Place', '2.º lugar en los Juegos Panamericanos', '2.º lugar en los Juegos Panamericanos', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('2a67ee68-e58d-437a-976c-450b92df767e', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'about.accolades.2', 'ISA World Surfing Games Competitor', 'Competidora en los Juegos Mundiales de Surf ISA', 'Competidora en los Juegos Mundiales de Surf ISA', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('b5bb3436-ba8a-48f6-8af6-05230a542da3', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'about.accolades.3', 'Team Puerto Rico Member', 'Miembro del Equipo Puerto Rico', 'Miembro del Equipo Puerto Rico', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('d233132d-85b0-49db-aee8-ab2e601d6f9b', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'about.accolades.4', 'Professional Surf Instructor', 'Instructora profesional de surf', 'Instructora profesional de surf', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('2bee4830-834a-4c13-8990-e7fd166782a5', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'mission.title', 'Our Mission', 'Nuestra misión', 'Nuestra misión', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('a6965150-c71e-4a44-bec7-387a5094f1e7', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'mission.subtitle', 'Take Every Surfer To The Next Level', 'Llevar a cada surfista al siguiente nivel', 'Llevar a cada surfista al siguiente nivel', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('fc420830-e002-46bf-8603-5525ee6e1969', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'mission.lead', 'At Sunset Surf Academy our mission is simple: to help every surfer — from complete beginners to seasoned competitors — progress, have more fun, and get better results in the water.', 'En Sunset Surf Academy nuestra misión es simple: ayudar a cada surfista — desde principiantes completos hasta competidores experimentados — a progresar, divertirse más y obtener mejores resultados en el agua.', 'En Sunset Surf Academy nuestra misión es simple: ayudar a cada surfista — desde principiantes completos hasta competidores experimentados — a progresar, divertirse más y obtener mejores resultados en el agua.', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('bff309aa-5983-4d89-be70-dcd5d4dcfa87', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'mission.body1', 'We believe surfing is for everyone. For first-timers we focus on water safety, confidence-building and the fundamentals so your first waves are empowering and memorable. For intermediate and advanced surfers we offer technique work, video analysis and competition preparation that targets measurable improvement.', 'Creemos que el surf es para todos. Para quienes lo prueban por primera vez, nos enfocamos en la seguridad en el agua, construir confianza y los fundamentos para que tus primeras olas sean empoderadoras y memorables. Para surfistas intermedios y avanzados, ofrecemos técnica, análisis de video y preparación para competencias con mejoras medibles.', 'Creemos que el surf es para todos. Para quienes lo prueban por primera vez, nos enfocamos en la seguridad en el agua, construir confianza y los fundamentos para que tus primeras olas sean empoderadoras y memorables. Para surfistas intermedios y avanzados, ofrecemos técnica, análisis de video y preparación para competencias con mejoras medibles.', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('7792a7c8-7498-4353-bbed-c990dd4d02c8', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'faq.questions.6.answer', 'We offer full refunds for cancellations due to unsafe weather conditions. Other cancellations require 24-hour notice.', 'Ofrecemos reembolsos completos por cancelaciones debido a condiciones climáticas inseguras. Otras cancelaciones requieren aviso con 24 horas de anticipación.', 'Ofrecemos reembolsos completos por cancelaciones debido a condiciones climáticas inseguras. Otras cancelaciones requieren aviso con 24 horas de anticipación.', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('9d59ee0a-edc1-4dc3-aa55-e524fa6fa399', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'contact.title', 'Contact Jazmine', 'Contacta a Jazmine', 'Contacta a Jazmine', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('502905b4-183e-4d56-9ac6-daec8ebef242', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'mission.body2', 'Our coaches design lessons around your goals — whether that’s catching your first wave, improving your bottom turns, boosting aerials, or nailing contest-worthy maneuvers. We emphasize clear coaching, practical drills, and a supportive environment that accelerates learning while keeping the stoke alive.', 'Nuestros entrenadores diseñan lecciones según tus objetivos — ya sea atrapar tu primera ola, mejorar tus bottom turns, perfeccionar aéreos o dominar maniobras dignas de competencia. Enfatizamos coaching claro, ejercicios prácticos y un ambiente de apoyo que acelera el aprendizaje manteniendo la emoción viva.', 'Nuestros entrenadores diseñan lecciones según tus objetivos — ya sea atrapar tu primera ola, mejorar tus bottom turns, perfeccionar aéreos o dominar maniobras dignas de competencia. Enfatizamos coaching claro, ejercicios prácticos y un ambiente de apoyo que acelera el aprendizaje manteniendo la emoción viva.', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('6593ceb7-9d73-4630-8c0b-6c5994dfa6ba', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'mission.conclusion', 'Ultimately, success at Sunset Surf Academy isn’t just measured in scores; it’s measured in smiles, confidence and the endless pursuit of better surfing. Come surf with us and let’s take your surfing to the next level.', 'En última instancia, el éxito en Sunset Surf Academy no se mide solo en puntuaciones; se mide en sonrisas, confianza y la búsqueda interminable de un mejor surf. Ven a surfear con nosotros y llevemos tu surf al siguiente nivel.', 'En última instancia, el éxito en Sunset Surf Academy no se mide solo en puntuaciones; se mide en sonrisas, confianza y la búsqueda interminable de un mejor surf. Ven a surfear con nosotros y llevemos tu surf al siguiente nivel.', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('bc9ece66-a6b1-4723-99df-bbc2ba2e36f4', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'faq.title', 'Frequently Asked Questions', 'Preguntas frecuentes', 'Preguntas frecuentes', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('92cf0a54-0a85-49f6-8524-6fa20caa83be', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'faq.questions.0.question', 'Where do we meet for lessons?', '¿Dónde nos encontramos para las lecciones?', '¿Dónde nos encontramos para las lecciones?', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('00111e42-0f29-4c3c-ba40-e7493dcaf00b', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'faq.questions.0.answer', 'We are based out of Rincón, Puerto Rico, and primarily conduct lessons at our local beach breaks. However, when conditions are favorable and upon request, we''re happy to travel anywhere along the coast from Rincón up to Jobos and all the spots in between to find the perfect waves for your lesson.', 'Estamos ubicados en Rincón, Puerto Rico, y principalmente realizamos lecciones en nuestras playas locales. Sin embargo, cuando las condiciones son favorables y bajo pedido, podemos viajar a cualquier lugar a lo largo de la costa desde Rincón hasta Jobos y todos los lugares intermedios para encontrar las olas perfectas para tu lección.', 'Estamos ubicados en Rincón, Puerto Rico, y principalmente realizamos lecciones en nuestras playas locales. Sin embargo, cuando las condiciones son favorables y bajo pedido, podemos viajar a cualquier lugar a lo largo de la costa desde Rincón hasta Jobos y todos los lugares intermedios para encontrar las olas perfectas para tu lección.', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('7e95692c-b5e9-49c6-b517-1be6da4d538d', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'faq.questions.1.question', 'What''s included in beginner lessons?', '¿Qué incluyen las lecciones para principiantes?', '¿Qué incluyen las lecciones para principiantes?', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('60212e37-2334-4dec-ba36-29fac278f054', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'faq.questions.1.answer', 'Beginner lessons include surfboard rental, comprehensive safety briefing, personalized coaching both on the beach and in the water, and photos of your surf session to capture your progress and memorable moments.', 'Las lecciones para principiantes incluyen alquiler de tabla de surf, un briefing de seguridad completo, coaching personalizado en la playa y en el agua, y fotos de tu sesión para capturar tu progreso y momentos memorables.', 'Las lecciones para principiantes incluyen alquiler de tabla de surf, un briefing de seguridad completo, coaching personalizado en la playa y en el agua, y fotos de tu sesión para capturar tu progreso y momentos memorables.', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('9ccd3140-e00a-4e7b-b749-9e81fd1b69f6', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'faq.questions.2.question', 'What''s included in advanced coaching?', '¿Qué incluye el coaching avanzado?', '¿Qué incluye el coaching avanzado?', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('8ad9e73e-8b72-4dcd-b959-ed9d852805ce', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'faq.questions.2.answer', 'Advanced coaching is a comprehensive multi-session program that includes video analysis of your surfing. We start with a baseline session where we film your surfing, then review the footage together to identify areas for improvement. This is followed by a theory-to-practice session where you apply the techniques we''ve discussed, creating a complete learning cycle for advanced skill development.', 'El coaching avanzado es un programa completo de varias sesiones que incluye análisis de video de tu surf. Comenzamos con una sesión base donde filmamos tu surf, luego revisamos el material juntos para identificar áreas de mejora. Después, realizamos una sesión de teoría a práctica donde aplicas las técnicas discutidas, creando un ciclo completo de aprendizaje para el desarrollo de habilidades avanzadas.', 'El coaching avanzado es un programa completo de varias sesiones que incluye análisis de video de tu surf. Comenzamos con una sesión base donde filmamos tu surf, luego revisamos el material juntos para identificar áreas de mejora. Después, realizamos una sesión de teoría a práctica donde aplicas las técnicas discutidas, creando un ciclo completo de aprendizaje para el desarrollo de habilidades avanzadas.', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('d1792923-0c5c-40ea-824a-444ec6f52455', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'faq.questions.3.question', 'Can I reschedule my lesson?', '¿Puedo reprogramar mi lección?', '¿Puedo reprogramar mi lección?', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('5c39c886-3c91-4db3-a00c-942a38e5e409', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'faq.questions.3.answer', 'Yes, we offer flexible rescheduling options based on weather conditions and your availability.', 'Sí, ofrecemos opciones flexibles de reprogramación según las condiciones del clima y tu disponibilidad.', 'Sí, ofrecemos opciones flexibles de reprogramación según las condiciones del clima y tu disponibilidad.', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('bb3239ea-9972-4175-a1bc-8dac73e2414d', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'faq.questions.4.question', 'Are lessons suitable for complete beginners?', '¿Las lecciones son adecuadas para principiantes completos?', '¿Las lecciones son adecuadas para principiantes completos?', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('0d1ab06d-5c42-4d13-a1a5-7c0562aaf026', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'faq.questions.4.answer', 'Absolutely! Our beginner lessons are specifically designed for first-time surfers of all ages.', '¡Absolutamente! Nuestras lecciones para principiantes están diseñadas específicamente para surfistas primerizos de todas las edades.', '¡Absolutamente! Nuestras lecciones para principiantes están diseñadas específicamente para surfistas primerizos de todas las edades.', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('ffe9ab1f-a3fa-498e-a770-6fabf968b818', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'faq.questions.5.question', 'Do you offer group and family lessons?', '¿Ofrecen lecciones grupales y familiares?', '¿Ofrecen lecciones grupales y familiares?', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('8fd9e901-ae02-436e-8d53-936f8aa8a728', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'faq.questions.5.answer', 'Yes, we welcome groups and families. Contact us for special group rates and custom arrangements.', 'Sí, damos la bienvenida a grupos y familias. Contáctanos para tarifas especiales para grupos y arreglos personalizados.', 'Sí, damos la bienvenida a grupos y familias. Contáctanos para tarifas especiales para grupos y arreglos personalizados.', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('bb6580bd-581a-4b26-86e0-5196dfa9f628', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'contact.subtitle', 'Ready to book or have questions? Get in touch!', '¿Listo para reservar o tienes preguntas? ¡Ponte en contacto!', '¿Listo para reservar o tienes preguntas? ¡Ponte en contacto!', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('df35c836-1890-42b3-b454-af78f9e21624', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'contact.location', 'Rincón, Puerto Rico', 'Rincón, Puerto Rico', 'Rincón, Puerto Rico', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('0f4296ab-5a49-46fa-ab0e-61a7da3f9473', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'contact.followUs', 'Follow Us', 'Síguenos', 'Síguenos', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('700a8b44-5331-4307-8e23-3a86abfd9c9d', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'team.title', 'Meet the Team', 'Conoce al equipo', 'Conoce al equipo', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('959278c4-67f3-458a-a87e-339ba2167d62', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'team.subtitle', 'Learn from some of the best surfers in the world.', 'Aprende con algunos de los mejores surfistas del mundo.', 'Aprende con algunos de los mejores surfistas del mundo.', true, 32767, 'messages');
+INSERT INTO public.cms_page_content (id, created_at, updated_at, created_by, updated_by, page_key, body_en, body_es_draft, body_es_published, approved, sort, category) VALUES ('0556376d-d41a-4b63-a15d-16c1d496e69a', '2025-12-21 12:59:48.629543+00', '2025-12-21 12:59:48.629543+00', NULL, NULL, 'team.intro', 'These are our top coaches who will take you to the next level in your surfing. Click on their profiles to learn a little about them!', 'Estos son nuestros mejores entrenadores que te llevarán al siguiente nivel en tu surf. Haz clic en sus perfiles para conocer un poco más sobre ellos.', 'Estos son nuestros mejores entrenadores que te llevarán al siguiente nivel en tu surf. Haz clic en sus perfiles para conocer un poco más sobre ellos.', true, 32767, 'messages');
+
+
+--
+-- Data for Name: media_assets; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('49000f45-9f99-444a-8257-ba9f1c7d5bb1', 'IMG_3859', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', 'IMG_3859.JPG', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('36cb9cd0-7609-4602-ae76-6ac39ef2dcab', 'palmTree', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', 'palmTree.png', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('896760f0-a364-4f17-b1aa-a0ca80085115', 'MVI_3628', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', 'MVI_3628.MP4', NULL, 'video', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('87094a4d-b038-4c75-8e96-fc0a6332974d', 'SSA_gentle waves', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', 'SSA_gentle waves.mp4', NULL, 'video', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('3fe3618b-73da-4127-b3ae-1565e2fa9784', 'SSA_Orange_Logo', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', 'SSA_Orange_Logo.png', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('c4b18176-3271-435f-9398-4b081923df89', 'isasilver', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', 'isasilver.png', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('f0314672-4e7e-413d-bc67-f6c1cac0da71', 'isa', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', 'isa.png', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('e3c9dfab-9c02-4a36-89de-d0d7d4f3f69d', 'sbsnap', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', 'sbsnap.png', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('178a898f-a085-4363-8eb9-06a344c5586f', 'Want to learn cross stepping 2', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', 'Want to learn cross stepping 2.mp4', NULL, 'video', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('9a841c26-b762-45eb-8bbd-94eda57a94ac', 'prices', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', 'prices.png', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('5ba1e743-3d5e-48a5-b3e6-d7fb611dca49', 'image_6483441 (1)', 'synced from storage', '2025-12-22 19:48:26.642098+00', '2025-12-22 19:48:26.642098+00', true, 'Lesson_Photos', 'image_6483441 (1).JPG', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('5342e269-d6db-4d31-abab-d736cb021066', 'image_6483441 (5)', 'synced from storage', '2025-12-22 19:48:26.642098+00', '2025-12-22 19:48:26.642098+00', true, 'Lesson_Photos', 'image_6483441 (5).JPG', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('47895a11-af43-4cc6-999c-26ecf72351df', 'surfSchoolShot', 'synced from storage', '2025-12-22 19:48:26.642098+00', '2025-12-22 19:48:26.642098+00', true, 'Lesson_Photos', 'surfSchoolShot.png', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('7ac0a6a4-b505-4229-9a18-2580b34c5a9e', 'IMG_3855', 'synced from storage', '2025-12-22 19:48:26.642098+00', '2025-12-22 19:48:26.642098+00', true, 'Lesson_Photos', 'IMG_3855.JPG', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('0d680a3d-60ab-4e46-9007-5a2a5f5f772b', 'IMG_3856', 'synced from storage', '2025-12-22 19:48:26.642098+00', '2025-12-22 19:48:26.642098+00', true, 'Lesson_Photos', 'IMG_3856.JPG', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('6b9275d1-6e88-4e78-8fe1-ef1b042ee441', 'IMG_2505 2', 'synced from storage', '2025-12-22 19:48:26.642098+00', '2025-12-22 19:48:26.642098+00', true, 'Lesson_Photos', 'IMG_2505 2.JPG', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('ec79eb3f-a158-43be-ab1e-56a79474e75f', 'IMG_2505', 'synced from storage', '2025-12-22 19:48:26.642098+00', '2025-12-22 19:48:26.642098+00', true, 'Lesson_Photos', 'IMG_2505.JPG', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('c6460107-d0de-4748-94e6-3a261efccbb0', 'IMG_3633', 'synced from storage', '2025-12-22 19:48:26.642098+00', '2025-12-22 19:48:26.642098+00', true, 'Lesson_Photos', 'IMG_3633.JPG', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('01593177-0e92-41fe-94b4-20fb108027ba', 'IMG_3629', 'synced from storage', '2025-12-22 19:48:26.642098+00', '2025-12-22 19:48:26.642098+00', true, 'Lesson_Photos', 'IMG_3629.JPG', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('305ffcac-91cf-4670-81ac-e8aa2e4705f5', 'IMG_3627', 'synced from storage', '2025-12-22 19:48:26.642098+00', '2025-12-22 19:48:26.642098+00', true, 'Lesson_Photos', 'IMG_3627.JPG', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('67b9bc0b-65ae-4a74-873b-36463fcb4522', 'contact_card', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', 'contact_card.png', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('7693ee08-1215-4561-92ae-7f91eb11e7ee', '2', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', '2.png', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('719d5909-b4d7-42c4-875c-4ca5563160b1', '4', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', '4.png', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('95851b90-3a70-4d6f-8a61-7316c0fd5985', '3', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', '3.png', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('bca089ce-4bd6-4c5a-9e32-51dfb9f8c768', 'Dress', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', 'Dress.png', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('2db64cd2-d0e6-4dfc-a308-f20733a7c9fc', 'dress2', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', 'dress2.png', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('23c089ca-3815-4873-b932-cffad1859bf7', '5', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', '5.png', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('55402377-6aed-4953-be21-4aea15c56fc2', '1', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', '1.png', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('da79e1c8-8676-4b8f-b863-bc31211a0322', 'hero_shot', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', 'hero_shot.png', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('85e71f86-4c80-4a27-aa49-f29be5f701cb', 'hang10', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', 'hang10.png', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('88a40d13-203f-496d-b76c-6007c2f53b61', 'SSA_BW_Logo', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', 'SSA_BW_Logo.png', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('43f332cb-4f08-452b-8281-9108e53d1870', 'lbturn', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', 'lbturn.png', NULL, 'photo', 32767, 'lessons');
+INSERT INTO public.media_assets (id, title, description, created_at, updated_at, public, bucket, path, session_id, asset_type, sort, category) VALUES ('ea54ad52-932a-4d3f-b657-00a1f32a6961', 'SSA_ Enter and exit', 'synced from storage', '2025-12-22 21:19:52.02167+00', '2025-12-22 21:19:52.02167+00', true, 'Lesson_Photos', 'SSA_ Enter and exit.mp4', NULL, 'video', 32767, 'lessons');
+
 
 --
 -- PostgreSQL database dump complete

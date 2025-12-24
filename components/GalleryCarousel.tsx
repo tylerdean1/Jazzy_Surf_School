@@ -1,7 +1,6 @@
 'use client';
-
-import Image from 'next/image';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import styles from './GalleryCarousel.module.css';
 
 interface Props {
     intervalMs?: number;
@@ -15,19 +14,7 @@ interface Props {
     mode?: 'random' | 'ordered';
 }
 
-const defaultImages = [
-    '/school_content/image_6483441%20(1).JPG',
-    '/school_content/image_6483441%20(5).JPG',
-    '/school_content/IMG_2505%202.JPG',
-    '/school_content/IMG_2505.JPG',
-    '/school_content/IMG_3627.JPG',
-    '/school_content/IMG_3629.JPG',
-    '/school_content/IMG_3633.JPG',
-    '/school_content/IMG_3855.JPG',
-    '/school_content/IMG_3856.JPG',
-    '/school_content/IMG_3859.JPG',
-    '/school_content/surfSchoolShot.png'
-];
+const defaultImages: string[] = [];
 
 function getRandomIndex(length: number, exclude: number) {
     if (length <= 1) return 0;
@@ -62,6 +49,7 @@ export default function GalleryCarousel({ intervalMs = 8000, className = '', ima
     }, [images]);
 
     useEffect(() => {
+        if (!images.length) return;
         // start initial interval
         intervalRef.current = window.setInterval(() => {
             // compute next randomly (avoid immediate repeat) and preload it
@@ -88,26 +76,28 @@ export default function GalleryCarousel({ intervalMs = 8000, className = '', ima
 
     // preload next image whenever index changes
     useEffect(() => {
+        if (!images.length) return;
         const next = (index + 1) % images.length;
         const preload = document.createElement('img');
         preload.src = images[next];
         indexRef.current = index;
     }, [index, images]);
 
-    const heightClass = height === 160 ? 'gallery-carousel--h160' : '';
-    const fitClass = objectFit === 'contain' ? 'gallery-image--contain' : objectFit === 'fill' ? 'gallery-image--fill' : '';
-    const imageClassName = `gallery-image ${fitClass} ${visible ? 'visible' : ''}`.trim();
+    const heightClass = height === 160 ? styles.h160 : '';
+    const fitClass = objectFit === 'contain' ? styles.fitContain : objectFit === 'fill' ? styles.fitFill : styles.fitCover;
+    const imageClassName = [styles.image, fitClass, visible ? styles.visible : ''].filter(Boolean).join(' ');
 
     return (
-        <div className={`gallery-carousel ${heightClass} ${className}`.trim()}>
-            <Image
-                src={images[index]}
-                alt={`Gallery ${index + 1}`}
-                fill
-                sizes="100vw"
-                className={imageClassName}
-                priority={false}
-            />
+        <div className={[styles.carousel, heightClass, className].filter(Boolean).join(' ')}>
+            {images.length ? (
+                // Use a plain <img> to support remote URLs (e.g. Supabase public URLs) without Next image domain config.
+                <img
+                    src={images[index]}
+                    alt={`Gallery ${index + 1}`}
+                    className={imageClassName}
+                    loading="lazy"
+                />
+            ) : null}
         </div>
     );
 }

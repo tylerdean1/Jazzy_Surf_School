@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useTranslations, useLocale } from 'next-intl';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import AppBar from '@mui/material/AppBar';
@@ -23,6 +22,7 @@ import useTheme from '@mui/material/styles/useTheme';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { Menu, Waves } from '@mui/icons-material';
 import LanguageToggle from './LanguageToggle';
+import useContentBundle from '@/hooks/useContentBundle';
 
 const Navigation: React.FC = () => {
   const t = useTranslations('navigation');
@@ -34,6 +34,9 @@ const Navigation: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+
+  const bundle = useContentBundle('nav.');
+  const logoUrl = bundle.mediaByKey('nav.logo')?.url || '';
 
   const onAdminPage = pathname === `/${locale}/admin`;
   const selectedAdminPage = searchParams.get('page') || 'home';
@@ -154,28 +157,18 @@ const Navigation: React.FC = () => {
               <LanguageToggle />
               {onAdminPage && isAdmin ? (
                 <Box sx={{ display: 'inline-flex', alignItems: 'center', marginLeft: '0.5rem', opacity: 0.85 }}>
-                  <Image
-                    src="/Logo/SSA_Orange_Logo.png"
-                    alt="Surf School orange logo"
-                    width={40}
-                    height={40}
-                    priority
-                    style={{ borderRadius: 8 }}
-                  />
+                  {logoUrl ? (
+                    <Box component="img" src={logoUrl} alt="Surf School logo" sx={{ width: 40, height: 40, borderRadius: 1 }} />
+                  ) : null}
                 </Box>
               ) : (
                 <Link
                   href={`/${locale}`}
                   style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '0.5rem' }}
                 >
-                  <Image
-                    src="/Logo/SSA_Orange_Logo.png"
-                    alt="Surf School orange logo"
-                    width={40}
-                    height={40}
-                    priority
-                    style={{ borderRadius: 8 }}
-                  />
+                  {logoUrl ? (
+                    <Box component="img" src={logoUrl} alt="Surf School logo" sx={{ width: 40, height: 40, borderRadius: 1 }} />
+                  ) : null}
                 </Link>
               )}
               <IconButton
@@ -232,28 +225,28 @@ const Navigation: React.FC = () => {
                 <LanguageToggle />
                 {onAdminPage && isAdmin ? (
                   <Box sx={{ display: 'inline-flex', alignItems: 'center', opacity: 0.9 }}>
-                    <Image
-                      src="/Logo/SSA_Orange_Logo.png"
-                      alt="Surf School orange logo"
-                      width={44}
-                      height={44}
-                      priority
-                      style={{ borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}
-                    />
+                    {logoUrl ? (
+                      <Box
+                        component="img"
+                        src={logoUrl}
+                        alt="Surf School logo"
+                        sx={{ width: 44, height: 44, borderRadius: 1.25, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}
+                      />
+                    ) : null}
                   </Box>
                 ) : (
                   <Link
                     href={`/${locale}`}
                     style={{ display: 'inline-flex', alignItems: 'center' }}
                   >
-                    <Image
-                      src="/Logo/SSA_Orange_Logo.png"
-                      alt="Surf School orange logo"
-                      width={44}
-                      height={44}
-                      priority
-                      style={{ borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}
-                    />
+                    {logoUrl ? (
+                      <Box
+                        component="img"
+                        src={logoUrl}
+                        alt="Surf School logo"
+                        sx={{ width: 44, height: 44, borderRadius: 1.25, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}
+                      />
+                    ) : null}
                   </Link>
                 )}
               </Box>

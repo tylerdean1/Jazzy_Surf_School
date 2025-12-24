@@ -6,6 +6,8 @@ import { requireAdminApi } from '@/lib/adminAuth';
 type MediaAssetRow = Database['public']['Tables']['media_assets']['Row'];
 type MediaAssetInsert = Database['public']['Tables']['media_assets']['Insert'];
 
+type MediaAssetWithKey = MediaAssetRow & { asset_key: string | null };
+
 export async function GET(req: Request) {
     const gate = await requireAdminApi(req);
     if (!gate.ok) return gate.response;
@@ -24,7 +26,36 @@ export async function GET(req: Request) {
         return NextResponse.json({ ok: false, message: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, items: (data ?? []) as MediaAssetRow[] });
+    const assets = (data ?? []) as MediaAssetRow[];
+    const ids = assets.map((a) => a.id).filter(Boolean);
+
+    let slotMap = new Map<string, string[]>();
+    if (ids.length) {
+        const { data: slots, error: slotsErr } = await supabase
+            .from('media_slots')
+            .select('slot_key,asset_id')
+            .in('asset_id', ids);
+
+        if (slotsErr) {
+            return NextResponse.json({ ok: false, message: slotsErr.message }, { status: 500 });
+        }
+
+        for (const s of slots ?? []) {
+            const assetId = s.asset_id;
+            if (!assetId) continue;
+            const list = slotMap.get(assetId) ?? [];
+            list.push(s.slot_key);
+            slotMap.set(assetId, list);
+        }
+    }
+
+    const items: MediaAssetWithKey[] = assets.map((a) => {
+        const keys = slotMap.get(a.id) ?? [];
+        keys.sort();
+        return { ...a, asset_key: keys.length ? keys[0] : null };
+    });
+
+    return NextResponse.json({ ok: true, items });
 }
 
 type PostBody =
@@ -72,9 +103,12 @@ export async function POST(req: Request) {
 
     const supabase = getSupabaseAdmin();
 
+    const assetKeyRaw = a?.asset_key;
+    const assetKey = assetKeyRaw != null && String(assetKeyRaw).trim() ? String(assetKeyRaw).trim() : null;
+    const wantsClearAssetKey = assetKeyRaw === null;
+
     const insert: MediaAssetInsert = {
         id: a?.id ? String(a.id) : undefined,
-        asset_key: a?.asset_key != null && String(a.asset_key).trim() ? String(a.asset_key).trim() : null,
         title,
         description: a?.description ?? null,
         public: Boolean(a?.public),
@@ -96,5 +130,22 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, message: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, item: data ?? null });
+    const saved = data as MediaAssetRow | null;
+    if (saved?.id) {
+        if (wantsClearAssetKey) {
+            const { error: delErr } = await supabase.from('media_slots').delete().eq('asset_id', saved.id);
+            if (delErr) {
+                return NextResponse.json({ ok: false, message: delErr.message }, { status: 500 });
+            }
+        } else if (assetKey) {
+            const { error: slotErr } = await supabase
+                .from('media_slots')
+                .upsert({ slot_key: assetKey, asset_id: saved.id, sort: insert.sort }, { onConflict: 'slot_key' });
+            if (slotErr) {
+                return NextResponse.json({ ok: false, message: slotErr.message }, { status: 500 });
+            }
+        }
+    }
+
+    return NextResponse.json({ ok: true, item: saved ? ({ ...saved, asset_key: assetKey } as MediaAssetWithKey) : null });
 }

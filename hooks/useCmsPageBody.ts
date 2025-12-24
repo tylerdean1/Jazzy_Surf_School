@@ -12,7 +12,7 @@ type Result = {
     error: string | null;
 };
 
-export default function useCmsPageBody(pageKey: string, locale: string): Result {
+export default function useCmsPageBody(pageKey: string, locale: string, enabled: boolean = true): Result {
     const [body, setBody] = useState<string | null>(null);
     const [effectiveLocale, setEffectiveLocale] = useState<string | null>(null);
     const [updatedAt, setUpdatedAt] = useState<string | null>(null);
@@ -21,6 +21,17 @@ export default function useCmsPageBody(pageKey: string, locale: string): Result 
 
     useEffect(() => {
         let cancelled = false;
+
+        if (!enabled) {
+            setLoading(false);
+            setError(null);
+            setBody(null);
+            setEffectiveLocale(null);
+            setUpdatedAt(null);
+            return () => {
+                cancelled = true;
+            };
+        }
 
         (async () => {
             setLoading(true);
@@ -53,7 +64,7 @@ export default function useCmsPageBody(pageKey: string, locale: string): Result 
         return () => {
             cancelled = true;
         };
-    }, [pageKey, locale]);
+    }, [enabled, pageKey, locale]);
 
     return { body, locale: effectiveLocale, updatedAt, loading, error };
 }

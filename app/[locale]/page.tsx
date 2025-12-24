@@ -6,25 +6,55 @@ import { Container, Grid, Card, CardContent, Typography, Box } from '@mui/materi
 import GalleryCarousel from '../../components/GalleryCarousel';
 import Link from 'next/link';
 import EditableInlineText from '@/components/admin/edit/EditableInlineText';
+import ContentBundleProvider from '@/components/content/ContentBundleContext';
+import { useContentBundleContext } from '@/components/content/ContentBundleContext';
 
-const targetAudienceImages = [
-  '/target_audiance/prices.png',
-  '/target_audiance/1.png',
-  '/target_audiance/2.png',
-  '/target_audiance/3.png',
-  '/target_audiance/4.png',
-  '/target_audiance/5.png'
-];
+const TARGET_AUDIENCE_FALLBACK_IMAGES: string[] = [];
 
 export default function HomePage() {
+  return (
+    <ContentBundleProvider prefix="home.">
+      <HomeInner />
+    </ContentBundleProvider>
+  );
+}
+
+function HomeInner() {
   const t = useTranslations('home');
   const locale = useLocale();
+  const ctx = useContentBundleContext();
+  const strings = ctx?.strings || {};
+  const media = ctx?.media || [];
+
+  const tDb = (key: string, fallback?: string) => {
+    const v = strings[key];
+    return typeof v === 'string' && v.trim().length > 0 ? v : fallback ?? '';
+  };
+
+  const mediaByKey = (slotKey: string) => media.find((m) => m?.slot_key === slotKey) || null;
+  const mediaList = (slotKeyPrefix: string) =>
+    [...media]
+      .filter((m) => String(m?.slot_key || '').startsWith(slotKeyPrefix))
+      .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+
+  const targetAudienceImages = (() => {
+    const fromDb = mediaList('home.target_audience.').map((m) => m.url).filter(Boolean);
+    return fromDb.length ? fromDb : TARGET_AUDIENCE_FALLBACK_IMAGES;
+  })();
+
+  const galleryCardImages = (() => {
+    return mediaList('home.cards.gallery.images.').map((m) => m.url).filter(Boolean);
+  })();
+
+  const heroBg = mediaByKey('home.hero')?.url || '';
+  const teamCardImage = mediaByKey('home.cards.team.image')?.url || '';
 
   return (
     <>
       <Hero
-        title={t('heroTitle')}
-        subtitle={t('heroSubtitle')}
+        title={tDb('home.heroTitle', t('heroTitle'))}
+        subtitle={tDb('home.heroSubtitle', t('heroSubtitle'))}
+        backgroundUrl={heroBg || undefined}
         primaryAction={t('bookNow')}
         secondaryAction={t('learnMore')}
         primaryHref={`/${locale}/book`}
@@ -91,7 +121,7 @@ export default function HomePage() {
               }}>
                 <CardContent sx={{ p: 4 }}>
                   <Box sx={{ mb: 3 }}>
-                    <GalleryCarousel />
+                    <GalleryCarousel images={galleryCardImages} mode="ordered" />
                   </Box>
                   <Typography variant="h5" gutterBottom color="#20B2AA">
                     <EditableInlineText cmsKey="home.cards.gallery.title" fallback={t('galleryTitle')}>
@@ -121,18 +151,22 @@ export default function HomePage() {
                 }
               }}>
                 <CardContent sx={{ p: 4 }}>
-                  <Box
-                    component="img"
-                    sx={{
-                      width: '100%',
-                      height: 200,
-                      objectFit: 'cover',
-                      borderRadius: 2,
-                      mb: 3
-                    }}
-                    src="/about_me/isasilver.png"
-                    alt="Meet the team"
-                  />
+                  {teamCardImage ? (
+                    <Box
+                      component="img"
+                      sx={{
+                        width: '100%',
+                        height: 200,
+                        objectFit: 'cover',
+                        borderRadius: 2,
+                        mb: 3
+                      }}
+                      src={teamCardImage}
+                      alt="Meet the team"
+                    />
+                  ) : (
+                    <Box sx={{ height: 200, borderRadius: 2, mb: 3, background: 'hsl(var(--background))' }} />
+                  )}
                   <Typography variant="h5" gutterBottom color="#20B2AA">
                     <EditableInlineText cmsKey="home.cards.team.title" fallback={t('teamTitle')}>
                       {(v) => <>{v}</>}

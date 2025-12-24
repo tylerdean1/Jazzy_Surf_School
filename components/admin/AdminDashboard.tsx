@@ -5,6 +5,7 @@ import { Alert, Box, Button, CircularProgress, Container, Tab, Tabs, Typography 
 import { usePathname } from 'next/navigation';
 import MediaManager from './MediaManager';
 import AdminLiveEditor from './AdminLiveEditor';
+import SessionsManager from './SessionsManager';
 
 function TabPanel({ value, index, children }: { value: number; index: number; children: React.ReactNode }) {
     if (value !== index) return null;
@@ -65,7 +66,7 @@ export default function AdminDashboard() {
                     </TabPanel>
 
                     <TabPanel value={tab} index={1}>
-                        <Alert severity="info">Sessions tab next (wiring to admin_*_session RPCs).</Alert>
+                        <SessionsManager />
                     </TabPanel>
 
                     <TabPanel value={tab} index={2}>

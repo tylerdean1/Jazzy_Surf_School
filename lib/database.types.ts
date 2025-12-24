@@ -85,7 +85,6 @@ export type Database = {
       }
       media_assets: {
         Row: {
-          asset_key: string | null
           asset_type: Database["public"]["Enums"]["asset_type"]
           bucket: string
           category: Database["public"]["Enums"]["photo_category"]
@@ -100,7 +99,6 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
-          asset_key?: string | null
           asset_type?: Database["public"]["Enums"]["asset_type"]
           bucket: string
           category?: Database["public"]["Enums"]["photo_category"]
@@ -115,7 +113,6 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
-          asset_key?: string | null
           asset_type?: Database["public"]["Enums"]["asset_type"]
           bucket?: string
           category?: Database["public"]["Enums"]["photo_category"]
@@ -135,6 +132,41 @@ export type Database = {
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      media_slots: {
+        Row: {
+          asset_id: string | null
+          created_at: string
+          id: string
+          slot_key: string
+          sort: number
+          updated_at: string
+        }
+        Insert: {
+          asset_id?: string | null
+          created_at?: string
+          id?: string
+          slot_key: string
+          sort?: number
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string | null
+          created_at?: string
+          id?: string
+          slot_key?: string
+          sort?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_slots_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "media_assets"
             referencedColumns: ["id"]
           },
         ]
@@ -216,7 +248,6 @@ export type Database = {
       admin_list_media_assets: {
         Args: never
         Returns: {
-          asset_key: string | null
           asset_type: Database["public"]["Enums"]["asset_type"]
           bucket: string
           category: Database["public"]["Enums"]["photo_category"]
@@ -323,7 +354,6 @@ export type Database = {
               p_title: string
             }
             Returns: {
-              asset_key: string | null
               asset_type: Database["public"]["Enums"]["asset_type"]
               bucket: string
               category: Database["public"]["Enums"]["photo_category"]
@@ -359,7 +389,6 @@ export type Database = {
               p_title: string
             }
             Returns: {
-              asset_key: string | null
               asset_type: Database["public"]["Enums"]["asset_type"]
               bucket: string
               category: Database["public"]["Enums"]["photo_category"]
@@ -402,33 +431,26 @@ export type Database = {
         }[]
       }
       get_public_media_asset_by_key: {
-        Args: { p_asset_key: string }
+        Args: { p_slot_key: string }
         Returns: {
-          asset_key: string | null
           asset_type: Database["public"]["Enums"]["asset_type"]
           bucket: string
           category: Database["public"]["Enums"]["photo_category"]
-          created_at: string | null
-          description: string | null
+          created_at: string
+          description: string
           id: string
           path: string
           public: boolean
-          session_id: string | null
+          session_id: string
+          slot_key: string
           sort: number
           title: string
-          updated_at: string | null
+          updated_at: string
         }[]
-        SetofOptions: {
-          from: "*"
-          to: "media_assets"
-          isOneToOne: false
-          isSetofReturn: true
-        }
       }
       get_public_media_assets: {
         Args: { p_category?: Database["public"]["Enums"]["photo_category"] }
         Returns: {
-          asset_key: string | null
           asset_type: Database["public"]["Enums"]["asset_type"]
           bucket: string
           category: Database["public"]["Enums"]["photo_category"]
@@ -452,26 +474,20 @@ export type Database = {
       get_public_media_assets_by_prefix: {
         Args: { p_prefix: string }
         Returns: {
-          asset_key: string | null
           asset_type: Database["public"]["Enums"]["asset_type"]
           bucket: string
           category: Database["public"]["Enums"]["photo_category"]
-          created_at: string | null
-          description: string | null
+          created_at: string
+          description: string
           id: string
           path: string
           public: boolean
-          session_id: string | null
+          session_id: string
+          slot_key: string
           sort: number
           title: string
-          updated_at: string | null
+          updated_at: string
         }[]
-        SetofOptions: {
-          from: "*"
-          to: "media_assets"
-          isOneToOne: false
-          isSetofReturn: true
-        }
       }
       get_public_sessions: {
         Args: never
@@ -495,6 +511,13 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_valid_json: { Args: { p_text: string }; Returns: boolean }
+      sync_media_assets_from_storage: {
+        Args: never
+        Returns: {
+          inserted: number
+          updated: number
+        }[]
+      }
     }
     Enums: {
       asset_type: "video" | "photo"

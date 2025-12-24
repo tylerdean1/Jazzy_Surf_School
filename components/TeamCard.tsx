@@ -14,8 +14,15 @@ interface Props {
 export default function TeamCard({ name, images }: Props) {
     const [index, setIndex] = useState(0);
 
-    const prev = () => setIndex((i) => (i - 1 + images.length) % images.length);
-    const next = () => setIndex((i) => (i + 1) % images.length);
+    const hasImages = images.length > 0;
+    const prev = () => {
+        if (!hasImages) return;
+        setIndex((i) => (i - 1 + images.length) % images.length);
+    };
+    const next = () => {
+        if (!hasImages) return;
+        setIndex((i) => (i + 1) % images.length);
+    };
     const locale = useLocale();
     const href = `/${locale}/about_jaz`;
 
@@ -41,52 +48,73 @@ export default function TeamCard({ name, images }: Props) {
             </Link>
             <Box sx={{ position: 'relative' }}>
                 <Link href={href} style={{ textDecoration: 'none' }}>
-                    <Box
-                        component="img"
-                        src={images[index]}
-                        alt={`${name} ${index + 1}`}
-                        sx={{
-                            width: '100%',
-                            height: 480,
-                            objectFit: 'contain',
-                            display: 'block',
-                            backgroundColor: 'hsl(var(--background))',
-                            cursor: 'pointer'
-                        }}
-                    />
+                    {hasImages ? (
+                        <Box
+                            component="img"
+                            src={images[index]}
+                            alt={`${name} ${index + 1}`}
+                            sx={{
+                                width: '100%',
+                                height: 480,
+                                objectFit: 'contain',
+                                display: 'block',
+                                backgroundColor: 'hsl(var(--background))',
+                                cursor: 'pointer'
+                            }}
+                        />
+                    ) : (
+                        <Box
+                            sx={{
+                                width: '100%',
+                                height: 480,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: 'hsl(var(--background))',
+                            }}
+                        >
+                            <Typography variant="body2" color="text.secondary">
+                                No photos yet
+                            </Typography>
+                        </Box>
+                    )}
                 </Link>
 
-                <IconButton
-                    aria-label="previous"
-                    onClick={(e) => { e.stopPropagation(); prev(); }}
-                    sx={{
-                        position: 'absolute',
-                        left: 8,
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        backgroundColor: 'rgba(0,0,0,0.35)',
-                        color: 'white',
-                        '&:hover': { backgroundColor: 'rgba(0,0,0,0.5)' }
-                    }}
-                >
-                    <ChevronLeft />
-                </IconButton>
+                {hasImages ? (
+                    <IconButton
+                        aria-label="previous"
+                        onClick={(e) => { e.stopPropagation(); prev(); }}
+                        sx={{
+                            position: 'absolute',
+                            left: 8,
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            backgroundColor: 'rgba(0,0,0,0.35)',
+                            color: 'white',
+                            '&:hover': { backgroundColor: 'rgba(0,0,0,0.5)' }
+                        }}
+                    >
+                        <ChevronLeft />
+                    </IconButton>
+                ) : null}
 
-                <IconButton
-                    aria-label="next"
-                    onClick={(e) => { e.stopPropagation(); next(); }}
-                    sx={{
-                        position: 'absolute',
-                        right: 8,
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        backgroundColor: 'rgba(0,0,0,0.35)',
-                        color: 'white',
-                        '&:hover': { backgroundColor: 'rgba(0,0,0,0.5)' }
-                    }}
-                >
-                    <ChevronRight />
-                </IconButton>
+                {hasImages ? (
+                    <IconButton
+                        aria-label="next"
+                        onClick={(e) => { e.stopPropagation(); next(); }}
+                        sx={{
+                            position: 'absolute',
+                            right: 8,
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            backgroundColor: 'rgba(0,0,0,0.35)',
+                            color: 'white',
+                            '&:hover': { backgroundColor: 'rgba(0,0,0,0.5)' }
+                        }}
+                    >
+                        <ChevronRight />
+                    </IconButton>
+                ) : null}
             </Box>
 
             <CardContent>

@@ -146,7 +146,6 @@ export async function POST(req: Request) {
             bucket,
             path,
             title: derivedTitle,
-            asset_key: derivedAssetKey,
             public: isPublic,
             category,
             asset_type: assetType,
@@ -160,6 +159,17 @@ export async function POST(req: Request) {
             // Best-effort cleanup.
             await supabase.storage.from(bucket).remove([path]);
             return NextResponse.json({ ok: false, message: insertErr.message }, { status: 500 });
+        }
+
+        if (derivedAssetKey) {
+            const { error: slotErr } = await supabase
+                .from('media_slots')
+                .upsert({ slot_key: derivedAssetKey, asset_id: id, sort }, { onConflict: 'slot_key' });
+            if (slotErr) {
+                await supabase.storage.from(bucket).remove([path]);
+                await supabase.from('media_assets').delete().eq('id', id);
+                return NextResponse.json({ ok: false, message: slotErr.message }, { status: 500 });
+            }
         }
     }
 

@@ -2,40 +2,14 @@
 
 import React from 'react';
 import { Box, Typography, Button, Container } from '@mui/material';
-import { styled } from '@mui/material/styles';
 import Link from 'next/link';
 import { useLocale } from 'next-intl';
 import EditableInlineText from '@/components/admin/edit/EditableInlineText';
 
-const HeroContainer = styled(Box)({
-  height: '100vh',
-  backgroundImage: 'url("/hero_shot/hero_shot.png")',
-  backgroundSize: 'cover',
-  backgroundPosition: 'center',
-  display: 'flex',
-  alignItems: 'center',
-  position: 'relative',
-  '&::before': {
-    content: '""',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-  }
-});
-
-const ContentBox = styled(Box)({
-  position: 'relative',
-  zIndex: 1,
-  textAlign: 'center',
-  color: 'white'
-});
-
 interface HeroProps {
   title: string;
   subtitle: string;
+  backgroundUrl?: string;
   primaryAction: string;
   secondaryAction?: string;
   primaryHref: string;
@@ -46,6 +20,7 @@ interface HeroProps {
 const Hero: React.FC<HeroProps> = ({
   title,
   subtitle,
+  backgroundUrl,
   primaryAction,
   secondaryAction,
   primaryHref,
@@ -56,9 +31,28 @@ const Hero: React.FC<HeroProps> = ({
   const locale = useLocale();
 
   return (
-    <HeroContainer>
+    <Box
+      sx={{
+        height: '100vh',
+        backgroundImage: backgroundUrl ? `url("${backgroundUrl}")` : 'none',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        display: 'flex',
+        alignItems: 'center',
+        position: 'relative',
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        },
+      }}
+    >
       <Container maxWidth="lg">
-        <ContentBox>
+        <Box sx={{ position: 'relative', zIndex: 1, textAlign: 'center', color: 'white' }}>
           <Typography
             variant="h2"
             component="h1"
@@ -151,9 +145,9 @@ const Hero: React.FC<HeroProps> = ({
               </Link>
             )}
           </Box>
-        </ContentBox>
+        </Box>
       </Container>
-    </HeroContainer>
+    </Box>
   );
 };
 

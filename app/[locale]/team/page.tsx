@@ -7,12 +7,31 @@ import { useLocale } from 'next-intl';
 import useCmsPageBody from '../../../hooks/useCmsPageBody';
 import CmsRichTextRenderer from '../../../components/CmsRichTextRenderer';
 import { isEmptyDoc } from '../../../lib/cmsRichText';
+import ContentBundleProvider, { useContentBundleContext } from '@/components/content/ContentBundleContext';
 
 export default function TeamPage() {
+    return (
+        <ContentBundleProvider prefix="team.">
+            <TeamInner />
+        </ContentBundleProvider>
+    );
+}
+
+function TeamInner() {
     const t = useTranslations('team');
     const locale = useLocale();
     const cms = useCmsPageBody('team', locale);
     const hasCms = !cms.loading && !cms.error && !isEmptyDoc(cms.body);
+
+    const ctx = useContentBundleContext();
+    const media = ctx?.media || [];
+    const jazPhotos = [...media]
+        .filter((m) => String(m?.slot_key || '').startsWith('team.jaz.photos.'))
+        .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
+        .map((m) => m.url)
+        .filter(Boolean);
+    const images = jazPhotos;
+    const teamLogo = media.find((m) => m?.slot_key === 'team.logo')?.url || '';
 
     return (
         <Container maxWidth="lg" sx={{ py: 8 }}>
@@ -33,16 +52,7 @@ export default function TeamPage() {
             )}
             <Grid container spacing={4} sx={{ mt: 6 }}>
                 <Grid item xs={12} md={6}>
-                    <TeamCard
-                        name="Jazmine Dean Perez"
-                        images={[
-                            '/about_me/1.png',
-                            '/about_me/2.png',
-                            '/about_me/lbturn.png',
-                            '/about_me/sbsnap.png',
-                            '/about_me/isasilver.png'
-                        ]}
-                    />
+                    <TeamCard name="Jazmine Dean Perez" images={images} />
                 </Grid>
 
                 <Grid item xs={12} md={6}>
@@ -55,7 +65,14 @@ export default function TeamPage() {
                                 More team details, bios, and highlights are coming soon.
                             </Typography>
                         </CardContent>
-                        <Box component="img" src="/Logo/SSA_BW_Logo.png" alt="SSA logo" sx={{ width: '100%', height: 240, objectFit: 'contain', background: 'hsl(var(--background))' }} />
+                        {teamLogo ? (
+                            <Box
+                                component="img"
+                                src={teamLogo}
+                                alt="SSA logo"
+                                sx={{ width: '100%', height: 240, objectFit: 'contain', background: 'hsl(var(--background))' }}
+                            />
+                        ) : null}
                     </Card>
                 </Grid>
             </Grid>

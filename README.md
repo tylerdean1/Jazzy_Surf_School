@@ -72,18 +72,20 @@ How it works:
 - `Private_Photos` (private)
 
 ### Database
-Media metadata lives in `public.media_assets` (includes `bucket`, `path`, `title`, `category`, `asset_type`, `public`, `sort`, and the stable pointer `asset_key`).
+Media metadata lives in `public.media_assets` (includes `bucket`, `path`, `title`, `category`, `asset_type`, `public`, and `sort`).
 
-### Stable pointer system (`asset_key`)
-- Use `asset_key` as a stable frontend pointer (e.g. `home.hero`).
+Stable frontend pointers live in `public.media_slots` as `slot_key -> asset_id`.
+
+### Stable pointer system (`slot_key`)
+- Use `slot_key` as a stable frontend pointer (e.g. `home.hero`).
 - Use a prefix namespace for streams/galleries (e.g. `home.photo_stream.001`, `home.photo_stream.002`, …).
 - Public lookup RPCs:
-	- `get_public_media_asset_by_key(p_asset_key)`
+	- `get_public_media_asset_by_key(p_slot_key)`
 	- `get_public_media_assets_by_prefix(p_prefix)` (ordered by `sort`)
 
 ### Admin media endpoints
 - `GET /api/admin/media/assets` — list `media_assets`
-- `POST /api/admin/media/assets` — upsert metadata (including `asset_key`)
+- `POST /api/admin/media/assets` — upsert metadata (optionally assigns a `slot_key` via the `asset_key` field)
 - `POST /api/admin/media/upload` — upload file(s) + insert rows
 - `POST /api/admin/media/signed-url` — generate signed URLs (including for `Private_Photos`)
 
@@ -91,8 +93,8 @@ Media metadata lives in `public.media_assets` (includes `bucket`, `path`, `title
 - Filename collisions are handled automatically: `name.ext`, `name(1).ext`, `name(2).ext`, …
 - Bulk uploads derive titles from the original filename.
 - Optional pointer assignment:
-	- Single upload: set `asset_key`
-	- Bulk upload: set `asset_key_prefix` to auto-generate `prefix.001`, `prefix.002`, …
+	- Single upload: set `asset_key` (stored as `media_slots.slot_key`)
+	- Bulk upload: set `asset_key_prefix` to auto-generate `prefix.001`, `prefix.002`, … (stored as `media_slots.slot_key`)
 
 ## Useful scripts
 

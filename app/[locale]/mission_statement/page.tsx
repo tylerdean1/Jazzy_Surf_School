@@ -2,17 +2,28 @@
 
 import { useTranslations } from 'next-intl';
 import { Container, Typography, Box, Grid, Card } from '@mui/material';
-import Image from 'next/image';
 import { useLocale } from 'next-intl';
 import useCmsPageBody from '../../../hooks/useCmsPageBody';
 import CmsRichTextRenderer from '../../../components/CmsRichTextRenderer';
 import { isEmptyDoc } from '../../../lib/cmsRichText';
+import ContentBundleProvider, { useContentBundleContext } from '@/components/content/ContentBundleContext';
 
 export default function MissionStatementPage() {
+    return (
+        <ContentBundleProvider prefix="mission.">
+            <MissionInner />
+        </ContentBundleProvider>
+    );
+}
+
+function MissionInner() {
     const t = useTranslations('mission');
     const locale = useLocale();
     const cms = useCmsPageBody('mission_statement', locale);
     const hasCms = !cms.loading && !cms.error && !isEmptyDoc(cms.body);
+
+    const ctx = useContentBundleContext();
+    const logoUrl = (ctx?.media || []).find((m) => m?.slot_key === 'mission.logo')?.url || '';
 
     return (
         <Container maxWidth="lg" sx={{ py: 8 }}>
@@ -49,9 +60,14 @@ export default function MissionStatementPage() {
 
                 <Grid item xs={12} md={4}>
                     <Card sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3, height: '100%' }}>
-                        <Box sx={{ width: 180, height: 180, position: 'relative' }}>
-                            <Image src="/Logo/SSA_Orange_Logo.png" alt="SSA Logo" fill style={{ objectFit: 'contain' }} priority />
-                        </Box>
+                        {logoUrl ? (
+                            <Box
+                                component="img"
+                                src={logoUrl}
+                                alt="SSA Logo"
+                                sx={{ width: 180, height: 180, objectFit: 'contain' }}
+                            />
+                        ) : null}
                     </Card>
                 </Grid>
             </Grid>

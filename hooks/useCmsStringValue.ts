@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocale } from 'next-intl';
 import useCmsPageBody from '@/hooks/useCmsPageBody';
 import { useAdminEdit } from '@/components/admin/edit/AdminEditContext';
+import { useContentBundleContext } from '@/components/content/ContentBundleContext';
 
 type AdminRow = {
     body_en: string | null;
@@ -27,12 +28,20 @@ export function useCmsStringValue(pageKey: string, fallback: string) {
     const locale = useLocale();
     const { enabled } = useAdminEdit();
 
-    // Public: reads published ES (if approved) or EN via security-definer RPC.
-    const publicCms = useCmsPageBody(pageKey, locale);
+    const bundle = useContentBundleContext();
+    const bundledValue = useMemo(() => {
+        const v = bundle?.strings?.[pageKey];
+        return isNonEmpty(v) ? (v as string) : null;
+    }, [bundle?.strings, pageKey]);
+
+    // Public: prefer the per-route content bundle (1 fetch per route).
+    // Fallback: reads published ES (if approved) or EN via security-definer RPC.
+    const publicCms = useCmsPageBody(pageKey, locale, !bundledValue);
     const publicValue = useMemo(() => {
+        if (bundledValue) return bundledValue;
         const v = publicCms.body;
         return isNonEmpty(v) ? (v as string) : fallback;
-    }, [publicCms.body, fallback]);
+    }, [bundledValue, publicCms.body, fallback]);
 
     const [adminValue, setAdminValue] = useState<string | null>(null);
 

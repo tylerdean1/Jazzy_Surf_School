@@ -2,13 +2,21 @@
 
 import { Container, Typography, Grid, Box, Card, CardContent, IconButton, Link } from '@mui/material';
 import { Instagram, Phone, Email } from '@mui/icons-material';
-import Image from 'next/image';
 import { useLocale } from 'next-intl';
 import useCmsPageBody from '../../../hooks/useCmsPageBody';
 import CmsRichTextRenderer from '../../../components/CmsRichTextRenderer';
 import { isEmptyDoc } from '../../../lib/cmsRichText';
+import ContentBundleProvider, { useContentBundleContext } from '@/components/content/ContentBundleContext';
 
 export default function ContactPage() {
+  return (
+    <ContentBundleProvider prefix="contact.">
+      <ContactInner />
+    </ContentBundleProvider>
+  );
+}
+
+function ContactInner() {
   const INSTAGRAM = 'https://www.instagram.com/sunsetsurfacademy/';
   const PHONE = '939-525-0307';
   const EMAIL = 'sunsetsurfacademy@gmail.com';
@@ -16,12 +24,15 @@ export default function ContactPage() {
   const cms = useCmsPageBody('contact', locale);
   const hasCms = !cms.loading && !cms.error && !isEmptyDoc(cms.body);
 
+  const ctx = useContentBundleContext();
+  const logoUrl = (ctx?.media || []).find((m) => m?.slot_key === 'contact.logo')?.url || '';
+
   return (
     <Container maxWidth="md" sx={{ py: 8 }}>
       <Box textAlign="center" sx={{ mb: 6 }}>
-        <Box sx={{ mx: 'auto', width: 420, height: 180, position: 'relative' }}>
-          <Image src="/Logo/SSA_Orange_Logo.png" alt="Sunset Surf Academy" fill style={{ objectFit: 'contain' }} />
-        </Box>
+        {logoUrl ? (
+          <Box component="img" src={logoUrl} alt="Sunset Surf Academy" sx={{ mx: 'auto', width: 420, height: 180, objectFit: 'contain' }} />
+        ) : null}
         <Typography variant="h5" color="text.secondary" sx={{ mt: 3 }}>
           Have questions or want to check our online presence? Check the links below.
         </Typography>

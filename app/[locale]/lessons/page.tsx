@@ -9,13 +9,24 @@ import { isEmptyDoc } from '../../../lib/cmsRichText';
 import { useAdminEdit } from '@/components/admin/edit/AdminEditContext';
 import EditableRichTextBlock from '@/components/admin/edit/EditableRichTextBlock';
 import EditableInlineText from '@/components/admin/edit/EditableInlineText';
+import ContentBundleProvider, { useContentBundleContext } from '@/components/content/ContentBundleContext';
 
 export default function LessonsPage() {
+  return (
+    <ContentBundleProvider prefix="lessons.">
+      <LessonsInner />
+    </ContentBundleProvider>
+  );
+}
+
+function LessonsInner() {
   const t = useTranslations('lessons');
   const locale = useLocale();
   const { enabled: adminEdit } = useAdminEdit();
   const cms = useCmsPageBody('lessons', locale);
   const hasCms = !cms.loading && !cms.error && !isEmptyDoc(cms.body);
+  const ctx = useContentBundleContext();
+  const pricesUrl = (ctx?.media || []).find((m) => m?.slot_key === 'lessons.prices')?.url || '';
 
   return (
     <Container maxWidth="lg" sx={{ py: 8 }}>
@@ -38,7 +49,9 @@ export default function LessonsPage() {
         ) : null}
         {/* Main prices image */}
         <Box sx={{ mt: 4 }}>
-          <Box component="img" src="/target_audiance/prices.png" alt="Prices" sx={{ width: '100%', height: 'auto', maxHeight: 600, objectFit: 'contain', borderRadius: 1 }} />
+          {pricesUrl ? (
+            <Box component="img" src={pricesUrl} alt="Prices" sx={{ width: '100%', height: 'auto', maxHeight: 600, objectFit: 'contain', borderRadius: 1 }} />
+          ) : null}
 
           {/* Photo bar removed per request */}
         </Box>

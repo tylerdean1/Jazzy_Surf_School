@@ -45,7 +45,7 @@ if (!projectRef && supabaseUrl) {
   try {
     const url = new URL(supabaseUrl);
     projectRef = url.hostname.split(".")[0];
-  } catch (_) {}
+  } catch (_) { }
 }
 
 if (!projectRef && !dbUrl) {
@@ -64,7 +64,11 @@ const outSql = path.resolve(__dirname, "..", "backend.snapshot.sql");
 // ------------------------------
 function run(cmd, args, label, { redactDbUrl = false } = {}) {
   const printableArgs = redactDbUrl
-    ? args.map((a, i) => (args[i - 1] === "--db-url" ? "[REDACTED_DB_URL]" : a))
+    ? args.map((a, i) => {
+      if (args[i - 1] === "--db-url") return "[REDACTED_DB_URL]";
+      if (dbUrl && a === dbUrl) return "[REDACTED_DB_URL]";
+      return a;
+    })
     : args;
 
   console.log(`Running: ${cmd} ${printableArgs.join(" ")} (${label})`);
@@ -97,6 +101,74 @@ function dockerAvailable() {
 
 function safeWrite(filePath, contents) {
   fs.writeFileSync(filePath, contents, "utf8");
+}
+
+function divider(title) {
+  return (
+    "\n\n" +
+    "-- ------------------------------------------------------------\n" +
+    `-- ${title}\n` +
+    "-- ------------------------------------------------------------\n\n"
+  );
+}
+
+function dumpSelectedTableData({ method }) {
+  // Full contents for specific tables, appended to backend.snapshot.sql
+  // Best-effort: if the selected method can't do it, we skip with a note.
+  const tables = ["public.media_assets", "public.cms_page_content"];
+
+  if (!dbUrl) {
+    return { out: "", note: "No DATABASE_URL provided; cannot dump table data." };
+  }
+
+  // Method A: Supabase CLI (Docker path)
+  if (method === "supabase") {
+    try {
+      // NOTE: Supabase CLI supports table selection via --table.
+      // We use --data-only to avoid duplicating schema.
+      const args = [
+        "supabase",
+        "db",
+        "dump",
+        "--db-url",
+        dbUrl,
+        "--schema",
+        "public",
+        "--data-only",
+      ];
+      for (const t of tables) args.push("--table", t);
+
+      const out = run("npx", args, "db dump (data-only)", { redactDbUrl: true });
+      return { out, note: "" };
+    } catch (_) {
+      return {
+        out: "",
+        note:
+          "Attempted to dump table data via `supabase db dump --data-only`, but it failed (CLI version/flags may differ).",
+      };
+    }
+  }
+
+  // Method B: pg_dump
+  if (method === "pg_dump") {
+    try {
+      const args = [
+        "--data-only",
+        "--column-inserts",
+        "--no-owner",
+        "--no-privileges",
+      ];
+      for (const t of tables) args.push(`--table=${t}`);
+      args.push(dbUrl);
+
+      const out = run("pg_dump", args, "pg_dump (data-only)", { redactDbUrl: true });
+      return { out, note: "" };
+    } catch (_) {
+      return { out: "", note: "Attempted pg_dump data-only but it failed." };
+    }
+  }
+
+  return { out: "", note: "Unknown dump method; cannot dump table data." };
 }
 
 // ------------------------------
@@ -174,9 +246,26 @@ if (dbUrl && dockerAvailable()) {
   }
 }
 
+// If we have a schema dump, append full contents for selected tables
+let tableDataOut = "";
+let tableDataNote = "";
+if (sqlDumpOut && sqlDumpOut.trim().length > 0) {
+  const method = sqlDumpMethod.startsWith("supabase") ? "supabase" : "pg_dump";
+  const dataRes = dumpSelectedTableData({ method });
+  tableDataOut = dataRes.out || "";
+  tableDataNote = dataRes.note || "";
+}
+
 // Write SQL dump only if we have it
 if (sqlDumpOut && sqlDumpOut.trim().length > 0) {
-  safeWrite(outSql, sqlDumpOut);
+  const combined =
+    sqlDumpOut +
+    divider("DATA: public.media_assets + public.cms_page_content") +
+    (tableDataOut && tableDataOut.trim().length > 0
+      ? tableDataOut
+      : `-- NOTE: Table data was not appended. ${tableDataNote || ""}\n`);
+
+  safeWrite(outSql, combined);
   console.log(`Wrote full SQL backend snapshot to: ${outSql} (${sqlDumpMethod})`);
 }
 
@@ -200,11 +289,10 @@ It is designed to be something you can point Copilot/Codex at and say:
 - Schemas included: \`${schema}\`
 
 ## Full SQL dump
-${
-  sqlDumpOut && sqlDumpOut.trim().length > 0
-    ? `✅ Generated \`backend.snapshot.sql\` using: **${sqlDumpMethod}**`
+${sqlDumpOut && sqlDumpOut.trim().length > 0
+    ? `✅ Generated \`backend.snapshot.sql\` using: **${sqlDumpMethod}**\n\nIncluded: full contents of \`public.media_assets\` and \`public.cms_page_content\` (best-effort).`
     : `❌ Not generated.\n\n${(sqlDumpNote || "").trim()}`
-}
+  }
 
 ---
 
