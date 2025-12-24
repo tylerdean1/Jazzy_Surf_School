@@ -31,6 +31,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# backend snapshots (contain real data/PII; never commit)
+/backend.snapshot.sql
+/backend.snapshot.md
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
