@@ -7,6 +7,7 @@ import { CssBaseline } from '@mui/material';
 import theme from '../../theme';
 import Navigation from '../../components/Navigation';
 import type { Metadata } from 'next';
+import AppLoadingFrame from '@/components/AppLoadingFrame';
 
 const locales = ['en', 'es'];
 
@@ -43,8 +44,10 @@ export default async function LocaleLayout({
     <NextIntlClientProvider locale={locale} messages={messages}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Navigation />
-        <main className="pt-16">{children}</main>
+        <AppLoadingFrame locale={locale}>
+          <Navigation />
+          <main className="pt-16">{children}</main>
+        </AppLoadingFrame>
       </ThemeProvider>
     </NextIntlClientProvider>
   );
