@@ -67,6 +67,9 @@ export default function GalleryMediaSlotsEditor() {
     const [error, setError] = React.useState<string | null>(null);
     const [items, setItems] = React.useState<SlotItem[]>([]);
 
+    const [draftBySlot, setDraftBySlot] = React.useState<Record<string, MediaSelection | null>>({});
+    const [dirty, setDirty] = React.useState(false);
+
     const [pickerOpenFor, setPickerOpenFor] = React.useState<string | null>(null);
     const [busySlot, setBusySlot] = React.useState<string | null>(null);
 
@@ -95,6 +98,27 @@ export default function GalleryMediaSlotsEditor() {
         setCountDraft(String(parsedCount));
     }, [parsedCount]);
 
+    React.useEffect(() => {
+        // Rehydrate staged selections from DB after load.
+        const next: Record<string, MediaSelection | null> = {};
+        for (const it of items) {
+            if (!it?.slot_key) continue;
+            if (it.asset_id && it.asset) {
+                next[it.slot_key] = {
+                    id: it.asset_id,
+                    assetKey: null,
+                    bucket: it.asset.bucket,
+                    path: it.asset.path,
+                    previewUrl: '',
+                };
+            } else {
+                next[it.slot_key] = null;
+            }
+        }
+        setDraftBySlot(next);
+        setDirty(false);
+    }, [items]);
+
     const bySlotKey = React.useMemo(() => {
         const map = new Map<string, SlotItem>();
         for (const it of items) map.set(it.slot_key, it);
@@ -107,32 +131,41 @@ export default function GalleryMediaSlotsEditor() {
         return Array.from({ length: count }, (_, i) => `${prefix}${i}`);
     }, [count]);
 
-    const saveCount = async () => {
+    const saveAll = async () => {
         setSavingCount(true);
         setCountError(null);
+        setError(null);
         try {
+            // 1) Persist the desired count.
             await saveCmsStringValue('gallery.images.count', locale, String(count));
+
+            // 2) Canonical rewrite: delete all gallery.images.* then recreate 0..N-1 with sort 0..N-1.
+            const asset_ids = Array.from({ length: count }, (_, i) => {
+                const slotKey = `${prefix}${i}`;
+                const sel = draftBySlot[slotKey];
+                return sel?.id ?? null;
+            });
+
+            await adminJson('/api/admin/media/slots', {
+                method: 'POST',
+                body: JSON.stringify({ op: 'replace_gallery_images', count, asset_ids }),
+            });
+
+            await load();
         } catch (e: any) {
-            setCountError(e?.message || admin.t('admin.gallerySlots.errors.saveCountFailed', 'Failed to save count'));
+            const msg = e?.message || admin.t('admin.gallerySlots.errors.saveFailed', 'Failed to save gallery');
+            setCountError(msg);
         } finally {
             setSavingCount(false);
         }
     };
 
-    const setSlot = async (slotKey: string, selection: MediaSelection | null) => {
+    const stageSlot = async (slotKey: string, selection: MediaSelection | null) => {
         setBusySlot(slotKey);
         setError(null);
         try {
-            await adminJson('/api/admin/media/slots', {
-                method: 'POST',
-                body: JSON.stringify({
-                    op: 'set',
-                    slot_key: slotKey,
-                    asset_id: selection ? selection.id : null,
-                    sort: Number(slotKey.split('.').pop() || 0),
-                }),
-            });
-            await load();
+            setDraftBySlot((prev) => ({ ...prev, [slotKey]: selection }));
+            setDirty(true);
         } catch (e: any) {
             setError(e?.message || admin.t('admin.gallerySlots.errors.updateSlotFailed', 'Failed to update slot'));
         } finally {
@@ -172,13 +205,18 @@ export default function GalleryMediaSlotsEditor() {
                     sx={{ width: 220 }}
                     inputProps={{ inputMode: 'numeric' }}
                 />
-                <Button variant="contained" onClick={saveCount} disabled={savingCount}>
+                <Button variant="contained" onClick={saveAll} disabled={savingCount}>
                     {savingCount ? admin.t('admin.common.saving', 'Saving…') : admin.t('admin.common.save', 'Save')}
                 </Button>
                 {countError ? (
                     <Alert severity="error" sx={{ py: 0.25, px: 1.5 }}>
                         {countError}
                     </Alert>
+                ) : null}
+                {dirty && !savingCount ? (
+                    <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
+                        {admin.t('admin.gallerySlots.unsaved', 'Unsaved changes')}
+                    </Typography>
                 ) : null}
             </Box>
 
@@ -192,7 +230,11 @@ export default function GalleryMediaSlotsEditor() {
             <Stack spacing={1} sx={{ mt: 2 }}>
                 {slots.map((slotKey) => {
                     const it = bySlotKey.get(slotKey) || null;
-                    const title = it?.asset?.title || admin.t('admin.gallerySlots.noneSelected', 'None selected');
+                    const staged = draftBySlot[slotKey] ?? null;
+                    const title =
+                        staged?.id
+                            ? (it?.asset?.title || admin.t('admin.gallerySlots.selected', 'Selected'))
+                            : admin.t('admin.gallerySlots.noneSelected', 'None selected');
                     const disabled = busySlot === slotKey;
 
                     return (
@@ -226,8 +268,8 @@ export default function GalleryMediaSlotsEditor() {
                             <Button
                                 variant="outlined"
                                 color="inherit"
-                                onClick={() => void setSlot(slotKey, null)}
-                                disabled={disabled || !it?.asset_id}
+                                onClick={() => void stageSlot(slotKey, null)}
+                                disabled={disabled || !staged?.id}
                             >
                                 {admin.t('admin.gallerySlots.actions.clear', 'Clear')}
                             </Button>
@@ -246,7 +288,7 @@ export default function GalleryMediaSlotsEditor() {
                     const slotKey = pickerOpenFor;
                     setPickerOpenFor(null);
                     if (!slotKey) return;
-                    void setSlot(slotKey, selection);
+                    void stageSlot(slotKey, selection);
                 }}
             />
         </Box>

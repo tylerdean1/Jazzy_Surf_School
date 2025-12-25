@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import MediaManager from './MediaManager';
 import AdminLiveEditor from './AdminLiveEditor';
 import SessionsManager from './SessionsManager';
+import HomeHeroWizard from '@/components/admin/wizard/HomeHeroWizard';
 import useContentBundle from '@/hooks/useContentBundle';
 
 function TabPanel({ value, index, children }: { value: number; index: number; children: React.ReactNode }) {
@@ -67,6 +68,9 @@ export default function AdminDashboard() {
                                 'You are viewing the real site UI. Click the edit icons to change content inline.'
                             )}
                         </Typography>
+                        <Box sx={{ mb: 2 }}>
+                            <HomeHeroWizard />
+                        </Box>
                         <AdminLiveEditor />
                     </TabPanel>
 

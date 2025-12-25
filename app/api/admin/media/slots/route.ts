@@ -14,6 +14,19 @@ function normalizePrefix(raw: string | null): string {
     return p;
 }
 
+function normalizeGalleryImagesSlotKey(slotKey: string): string {
+    const key = String(slotKey || '').trim();
+    const prefix = 'gallery.images.';
+    if (!key.startsWith(prefix)) return key;
+    const suffix = key.slice(prefix.length);
+    // Normalize any numeric suffix (including padded) to its canonical integer form.
+    if (/^[0-9]+$/.test(suffix)) {
+        const n = parseInt(suffix, 10);
+        if (Number.isFinite(n) && n >= 0) return `${prefix}${n}`;
+    }
+    return key;
+}
+
 type SlotItem = {
     slot_key: string;
     sort: number | null;
@@ -83,6 +96,13 @@ type PostBody =
         slot_key: string;
         asset_id: string | null;
         sort?: number | null;
+    }
+    | {
+        // Canonicalize gallery slots in one write:
+        // delete all gallery.images.* then insert gallery.images.0..N-1 with sort 0..N-1.
+        op: 'replace_gallery_images';
+        count: number;
+        asset_ids?: Array<string | null>;
     };
 
 export async function POST(req: Request) {
@@ -96,11 +116,46 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, message: 'Invalid JSON' }, { status: 400 });
     }
 
-    if (!body || body.op !== 'set') {
+    if (!body) return NextResponse.json({ ok: false, message: 'Invalid op' }, { status: 400 });
+
+    const supabase = getSupabaseAdmin();
+
+    if (body.op === 'replace_gallery_images') {
+        const countRaw = (body as any).count;
+        const countNum = Number(countRaw);
+        const count = Number.isFinite(countNum) ? Math.max(0, Math.min(100, Math.floor(countNum))) : NaN;
+        if (!Number.isFinite(count)) {
+            return NextResponse.json({ ok: false, message: 'Invalid count' }, { status: 400 });
+        }
+
+        const assetIds = Array.isArray((body as any).asset_ids) ? ((body as any).asset_ids as Array<any>) : [];
+        const rows = Array.from({ length: count }, (_, i) => {
+            const raw = assetIds[i];
+            const asset_id = raw == null ? null : String(raw).trim() || null;
+            return {
+                slot_key: `gallery.images.${i}`,
+                asset_id,
+                sort: i,
+            };
+        });
+
+        // Delete everything under the prefix first to avoid mixed-key states.
+        const { error: delErr } = await supabase.from('media_slots').delete().like('slot_key', 'gallery.images.%');
+        if (delErr) return NextResponse.json({ ok: false, message: delErr.message }, { status: 500 });
+
+        if (rows.length) {
+            const { error: insErr } = await supabase.from('media_slots').insert(rows as any);
+            if (insErr) return NextResponse.json({ ok: false, message: insErr.message }, { status: 500 });
+        }
+
+        return NextResponse.json({ ok: true, count });
+    }
+
+    if (body.op !== 'set') {
         return NextResponse.json({ ok: false, message: 'Invalid op' }, { status: 400 });
     }
 
-    const slot_key = String((body as any).slot_key || '').trim();
+    const slot_key = normalizeGalleryImagesSlotKey(String((body as any).slot_key || '').trim());
     if (!slot_key) return NextResponse.json({ ok: false, message: 'Missing slot_key' }, { status: 400 });
     if (slot_key.length > 128) return NextResponse.json({ ok: false, message: 'slot_key too long' }, { status: 400 });
 
@@ -108,8 +163,6 @@ export async function POST(req: Request) {
     const asset_id = asset_id_raw == null ? null : String(asset_id_raw).trim();
     const sortRaw = (body as any).sort;
     const sort = sortRaw == null ? null : Number(sortRaw);
-
-    const supabase = getSupabaseAdmin();
 
     if (!asset_id) {
         const { error } = await supabase.from('media_slots').delete().eq('slot_key', slot_key);
