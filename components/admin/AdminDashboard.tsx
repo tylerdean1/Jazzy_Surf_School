@@ -7,6 +7,7 @@ import MediaManager from './MediaManager';
 import AdminLiveEditor from './AdminLiveEditor';
 import SessionsManager from './SessionsManager';
 import HomeHeroWizard from '@/components/admin/wizard/HomeHeroWizard';
+import HomeSectionsWizard from '@/components/admin/wizard/HomeSectionsWizard';
 import useContentBundle from '@/hooks/useContentBundle';
 
 function TabPanel({ value, index, children }: { value: number; index: number; children: React.ReactNode }) {
@@ -70,6 +71,9 @@ export default function AdminDashboard() {
                         </Typography>
                         <Box sx={{ mb: 2 }}>
                             <HomeHeroWizard />
+                        </Box>
+                        <Box sx={{ mb: 2 }}>
+                            <HomeSectionsWizard />
                         </Box>
                         <AdminLiveEditor />
                     </TabPanel>

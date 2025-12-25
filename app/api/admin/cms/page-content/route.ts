@@ -9,22 +9,55 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url);
     const pageKey = String(url.searchParams.get('page_key') || '').trim();
-    if (!pageKey) {
-        return NextResponse.json({ ok: false, message: 'Missing page_key' }, { status: 400 });
+    const category = String(url.searchParams.get('category') || '').trim();
+    const pageKeyLike = String(url.searchParams.get('page_key_like') || '').trim();
+
+    if (!pageKey && !category) {
+        return NextResponse.json({ ok: false, message: 'Missing page_key or category' }, { status: 400 });
+    }
+
+    if (pageKeyLike && pageKeyLike.length > 256) {
+        return NextResponse.json({ ok: false, message: 'page_key_like too long' }, { status: 400 });
+    }
+    if (pageKeyLike && !/^[a-z0-9._%:-]+$/i.test(pageKeyLike)) {
+        return NextResponse.json({ ok: false, message: 'Invalid page_key_like' }, { status: 400 });
     }
 
     const supabase = getSupabaseAdmin();
-    const { data, error } = await supabase
-        .from('cms_page_content')
-        .select('id,page_key,body_en,body_es_draft,body_es_published,approved,updated_at')
-        .eq('page_key', pageKey)
-        .maybeSingle();
 
+    if (pageKey) {
+        const { data, error } = await supabase
+            .from('cms_page_content')
+            .select('id,page_key,body_en,body_es_draft,body_es_published,approved,updated_at')
+            .eq('page_key', pageKey)
+            .maybeSingle();
+
+        if (error) {
+            return NextResponse.json({ ok: false, message: error.message }, { status: 500 });
+        }
+
+        return NextResponse.json({ ok: true, row: data ?? null });
+    }
+
+    // List mode (admin-only): used by the Phase 3 page-sections wizard.
+    // Allows discovering section meta rows by category + optional LIKE filter.
+    let q = supabase
+        .from('cms_page_content')
+        .select('id,page_key,category,sort,body_en,body_es_draft,updated_at')
+        .eq('category', category)
+        .order('sort', { ascending: true })
+        .order('page_key', { ascending: true });
+
+    if (pageKeyLike) {
+        q = q.like('page_key', pageKeyLike);
+    }
+
+    const { data, error } = await q;
     if (error) {
         return NextResponse.json({ ok: false, message: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, row: data ?? null });
+    return NextResponse.json({ ok: true, items: data ?? [] });
 }
 
 type PostBody =
