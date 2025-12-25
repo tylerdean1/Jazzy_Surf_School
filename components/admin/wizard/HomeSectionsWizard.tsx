@@ -72,7 +72,8 @@ type SectionDraft = {
 };
 
 const PAGE_KEY = 'home';
-const CATEGORY_KEY = `draft.page.${PAGE_KEY}.sections`;
+// Stable category naming (no draft prefix): sections.page.<pageKey>
+const CATEGORY_KEY = `sections.page.${PAGE_KEY}`;
 
 function clampSmallint(n: number, fallback: number) {
     if (!Number.isFinite(n)) return fallback;
@@ -540,8 +541,8 @@ export default function HomeSectionsWizard() {
                                         s.kind === 'hero'
                                             ? admin.t('admin.sectionsWizard.kind.hero', 'Hero')
                                             : s.kind === 'richText'
-                                              ? admin.t('admin.sectionsWizard.kind.richText', 'Rich text')
-                                              : admin.t('admin.sectionsWizard.kind.media', 'Media');
+                                                ? admin.t('admin.sectionsWizard.kind.richText', 'Rich text')
+                                                : admin.t('admin.sectionsWizard.kind.media', 'Media');
 
                                     return (
                                         <Box

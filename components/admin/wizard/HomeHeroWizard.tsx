@@ -69,7 +69,8 @@ function clampSmallint(n: number, fallback: number) {
 }
 
 const POINTER_KEY = 'draft.page.home.hero.sectionId';
-const CATEGORY_KEY = 'draft.page.home.sections';
+// Stable category naming (no draft prefix): sections.page.<pageKey>
+const CATEGORY_KEY = 'sections.page.home';
 
 export default function HomeHeroWizard() {
     const admin = useContentBundle('admin.');
