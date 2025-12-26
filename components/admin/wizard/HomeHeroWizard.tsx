@@ -24,6 +24,16 @@ type CmsRow = {
     body_es_draft: string | null;
 };
 
+type CmsListRow = {
+    id: string;
+    page_key: string;
+    category: string | null;
+    sort: number;
+    body_en: string | null;
+    body_es_draft: string | null;
+    updated_at: string;
+};
+
 async function adminGetCmsRow(pageKey: string): Promise<CmsRow | null> {
     const res = await fetch(`/api/admin/cms/page-content?page_key=${encodeURIComponent(pageKey)}`);
     const body = await res.json().catch(() => ({}));
@@ -42,6 +52,27 @@ async function adminSaveCmsRow(payload: any): Promise<any> {
     const body = await res.json().catch(() => ({}));
     if (!res.ok || !body?.ok) throw new Error(body?.message || `Request failed (${res.status})`);
     return body;
+}
+
+async function adminListCmsRows(category: string, pageKeyLike: string): Promise<CmsListRow[]> {
+    const url = new URL('/api/admin/cms/page-content', window.location.origin);
+    url.searchParams.set('category', category);
+    url.searchParams.set('page_key_like', pageKeyLike);
+
+    const res = await fetch(url.toString(), { method: 'GET' });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body?.ok) throw new Error(body?.message || `Request failed (${res.status})`);
+
+    const items = (body?.items ?? []) as any[];
+    return items.map((r) => ({
+        id: String(r.id || ''),
+        page_key: String(r.page_key || ''),
+        category: r.category ?? null,
+        sort: Number(r.sort ?? 0),
+        body_en: r.body_en ?? null,
+        body_es_draft: r.body_es_draft ?? null,
+        updated_at: String(r.updated_at || ''),
+    }));
 }
 
 async function adminSetMediaSlot(slotKey: string, assetId: string | null, sort: number) {
@@ -68,9 +99,52 @@ function clampSmallint(n: number, fallback: number) {
     return Math.max(-32768, Math.min(32767, Math.floor(n)));
 }
 
+function safeJsonParse<T>(raw: string | null | undefined): T | null {
+    if (!raw) return null;
+    const trimmed = String(raw).trim();
+    if (!trimmed) return null;
+    try {
+        return JSON.parse(trimmed) as T;
+    } catch {
+        return null;
+    }
+}
+
 const POINTER_KEY = 'draft.page.home.hero.sectionId';
-// Stable category naming (no draft prefix): sections.page.<pageKey>
-const CATEGORY_KEY = 'sections.page.home';
+const CANONICAL_CATEGORY = 'sections.page.home';
+const LEGACY_CATEGORY = 'draft.page.home.sections';
+
+type SectionMeta = {
+    kind?: string;
+    owner?: { type: 'page' | 'card'; key: string } | null;
+};
+
+async function discoverExistingHeroSectionId(): Promise<string | null> {
+    const [canon, legacy] = await Promise.all([
+        adminListCmsRows(CANONICAL_CATEGORY, 'section.%.meta'),
+        adminListCmsRows(LEGACY_CATEGORY, 'section.%.meta'),
+    ]);
+
+    const byKey: Record<string, CmsListRow> = {};
+    for (const r of canon) byKey[r.page_key] = r;
+    for (const r of legacy) if (!byKey[r.page_key]) byKey[r.page_key] = r;
+
+    const merged: CmsListRow[] = [];
+    for (const k in byKey) merged.push(byKey[k]);
+    merged.sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || String(a.page_key || '').localeCompare(String(b.page_key || '')));
+
+    for (const r of merged) {
+        const meta = safeJsonParse<SectionMeta>(r.body_en);
+        if (!meta) continue;
+        if (meta.kind !== 'hero') continue;
+        if (meta.owner?.type === 'page' && meta.owner?.key === 'home') {
+            const id = String(r.id || '').trim();
+            if (id) return id;
+        }
+    }
+
+    return null;
+}
 
 export default function HomeHeroWizard() {
     const admin = useContentBundle('admin.');
@@ -145,21 +219,22 @@ export default function HomeHeroWizard() {
         try {
             const pointer = await adminGetCmsRow(POINTER_KEY);
             const maybeId = String(pointer?.body_en || '').trim();
-            if (!maybeId) {
+            const resolvedId = maybeId || (await discoverExistingHeroSectionId()) || '';
+            if (!resolvedId) {
                 // No saved draft yet; keep blank staged state.
                 return;
             }
 
-            setSectionId(maybeId);
+            setSectionId(resolvedId);
 
             const k = {
-                meta: `section.${maybeId}.meta`,
-                title: `section.${maybeId}.title`,
-                subtitle: `section.${maybeId}.subtitle`,
-                primaryLabel: `section.${maybeId}.primaryAction.label`,
-                secondaryLabel: `section.${maybeId}.secondaryAction.label`,
-                mediaSlotKey: `section.${maybeId}.heroBackground`,
-                legacyMediaSlotKey: `draft.section.${maybeId}.heroBackground`,
+                meta: `section.${resolvedId}.meta`,
+                title: `section.${resolvedId}.title`,
+                subtitle: `section.${resolvedId}.subtitle`,
+                primaryLabel: `section.${resolvedId}.primaryAction.label`,
+                secondaryLabel: `section.${resolvedId}.secondaryAction.label`,
+                mediaSlotKey: `section.${resolvedId}.heroBackground`,
+                legacyMediaSlotKey: `draft.section.${resolvedId}.heroBackground`,
             };
 
             const [rTitle, rSubtitle, rPrimary, rSecondary, rMeta] = await Promise.all([
@@ -282,7 +357,7 @@ export default function HomeHeroWizard() {
             if (!id) {
                 const created = await adminSaveCmsRow({
                     op: 'create_section',
-                    category: CATEGORY_KEY,
+                    category: CANONICAL_CATEGORY,
                     kind: 'hero',
                     owner: { type: 'page', key: 'home' },
                     pointer_page_key: POINTER_KEY,
@@ -339,7 +414,7 @@ export default function HomeHeroWizard() {
             await adminSaveCmsRow({
                 op: 'save',
                 page_key: k.meta,
-                category: CATEGORY_KEY,
+                category: CANONICAL_CATEGORY,
                 sort: clampSmallint(Number(sort), 0),
                 body_en: JSON.stringify(metaJson),
             });

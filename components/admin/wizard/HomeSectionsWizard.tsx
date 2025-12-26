@@ -72,8 +72,8 @@ type SectionDraft = {
 };
 
 const PAGE_KEY = 'home';
-// Stable category naming (no draft prefix): sections.page.<pageKey>
-const CATEGORY_KEY = `sections.page.${PAGE_KEY}`;
+const CANONICAL_CATEGORY = `sections.page.${PAGE_KEY}`;
+const LEGACY_CATEGORY = `draft.page.${PAGE_KEY}.sections`;
 
 function clampSmallint(n: number, fallback: number) {
     if (!Number.isFinite(n)) return fallback;
@@ -202,7 +202,18 @@ export default function HomeSectionsWizard() {
         setLoading(true);
         setError(null);
         try {
-            const metaRows = await adminListCmsRows(CATEGORY_KEY, 'section.%.meta');
+            const [canonRows, legacyRows] = await Promise.all([
+                adminListCmsRows(CANONICAL_CATEGORY, 'section.%.meta'),
+                adminListCmsRows(LEGACY_CATEGORY, 'section.%.meta'),
+            ]);
+
+            // Merge/dedupe by page_key. Prefer canonical if both exist.
+            const byKey: Record<string, CmsListRow> = {};
+            for (const r of canonRows) byKey[r.page_key] = r;
+            for (const r of legacyRows) if (!byKey[r.page_key]) byKey[r.page_key] = r;
+
+            const metaRows: CmsListRow[] = [];
+            for (const k in byKey) metaRows.push(byKey[k]);
 
             const next: SectionDraft[] = metaRows.map((r) => {
                 const meta = safeJsonParse<SectionMeta>(r.body_en);
@@ -391,7 +402,7 @@ export default function HomeSectionsWizard() {
                 if (!s.sectionId) {
                     const created = await adminSaveCmsRow({
                         op: 'create_section',
-                        category: CATEGORY_KEY,
+                        category: CANONICAL_CATEGORY,
                         kind: s.kind,
                         sort,
                         owner: { type: 'page', key: PAGE_KEY },
@@ -424,7 +435,7 @@ export default function HomeSectionsWizard() {
                 await adminSaveCmsRow({
                     op: 'save',
                     page_key: metaKey,
-                    category: CATEGORY_KEY,
+                    category: CANONICAL_CATEGORY,
                     sort,
                     body_en: JSON.stringify(metaJson),
                 });
