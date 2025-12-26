@@ -11,16 +11,10 @@ import ContentBundleProvider from '@/components/content/ContentBundleContext';
 import { useContentBundleContext } from '@/components/content/ContentBundleContext';
 import { useCmsStringValue } from '@/hooks/useCmsStringValue';
 import { hasSectionsForPage } from '@/lib/sections/types';
+import HomeSectionsRenderer from '@/components/sections/HomeSectionsRenderer';
+import type { HomeSectionMetaRow } from '@/lib/sections/parseHomeSections';
 
 const TARGET_AUDIENCE_FALLBACK_IMAGES: string[] = [];
-
-type HomeSectionMetaRow = {
-  page_key: string;
-  body_en: string | null;
-  sort: number | null;
-  updated_at: string | null;
-  category: string | null;
-};
 
 type ParsedHomeSection = {
   id: string;
@@ -134,8 +128,6 @@ async function fetchHomeSectionsMeta(): Promise<HomeSectionMetaRow[]> {
       page_key: String(r?.page_key || ''),
       body_en: r?.body_en ?? null,
       sort: typeof r?.sort === 'number' ? r.sort : null,
-      updated_at: r?.updated_at ?? null,
-      category: r?.category ?? null,
     }));
     return cachedHomeSectionsMeta;
   })().finally(() => {
@@ -169,199 +161,6 @@ function useHomeSectionsMeta() {
   }, []);
 
   return sections;
-}
-
-function HomeSectionsRenderer({ sections }: { sections: HomeSectionMetaRow[] }) {
-  const parsed = React.useMemo(() => parseHomeSections(sections), [sections]);
-
-  // If meta rows exist but are invalid/unparseable, do not break the Home page.
-  if (!parsed.length) {
-    return <LegacyHome />;
-  }
-
-  return (
-    <ContentBundleProvider prefix="home.">
-      <HomeSectionsInner sections={parsed} />
-    </ContentBundleProvider>
-  );
-}
-
-function HomeSectionsInner({ sections }: { sections: ParsedHomeSection[] }) {
-  const locale = useLocale();
-  const ctx = useContentBundleContext();
-  const strings = ctx?.strings || {};
-  const media = ctx?.media || [];
-
-  const tDb = (key: string, fallback?: string) => {
-    const v = strings[key];
-    return typeof v === 'string' && v.trim().length > 0 ? v : fallback ?? '';
-  };
-
-  const mediaByKey = (slotKey: string) => media.find((m) => m?.slot_key === slotKey) || null;
-  const mediaList = (slotKeyPrefix: string) =>
-    [...media]
-      .filter((m) => String(m?.slot_key || '').startsWith(slotKeyPrefix))
-      .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
-
-  const targetAudienceImages = (() => {
-    const fromDb = mediaList('home.target_audience.').map((m) => m.url).filter(Boolean);
-    return fromDb.length ? fromDb : TARGET_AUDIENCE_FALLBACK_IMAGES;
-  })();
-
-  const galleryCardImages = (() => {
-    return mediaList('home.cards.gallery.images.').map((m) => m.url).filter(Boolean);
-  })();
-
-  const heroBg = mediaByKey('home.hero')?.url || '';
-  const teamCardImage = mediaByKey('home.cards.team.image')?.url || '';
-  const teamImageAlt = useCmsStringValue('home.cards.team.imageAlt', 'Meet the team').value;
-
-  const out: React.ReactNode[] = [];
-  let i = 0;
-  while (i < sections.length) {
-    const s = sections[i];
-
-    if (s.kind === 'hero') {
-      out.push(
-        <Hero
-          key={s.page_key}
-          title={tDb('home.hero.title', 'Learn to Surf at Sunset Surf Academy')}
-          subtitle={tDb('home.hero.subtitle', 'Professional surf instruction in the beautiful waters of Rincón, Puerto Rico')}
-          backgroundUrl={heroBg || undefined}
-          primaryAction={tDb('home.hero.primaryAction', 'Book Your Lesson')}
-          secondaryAction={tDb('home.hero.secondaryAction', 'Learn More')}
-          primaryHref={`/${locale}/book`}
-          secondaryHref={`/${locale}/mission_statement`}
-          cmsKeyBase="home.hero"
-        />
-      );
-      i += 1;
-      continue;
-    }
-
-    if (s.kind === 'card_group') {
-      const group: Array<{ section: ParsedHomeSection; meta: CardGroupSectionMeta }> = [];
-      while (i < sections.length && sections[i].kind === 'card_group') {
-        const maybe = parseCardGroupSectionMeta(sections[i].meta);
-        if (maybe) group.push({ section: sections[i], meta: maybe });
-        i += 1;
-      }
-
-      if (group.length) {
-        out.push(
-          <Container key={group[0].section.page_key} maxWidth="lg" sx={{ py: 8 }}>
-            <Grid container spacing={4}>
-              {group.map(({ section, meta }) => (
-                <Grid key={section.page_key} item xs={12} md={4}>
-                  <HomeCardGroupCard
-                    locale={locale}
-                    sourceKey={meta.sourceKey}
-                    targetAudienceImages={targetAudienceImages}
-                    galleryCardImages={galleryCardImages}
-                    teamCardImage={teamCardImage}
-                    teamImageAlt={teamImageAlt}
-                  />
-                </Grid>
-              ))}
-            </Grid>
-          </Container>
-        );
-      }
-      continue;
-    }
-
-    // TODO (Phase 5.2+): richText/media rendering.
-    i += 1;
-  }
-
-  return <>{out}</>;
-}
-
-function HomeCardGroupCard(props: {
-  locale: string;
-  sourceKey: CardGroupSourceKey;
-  targetAudienceImages: string[];
-  galleryCardImages: string[];
-  teamCardImage: string;
-  teamImageAlt: string;
-}) {
-  const { locale, sourceKey, targetAudienceImages, galleryCardImages, teamCardImage, teamImageAlt } = props;
-
-  const href =
-    sourceKey === 'home.cards.lessons'
-      ? `/${locale}/lessons`
-      : sourceKey === 'home.cards.gallery'
-        ? `/${locale}/gallery`
-        : `/${locale}/team`;
-
-  const fallbackTitle =
-    sourceKey === 'home.cards.lessons'
-      ? 'Surf Lessons'
-      : sourceKey === 'home.cards.gallery'
-        ? 'Experience the Journey'
-        : 'Meet the Team';
-
-  const fallbackDescription =
-    sourceKey === 'home.cards.lessons'
-      ? 'From beginner-friendly sessions to advanced coaching'
-      : sourceKey === 'home.cards.gallery'
-        ? 'Watch videos and see photos from our surf adventures'
-        : 'Get to know the coaches who make Sunset Surf Academy special';
-
-  const mediaBlock =
-    sourceKey === 'home.cards.lessons' ? (
-      <GalleryCarousel images={targetAudienceImages} mode="ordered" />
-    ) : sourceKey === 'home.cards.gallery' ? (
-      <GalleryCarousel images={galleryCardImages} mode="ordered" />
-    ) : teamCardImage ? (
-      <Box
-        component="img"
-        sx={{
-          width: '100%',
-          height: 200,
-          objectFit: 'cover',
-          borderRadius: 2,
-          mb: 3,
-        }}
-        src={teamCardImage}
-        alt={teamImageAlt}
-      />
-    ) : (
-      <Box sx={{ height: 200, borderRadius: 2, mb: 3, background: 'hsl(var(--background))' }} />
-    );
-
-  return (
-    <Link href={href} style={{ textDecoration: 'none' }}>
-      <Card
-        sx={{
-          height: '100%',
-          textAlign: 'center',
-          cursor: 'pointer',
-          transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-          '&:hover': {
-            transform: 'translateY(-4px)',
-            boxShadow: '0 8px 24px rgba(32, 178, 170, 0.3)',
-          },
-        }}
-      >
-        <CardContent sx={{ p: 4 }}>
-          <Box sx={{ mb: 3 }}>{mediaBlock}</Box>
-
-          <Typography variant="h5" gutterBottom color="#20B2AA">
-            <EditableInlineText cmsKey={`${sourceKey}.title`} fallback={fallbackTitle}>
-              {(v) => <>{v}</>}
-            </EditableInlineText>
-          </Typography>
-
-          <Typography variant="body1">
-            <EditableInlineText cmsKey={`${sourceKey}.description`} fallback={fallbackDescription} multiline fullWidth>
-              {(v) => <>{v}</>}
-            </EditableInlineText>
-          </Typography>
-        </CardContent>
-      </Card>
-    </Link>
-  );
 }
 
 export default function HomePage() {
