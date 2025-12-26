@@ -16,7 +16,9 @@ export type HeroConfig = {
 };
 
 export type RichTextConfig = {
-    // TODO (Phase 5.2+): define rich text config shape.
+    // Phase 5: minimal config for rich_text sections.
+    // Canonical field storage: section.<uuid>.body
+    fieldKey?: 'body';
 };
 
 export type MediaConfig = {

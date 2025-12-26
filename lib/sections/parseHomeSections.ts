@@ -14,6 +14,16 @@ export type HeroSection = {
     sort: number;
 };
 
+export type RichTextFieldKey = 'body';
+
+export type RichTextSection = {
+    kind: 'rich_text';
+    id: string;
+    page_key: string;
+    sort: number;
+    bodyKey: string;
+};
+
 export type CardGroupSection = {
     kind: 'card_group';
     id: string;
@@ -23,7 +33,7 @@ export type CardGroupSection = {
     variant?: CardGroupVariant;
 };
 
-export type ParsedHomeSection = HeroSection | CardGroupSection;
+export type ParsedHomeSection = HeroSection | CardGroupSection | RichTextSection;
 
 function isObject(value: unknown): value is Record<string, unknown> {
     return !!value && typeof value === 'object';
@@ -51,6 +61,10 @@ function isCardGroupSourceKey(value: unknown): value is CardGroupSourceKey {
 
 function isCardGroupVariant(value: unknown): value is CardGroupVariant {
     return value === 'default';
+}
+
+function isRichTextFieldKey(value: unknown): value is RichTextFieldKey {
+    return value === 'body' || value == null;
 }
 
 export function parseHomeSections(rows: HomeSectionMetaRow[]): ParsedHomeSection[] {
@@ -90,6 +104,21 @@ export function parseHomeSections(rows: HomeSectionMetaRow[]): ParsedHomeSection
                 sort: typeof row.sort === 'number' ? row.sort : 0,
                 sourceKey: sourceKeyRaw,
                 ...(variant ? { variant } : {}),
+            });
+            continue;
+        }
+
+        if (kind === 'rich_text') {
+            // Canonical body storage: section.<uuid>.body
+            const fieldKeyRaw = (meta as any).fieldKey;
+            if (!isRichTextFieldKey(fieldKeyRaw)) continue;
+
+            parsed.push({
+                kind: 'rich_text',
+                id,
+                page_key: String(row.page_key || ''),
+                sort: typeof row.sort === 'number' ? row.sort : 0,
+                bodyKey: `section.${id}.body`,
             });
             continue;
         }

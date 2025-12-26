@@ -6,8 +6,10 @@ import Link from 'next/link';
 import { Box, Card, CardContent, Container, Grid, Typography } from '@mui/material';
 import Hero from '@/components/Hero';
 import GalleryCarousel from '@/components/GalleryCarousel';
+import CmsRichTextRenderer from '@/components/CmsRichTextRenderer';
 import ContentBundleProvider, { useContentBundleContext } from '@/components/content/ContentBundleContext';
 import { parseHomeSections, type CardGroupSourceKey, type HomeSectionMetaRow } from '@/lib/sections/parseHomeSections';
+import useCmsPageBody from '@/hooks/useCmsPageBody';
 
 const TARGET_AUDIENCE_FALLBACK_IMAGES: string[] = [];
 
@@ -119,10 +121,28 @@ function HomeSectionsInner({
             continue;
         }
 
+        if (s.kind === 'rich_text') {
+            out.push(<HomeRichTextBlock key={s.page_key} bodyKey={s.bodyKey} locale={locale} />);
+            i += 1;
+            continue;
+        }
+
         i += 1;
     }
 
     return <>{out}</>;
+}
+
+function HomeRichTextBlock({ bodyKey, locale }: { bodyKey: string; locale: string }) {
+    const { body, loading } = useCmsPageBody(bodyKey, locale, true);
+    if (loading) return null;
+    if (!body) return null;
+
+    return (
+        <Container maxWidth="lg" sx={{ py: 8 }}>
+            <CmsRichTextRenderer json={body} />
+        </Container>
+    );
 }
 
 function CardGroupCard(props: {
