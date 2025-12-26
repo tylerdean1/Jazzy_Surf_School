@@ -5,6 +5,8 @@ import {
     Alert,
     Box,
     Button,
+    Card,
+    CardContent,
     CircularProgress,
     Dialog,
     DialogActions,
@@ -24,7 +26,7 @@ import Hero from '@/components/Hero';
 import MediaPickerDialog, { type MediaSelection } from '@/components/admin/MediaPickerDialog';
 import { RichTextEditor, RichTextRenderer } from '@/components/admin/RichText';
 import useContentBundle from '@/hooks/useContentBundle';
-import type { SectionKind, SectionMeta } from '@/components/admin/sections/sectionMeta';
+import type { CardGroupSourceKey, SectionKind, SectionMeta } from '@/components/admin/sections/sectionMeta';
 
 type CmsListRow = {
     id: string;
@@ -49,6 +51,10 @@ type SectionDraft = {
     metaKey: string | null;
     metaJson: SectionMeta | null;
 
+    // card_group
+    cardGroupSourceKey: CardGroupSourceKey | '';
+    cardGroupVariant: string;
+
     // richText content (TipTap JSON string)
     richTextEn: string;
     richTextEs: string;
@@ -63,6 +69,111 @@ type SectionDraft = {
 const PAGE_KEY = 'home';
 const CANONICAL_CATEGORY = `sections.page.${PAGE_KEY}`;
 const LEGACY_CATEGORY = `draft.page.${PAGE_KEY}.sections`;
+
+const CARD_GROUP_OPTIONS: Array<{
+    sourceKey: CardGroupSourceKey;
+    label: string;
+    fallbackTitle: string;
+    fallbackDescription: string;
+}> = [
+    {
+        sourceKey: 'home.cards.lessons',
+        label: 'Lessons',
+        fallbackTitle: 'Surf Lessons',
+        fallbackDescription: 'From beginner-friendly sessions to advanced coaching',
+    },
+    {
+        sourceKey: 'home.cards.gallery',
+        label: 'Gallery',
+        fallbackTitle: 'Experience the Journey',
+        fallbackDescription: 'Watch videos and see photos from our surf adventures',
+    },
+    {
+        sourceKey: 'home.cards.team',
+        label: 'Team',
+        fallbackTitle: 'Meet the Team',
+        fallbackDescription: 'Get to know the coaches who make Sunset Surf Academy special',
+    },
+];
+
+function isCardGroupSourceKey(v: unknown): v is CardGroupSourceKey {
+    return CARD_GROUP_OPTIONS.some((o) => o.sourceKey === v);
+}
+
+function getCardGroupOption(sourceKey: CardGroupSourceKey | '') {
+    const key = sourceKey && isCardGroupSourceKey(sourceKey) ? sourceKey : CARD_GROUP_OPTIONS[0].sourceKey;
+    return CARD_GROUP_OPTIONS.find((o) => o.sourceKey === key) || CARD_GROUP_OPTIONS[0];
+}
+
+function CardGroupPreview({ sourceKey, locale }: { sourceKey: CardGroupSourceKey | ''; locale: 'en' | 'es' }) {
+    const [loading, setLoading] = React.useState(false);
+    const [titleEn, setTitleEn] = React.useState('');
+    const [titleEs, setTitleEs] = React.useState('');
+    const [descEn, setDescEn] = React.useState('');
+    const [descEs, setDescEs] = React.useState('');
+    const [error, setError] = React.useState<string | null>(null);
+
+    const opt = React.useMemo(() => getCardGroupOption(sourceKey), [sourceKey]);
+
+    React.useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const [rTitle, rDesc] = await Promise.all([
+                    adminGetCmsRow(`${opt.sourceKey}.title`),
+                    adminGetCmsRow(`${opt.sourceKey}.description`),
+                ]);
+                if (cancelled) return;
+
+                setTitleEn(rTitle?.body_en ?? '');
+                setTitleEs(rTitle?.body_es_draft ?? '');
+                setDescEn(rDesc?.body_en ?? '');
+                setDescEs(rDesc?.body_es_draft ?? '');
+            } catch (e: any) {
+                if (cancelled) return;
+                setError(e?.message || 'Failed to load card preview');
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [opt.sourceKey]);
+
+    const title = locale === 'es' && titleEs.trim() ? titleEs : titleEn;
+    const description = locale === 'es' && descEs.trim() ? descEs : descEn;
+
+    return (
+        <Card sx={{ border: '1px solid', borderColor: 'divider' }}>
+            <CardContent>
+                <Typography variant="overline" color="text.secondary">
+                    Cards block: {opt.label}
+                </Typography>
+                {error ? (
+                    <Alert severity="warning" sx={{ mt: 1 }}>
+                        {error}
+                    </Alert>
+                ) : null}
+
+                <Typography variant="h5" sx={{ mt: 1 }}>
+                    {title || opt.fallbackTitle}
+                </Typography>
+                <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
+                    {description || opt.fallbackDescription}
+                </Typography>
+
+                {loading ? (
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        Loading…
+                    </Typography>
+                ) : null}
+            </CardContent>
+        </Card>
+    );
+}
 
 function clampSmallint(n: number, fallback: number) {
     if (!Number.isFinite(n)) return fallback;
@@ -209,6 +320,10 @@ export default function HomeSectionsWizard() {
                 const kind = (meta?.kind || 'richText') as SectionKind;
                 const sectionId = String(r.id || '').trim() || null;
 
+                const cardGroupSourceKeyRaw = (meta as any)?.fields?.sourceKey;
+                const cardGroupSourceKey = isCardGroupSourceKey(cardGroupSourceKeyRaw) ? cardGroupSourceKeyRaw : '';
+                const cardGroupVariant = String((meta as any)?.fields?.variant || '');
+
                 return {
                     localId: sectionId || makeTempId(),
                     sectionId,
@@ -216,6 +331,10 @@ export default function HomeSectionsWizard() {
                     sort: Number.isFinite(r.sort) ? r.sort : 0,
                     metaKey: r.page_key,
                     metaJson: meta,
+
+                    cardGroupSourceKey,
+                    cardGroupVariant,
+
                     richTextEn: '',
                     richTextEs: '',
                     mediaSelection: null,
@@ -248,9 +367,8 @@ export default function HomeSectionsWizard() {
                     if (s.kind === 'hero') {
                         // Hero is edited via the dedicated HomeHeroWizard.
                         // Still preview minimal data if we can.
-                        const meta = s.metaJson;
-                        const titleKey = meta?.fields?.titleKey;
-                        const subtitleKey = meta?.fields?.subtitleKey;
+                        const titleKey = (s.metaJson as any)?.fields?.titleKey;
+                        const subtitleKey = (s.metaJson as any)?.fields?.subtitleKey;
                         if (titleKey) {
                             const r1 = await adminGetCmsRow(String(titleKey));
                             // Store in the EN richText field just for preview fallback text.
@@ -263,7 +381,7 @@ export default function HomeSectionsWizard() {
                             s.richTextEs = r2?.body_es_draft ?? '';
                         }
 
-                        const heroSlot = meta?.media?.heroBackground?.slotKey;
+                        const heroSlot = (s.metaJson as any)?.media?.heroBackground?.slotKey;
                         if (heroSlot) {
                             const p = await loadMediaPreviewBySlotKey(String(heroSlot));
                             if (p) {
@@ -346,6 +464,13 @@ export default function HomeSectionsWizard() {
             sort,
         };
 
+        const defaultCardSource = CARD_GROUP_OPTIONS[0].sourceKey;
+        const nextCardSourceKey = addKind === 'card_group' ? defaultCardSource : '';
+        const nextCardVariant = '';
+        if (addKind === 'card_group') {
+            (meta as any).fields = { sourceKey: defaultCardSource };
+        }
+
         const draft: SectionDraft = {
             localId,
             sectionId: null,
@@ -353,6 +478,10 @@ export default function HomeSectionsWizard() {
             sort,
             metaKey: null,
             metaJson: meta,
+
+            cardGroupSourceKey: nextCardSourceKey,
+            cardGroupVariant: nextCardVariant,
+
             richTextEn: '',
             richTextEs: '',
             mediaSelection: null,
@@ -419,6 +548,14 @@ export default function HomeSectionsWizard() {
                 }
                 if (s.kind === 'media') {
                     metaJson.media = { primary: { type: 'single', slotKey: `section.${s.sectionId}.media.0` } };
+                }
+                if (s.kind === 'card_group') {
+                    const opt = getCardGroupOption(s.cardGroupSourceKey);
+                    const variant = String(s.cardGroupVariant || '').trim();
+                    metaJson.fields = {
+                        sourceKey: opt.sourceKey,
+                        ...(variant ? { variant } : {}),
+                    };
                 }
 
                 await adminSaveCmsRow({
@@ -515,6 +652,7 @@ export default function HomeSectionsWizard() {
                                     >
                                         <MenuItem value="hero">Hero</MenuItem>
                                         <MenuItem value="richText">Rich text</MenuItem>
+                                        <MenuItem value="card_group">Cards block</MenuItem>
                                         <MenuItem value="media">Media</MenuItem>
                                     </Select>
                                 </FormControl>
@@ -542,7 +680,9 @@ export default function HomeSectionsWizard() {
                                             ? admin.t('admin.sectionsWizard.kind.hero', 'Hero')
                                             : s.kind === 'richText'
                                                 ? admin.t('admin.sectionsWizard.kind.richText', 'Rich text')
-                                                : admin.t('admin.sectionsWizard.kind.media', 'Media');
+                                                : s.kind === 'card_group'
+                                                    ? admin.t('admin.sectionsWizard.kind.cardGroup', 'Cards block')
+                                                    : admin.t('admin.sectionsWizard.kind.media', 'Media');
 
                                     return (
                                         <Box
@@ -620,6 +760,64 @@ export default function HomeSectionsWizard() {
                                                         />
                                                     )}
                                                 </>
+                                            ) : null}
+
+                                            {s.kind === 'card_group' ? (
+                                                <Box sx={{ display: 'grid', gap: 1.5 }}>
+                                                    <FormControl size="small" sx={{ maxWidth: 420 }}>
+                                                        <InputLabel id={`card-group-${s.localId}`}>Cards group</InputLabel>
+                                                        <Select
+                                                            labelId={`card-group-${s.localId}`}
+                                                            label="Cards group"
+                                                            value={getCardGroupOption(s.cardGroupSourceKey).sourceKey}
+                                                            onChange={(e) => {
+                                                                const nextKey = String(e.target.value || '');
+                                                                const sourceKey = isCardGroupSourceKey(nextKey) ? nextKey : CARD_GROUP_OPTIONS[0].sourceKey;
+                                                                setSections((prev) =>
+                                                                    prev.map((it) => {
+                                                                        if (it.localId !== s.localId) return it;
+                                                                        const nextMeta = { ...(it.metaJson || { version: 1, kind: 'card_group' }) } as any;
+                                                                        nextMeta.kind = 'card_group';
+                                                                        nextMeta.fields = { ...(nextMeta.fields || {}), sourceKey };
+                                                                        return { ...it, cardGroupSourceKey: sourceKey, metaJson: nextMeta };
+                                                                    })
+                                                                );
+                                                            }}
+                                                        >
+                                                            {CARD_GROUP_OPTIONS.map((o) => (
+                                                                <MenuItem key={o.sourceKey} value={o.sourceKey}>
+                                                                    {o.label} ({o.sourceKey})
+                                                                </MenuItem>
+                                                            ))}
+                                                        </Select>
+                                                    </FormControl>
+
+                                                    <TextField
+                                                        label={admin.t('admin.sectionsWizard.cardGroup.variant', 'Variant (optional)')}
+                                                        size="small"
+                                                        value={s.cardGroupVariant}
+                                                        onChange={(e) => {
+                                                            const v = e.target.value;
+                                                            setSections((prev) =>
+                                                                prev.map((it) => {
+                                                                    if (it.localId !== s.localId) return it;
+                                                                    const nextMeta = { ...(it.metaJson || { version: 1, kind: 'card_group' }) } as any;
+                                                                    nextMeta.kind = 'card_group';
+                                                                    nextMeta.fields = { ...(nextMeta.fields || {}), variant: v };
+                                                                    return { ...it, cardGroupVariant: v, metaJson: nextMeta };
+                                                                })
+                                                            );
+                                                        }}
+                                                        sx={{ maxWidth: 420 }}
+                                                    />
+
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        {admin.t(
+                                                            'admin.sectionsWizard.cardGroup.note',
+                                                            'This section bridges to existing legacy card keys (home.cards.*). Card content is not edited here in Phase 4.'
+                                                        )}
+                                                    </Typography>
+                                                </Box>
                                             ) : null}
 
                                             {s.kind === 'media' ? (
@@ -706,6 +904,10 @@ export default function HomeSectionsWizard() {
                                                 ) : null}
                                             </Box>
                                         );
+                                    }
+
+                                    if (s.kind === 'card_group') {
+                                        return <CardGroupPreview key={s.localId} sourceKey={s.cardGroupSourceKey} locale={localeTab} />;
                                     }
 
                                     // media
