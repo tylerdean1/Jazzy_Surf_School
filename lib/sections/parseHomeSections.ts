@@ -24,6 +24,16 @@ export type RichTextSection = {
     bodyKey: string;
 };
 
+export type MediaFieldKey = 'media.0';
+
+export type MediaSection = {
+    kind: 'media';
+    id: string;
+    page_key: string;
+    sort: number;
+    slotKey: string;
+};
+
 export type CardGroupSection = {
     kind: 'card_group';
     id: string;
@@ -33,7 +43,7 @@ export type CardGroupSection = {
     variant?: CardGroupVariant;
 };
 
-export type ParsedHomeSection = HeroSection | CardGroupSection | RichTextSection;
+export type ParsedHomeSection = HeroSection | CardGroupSection | RichTextSection | MediaSection;
 
 function isObject(value: unknown): value is Record<string, unknown> {
     return !!value && typeof value === 'object';
@@ -65,6 +75,10 @@ function isCardGroupVariant(value: unknown): value is CardGroupVariant {
 
 function isRichTextFieldKey(value: unknown): value is RichTextFieldKey {
     return value === 'body' || value == null;
+}
+
+function isMediaFieldKey(value: unknown): value is MediaFieldKey {
+    return value === 'media.0' || value == null;
 }
 
 export function parseHomeSections(rows: HomeSectionMetaRow[]): ParsedHomeSection[] {
@@ -119,6 +133,21 @@ export function parseHomeSections(rows: HomeSectionMetaRow[]): ParsedHomeSection
                 page_key: String(row.page_key || ''),
                 sort: typeof row.sort === 'number' ? row.sort : 0,
                 bodyKey: `section.${id}.body`,
+            });
+            continue;
+        }
+
+        if (kind === 'media') {
+            // Canonical slot storage: section.<uuid>.media.0
+            const fieldKeyRaw = (meta as any).fieldKey;
+            if (!isMediaFieldKey(fieldKeyRaw)) continue;
+
+            parsed.push({
+                kind: 'media',
+                id,
+                page_key: String(row.page_key || ''),
+                sort: typeof row.sort === 'number' ? row.sort : 0,
+                slotKey: `section.${id}.media.0`,
             });
             continue;
         }

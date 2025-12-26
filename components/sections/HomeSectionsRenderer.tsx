@@ -10,6 +10,7 @@ import CmsRichTextRenderer from '@/components/CmsRichTextRenderer';
 import ContentBundleProvider, { useContentBundleContext } from '@/components/content/ContentBundleContext';
 import { parseHomeSections, type CardGroupSourceKey, type HomeSectionMetaRow } from '@/lib/sections/parseHomeSections';
 import useCmsPageBody from '@/hooks/useCmsPageBody';
+import useContentBundle from '@/hooks/useContentBundle';
 
 const TARGET_AUDIENCE_FALLBACK_IMAGES: string[] = [];
 
@@ -127,10 +128,47 @@ function HomeSectionsInner({
             continue;
         }
 
+        if (s.kind === 'media') {
+            out.push(<HomeMediaBlock key={s.page_key} sectionId={s.id} slotKey={s.slotKey} />);
+            i += 1;
+            continue;
+        }
+
         i += 1;
     }
 
     return <>{out}</>;
+}
+
+function HomeMediaBlock({ sectionId, slotKey }: { sectionId: string; slotKey: string }) {
+    // Pull section-scoped media via the existing public content bundle route.
+    const b = useContentBundle(`section.${sectionId}.`);
+    if (b.loading) return null;
+
+    const item = b.mediaByKey(slotKey);
+    if (!item?.url) return null;
+
+    const isVideo = item.asset_type === 'video';
+
+    return (
+        <Container maxWidth="lg" sx={{ py: 8 }}>
+            {isVideo ? (
+                <Box
+                    component="video"
+                    controls
+                    sx={{ width: '100%', borderRadius: 2, background: 'hsl(var(--background))' }}
+                    src={item.url}
+                />
+            ) : (
+                <Box
+                    component="img"
+                    sx={{ width: '100%', height: 'auto', borderRadius: 2 }}
+                    src={item.url}
+                    alt={item.title || ''}
+                />
+            )}
+        </Container>
+    );
 }
 
 function HomeRichTextBlock({ bodyKey, locale }: { bodyKey: string; locale: string }) {
@@ -160,22 +198,22 @@ function CardGroupCard(props: {
         sourceKey === 'home.cards.lessons'
             ? `/${locale}/lessons`
             : sourceKey === 'home.cards.gallery'
-              ? `/${locale}/gallery`
-              : `/${locale}/team`;
+                ? `/${locale}/gallery`
+                : `/${locale}/team`;
 
     const fallbackTitle =
         sourceKey === 'home.cards.lessons'
             ? 'Surf Lessons'
             : sourceKey === 'home.cards.gallery'
-              ? 'Experience the Journey'
-              : 'Meet the Team';
+                ? 'Experience the Journey'
+                : 'Meet the Team';
 
     const fallbackDescription =
         sourceKey === 'home.cards.lessons'
             ? 'From beginner-friendly sessions to advanced coaching'
             : sourceKey === 'home.cards.gallery'
-              ? 'Watch videos and see photos from our surf adventures'
-              : 'Get to know the coaches who make Sunset Surf Academy special';
+                ? 'Watch videos and see photos from our surf adventures'
+                : 'Get to know the coaches who make Sunset Surf Academy special';
 
     const mediaBlock =
         sourceKey === 'home.cards.lessons' ? (

@@ -22,7 +22,9 @@ export type RichTextConfig = {
 };
 
 export type MediaConfig = {
-    // TODO (Phase 5.2+): define media config shape.
+    // Phase 5: minimal config for media sections.
+    // Canonical slot storage: section.<uuid>.media.0
+    fieldKey?: 'media.0';
 };
 
 export type BaseSectionMeta<K extends SectionKind = SectionKind, C = unknown> = {
