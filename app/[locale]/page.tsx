@@ -1,4 +1,6 @@
 "use client";
+
+import * as React from 'react';
 import { useLocale } from 'next-intl';
 import Hero from '../../components/Hero';
 import { Container, Grid, Card, CardContent, Typography, Box } from '@mui/material';
@@ -8,10 +10,93 @@ import EditableInlineText from '@/components/admin/edit/EditableInlineText';
 import ContentBundleProvider from '@/components/content/ContentBundleContext';
 import { useContentBundleContext } from '@/components/content/ContentBundleContext';
 import { useCmsStringValue } from '@/hooks/useCmsStringValue';
+import { hasSectionsForPage } from '@/lib/sections/types';
 
 const TARGET_AUDIENCE_FALLBACK_IMAGES: string[] = [];
 
+type HomeSectionMetaRow = {
+  page_key: string;
+  body_en: string | null;
+  sort: number | null;
+  updated_at: string | null;
+  category: string | null;
+};
+
+let cachedHomeSectionsMeta: HomeSectionMetaRow[] | null = null;
+let inflightHomeSectionsMeta: Promise<HomeSectionMetaRow[]> | null = null;
+
+async function fetchHomeSectionsMeta(): Promise<HomeSectionMetaRow[]> {
+  if (cachedHomeSectionsMeta) return cachedHomeSectionsMeta;
+  if (inflightHomeSectionsMeta) return inflightHomeSectionsMeta;
+
+  inflightHomeSectionsMeta = (async () => {
+    const res = await fetch('/api/home-sections-meta', { method: 'GET' });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body?.ok) {
+      cachedHomeSectionsMeta = [];
+      return cachedHomeSectionsMeta;
+    }
+
+    const items = Array.isArray(body?.items) ? (body.items as any[]) : [];
+    cachedHomeSectionsMeta = items.map((r) => ({
+      page_key: String(r?.page_key || ''),
+      body_en: r?.body_en ?? null,
+      sort: typeof r?.sort === 'number' ? r.sort : null,
+      updated_at: r?.updated_at ?? null,
+      category: r?.category ?? null,
+    }));
+    return cachedHomeSectionsMeta;
+  })().finally(() => {
+    inflightHomeSectionsMeta = null;
+  });
+
+  return inflightHomeSectionsMeta;
+}
+
+function useHomeSectionsMeta() {
+  const [sections, setSections] = React.useState<HomeSectionMetaRow[] | null>(cachedHomeSectionsMeta);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    if (cachedHomeSectionsMeta) {
+      setSections(cachedHomeSectionsMeta);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    (async () => {
+      const next = await fetchHomeSectionsMeta();
+      if (cancelled) return;
+      setSections(next);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return sections;
+}
+
+function HomeSectionsRenderer({ sections }: { sections: HomeSectionMetaRow[] }) {
+  // TODO (Phase 5.2+): implement public sections rendering via the public registry.
+  // For now, the compatibility bridge only switches routing when sections exist.
+  void sections;
+  return null;
+}
+
 export default function HomePage() {
+  const sections = useHomeSectionsMeta();
+
+  if (hasSectionsForPage(sections as any)) {
+    return <HomeSectionsRenderer sections={sections as HomeSectionMetaRow[]} />;
+  }
+
+  return <LegacyHome />;
+}
+
+function LegacyHome() {
   return (
     <ContentBundleProvider prefix="home.">
       <HomeInner />
