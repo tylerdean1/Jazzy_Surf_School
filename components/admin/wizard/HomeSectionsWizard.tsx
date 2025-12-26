@@ -24,6 +24,7 @@ import Hero from '@/components/Hero';
 import MediaPickerDialog, { type MediaSelection } from '@/components/admin/MediaPickerDialog';
 import { RichTextEditor, RichTextRenderer } from '@/components/admin/RichText';
 import useContentBundle from '@/hooks/useContentBundle';
+import type { SectionKind, SectionMeta } from '@/components/admin/sections/sectionMeta';
 
 type CmsListRow = {
     id: string;
@@ -38,18 +39,6 @@ type CmsListRow = {
 type CmsRow = {
     body_en: string | null;
     body_es_draft: string | null;
-};
-
-type SectionKind = 'hero' | 'richText' | 'media';
-
-type SectionMeta = {
-    version: number;
-    kind: SectionKind;
-    owner?: { type: 'page' | 'card'; key: string } | null;
-    sort?: number;
-    fields?: Record<string, any>;
-    actions?: any;
-    media?: any;
 };
 
 type SectionDraft = {
