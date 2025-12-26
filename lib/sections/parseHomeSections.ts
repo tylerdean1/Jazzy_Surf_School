@@ -91,7 +91,8 @@ export function parseHomeSections(rows: HomeSectionMetaRow[]): ParsedHomeSection
         const meta = safeJsonParse(row.body_en);
         if (!meta || !isObject(meta)) continue;
 
-        const kind = (meta as any).kind;
+        const kindRaw = (meta as any).kind;
+        const kind = kindRaw === 'richText' ? 'rich_text' : kindRaw;
         if (kind === 'hero') {
             parsed.push({
                 kind: 'hero',
