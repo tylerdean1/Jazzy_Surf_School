@@ -5,8 +5,6 @@ import {
     Alert,
     Box,
     Button,
-    Card,
-    CardContent,
     CircularProgress,
     Dialog,
     DialogActions,
@@ -19,14 +17,15 @@ import {
     Select,
     Tab,
     Tabs,
-    TextField,
     Typography,
 } from '@mui/material';
 import Hero from '@/components/Hero';
 import MediaPickerDialog, { type MediaSelection } from '@/components/admin/MediaPickerDialog';
 import { RichTextEditor, RichTextRenderer } from '@/components/admin/RichText';
 import useContentBundle from '@/hooks/useContentBundle';
-import type { CardGroupSourceKey, SectionKind, SectionMeta } from '@/components/admin/sections/sectionMeta';
+import ContentBundleProvider from '@/components/content/ContentBundleContext';
+import { AdminSectionPreview } from '@/components/admin/sections/sectionRegistry';
+import type { CardGroupSourceKey, CardGroupVariant, SectionKind, SectionMeta } from '@/components/admin/sections/sectionMeta';
 
 type CmsListRow = {
     id: string;
@@ -53,7 +52,7 @@ type SectionDraft = {
 
     // card_group
     cardGroupSourceKey: CardGroupSourceKey | '';
-    cardGroupVariant: string;
+    cardGroupVariant: CardGroupVariant | '';
 
     // richText content (TipTap JSON string)
     richTextEn: string;
@@ -105,75 +104,7 @@ function getCardGroupOption(sourceKey: CardGroupSourceKey | '') {
     return CARD_GROUP_OPTIONS.find((o) => o.sourceKey === key) || CARD_GROUP_OPTIONS[0];
 }
 
-function CardGroupPreview({ sourceKey, locale }: { sourceKey: CardGroupSourceKey | ''; locale: 'en' | 'es' }) {
-    const [loading, setLoading] = React.useState(false);
-    const [titleEn, setTitleEn] = React.useState('');
-    const [titleEs, setTitleEs] = React.useState('');
-    const [descEn, setDescEn] = React.useState('');
-    const [descEs, setDescEs] = React.useState('');
-    const [error, setError] = React.useState<string | null>(null);
-
-    const opt = React.useMemo(() => getCardGroupOption(sourceKey), [sourceKey]);
-
-    React.useEffect(() => {
-        let cancelled = false;
-        (async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const [rTitle, rDesc] = await Promise.all([
-                    adminGetCmsRow(`${opt.sourceKey}.title`),
-                    adminGetCmsRow(`${opt.sourceKey}.description`),
-                ]);
-                if (cancelled) return;
-
-                setTitleEn(rTitle?.body_en ?? '');
-                setTitleEs(rTitle?.body_es_draft ?? '');
-                setDescEn(rDesc?.body_en ?? '');
-                setDescEs(rDesc?.body_es_draft ?? '');
-            } catch (e: any) {
-                if (cancelled) return;
-                setError(e?.message || 'Failed to load card preview');
-            } finally {
-                if (!cancelled) setLoading(false);
-            }
-        })();
-        return () => {
-            cancelled = true;
-        };
-    }, [opt.sourceKey]);
-
-    const title = locale === 'es' && titleEs.trim() ? titleEs : titleEn;
-    const description = locale === 'es' && descEs.trim() ? descEs : descEn;
-
-    return (
-        <Card sx={{ border: '1px solid', borderColor: 'divider' }}>
-            <CardContent>
-                <Typography variant="overline" color="text.secondary">
-                    Cards block: {opt.label}
-                </Typography>
-                {error ? (
-                    <Alert severity="warning" sx={{ mt: 1 }}>
-                        {error}
-                    </Alert>
-                ) : null}
-
-                <Typography variant="h5" sx={{ mt: 1 }}>
-                    {title || opt.fallbackTitle}
-                </Typography>
-                <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
-                    {description || opt.fallbackDescription}
-                </Typography>
-
-                {loading ? (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                        Loading…
-                    </Typography>
-                ) : null}
-            </CardContent>
-        </Card>
-    );
-}
+const CARD_GROUP_VARIANT_OPTIONS: Array<{ value: CardGroupVariant; label: string }> = [{ value: 'default', label: 'Default' }];
 
 function clampSmallint(n: number, fallback: number) {
     if (!Number.isFinite(n)) return fallback;
@@ -316,13 +247,33 @@ export default function HomeSectionsWizard() {
             for (const k in byKey) metaRows.push(byKey[k]);
 
             const next: SectionDraft[] = metaRows.map((r) => {
-                const meta = safeJsonParse<SectionMeta>(r.body_en);
-                const kind = (meta?.kind || 'richText') as SectionKind;
+                const metaRaw = safeJsonParse<any>(r.body_en);
+                const kind = (metaRaw?.kind || 'richText') as SectionKind;
                 const sectionId = String(r.id || '').trim() || null;
 
-                const cardGroupSourceKeyRaw = (meta as any)?.fields?.sourceKey;
-                const cardGroupSourceKey = isCardGroupSourceKey(cardGroupSourceKeyRaw) ? cardGroupSourceKeyRaw : '';
-                const cardGroupVariant = String((meta as any)?.fields?.variant || '');
+                let metaJson: SectionMeta | null = (metaRaw as SectionMeta) ?? null;
+
+                // Normalize card_group meta (accept legacy `fields.sourceKey` but store as top-level for editing).
+                let cardGroupSourceKey: CardGroupSourceKey | '' = '';
+                let cardGroupVariant: CardGroupVariant | '' = '';
+                if (kind === 'card_group') {
+                    const sourceKeyRaw = metaRaw?.sourceKey ?? metaRaw?.fields?.sourceKey;
+                    const sourceKey = isCardGroupSourceKey(sourceKeyRaw) ? sourceKeyRaw : CARD_GROUP_OPTIONS[0].sourceKey;
+                    const variantRaw = metaRaw?.variant ?? metaRaw?.fields?.variant;
+                    const variant = variantRaw === 'default' ? 'default' : '';
+
+                    cardGroupSourceKey = sourceKey;
+                    cardGroupVariant = variant;
+
+                    metaJson = {
+                        version: 1,
+                        kind: 'card_group',
+                        owner: metaRaw?.owner ?? { type: 'page', key: PAGE_KEY },
+                        sort: Number.isFinite(r.sort) ? r.sort : 0,
+                        sourceKey,
+                        ...(variant ? { variant } : {}),
+                    };
+                }
 
                 return {
                     localId: sectionId || makeTempId(),
@@ -330,7 +281,7 @@ export default function HomeSectionsWizard() {
                     kind,
                     sort: Number.isFinite(r.sort) ? r.sort : 0,
                     metaKey: r.page_key,
-                    metaJson: meta,
+                    metaJson,
 
                     cardGroupSourceKey,
                     cardGroupVariant,
@@ -457,18 +408,46 @@ export default function HomeSectionsWizard() {
         const nextIndex = visibleSections.length;
         const sort = nextSortForIndex(nextIndex);
 
-        const meta: SectionMeta = {
-            version: 1,
-            kind: addKind,
-            owner: { type: 'page', key: PAGE_KEY },
-            sort,
-        };
-
         const defaultCardSource = CARD_GROUP_OPTIONS[0].sourceKey;
         const nextCardSourceKey = addKind === 'card_group' ? defaultCardSource : '';
-        const nextCardVariant = '';
-        if (addKind === 'card_group') {
-            (meta as any).fields = { sourceKey: defaultCardSource };
+        const nextCardVariant: CardGroupVariant | '' = '';
+
+        let meta: SectionMeta;
+        switch (addKind) {
+            case 'card_group':
+                meta = {
+                    version: 1,
+                    kind: 'card_group',
+                    owner: { type: 'page', key: PAGE_KEY },
+                    sort,
+                    sourceKey: defaultCardSource,
+                };
+                break;
+            case 'hero':
+                meta = {
+                    version: 1,
+                    kind: 'hero',
+                    owner: { type: 'page', key: PAGE_KEY },
+                    sort,
+                };
+                break;
+            case 'media':
+                meta = {
+                    version: 1,
+                    kind: 'media',
+                    owner: { type: 'page', key: PAGE_KEY },
+                    sort,
+                };
+                break;
+            case 'richText':
+            default:
+                meta = {
+                    version: 1,
+                    kind: 'richText',
+                    owner: { type: 'page', key: PAGE_KEY },
+                    sort,
+                };
+                break;
         }
 
         const draft: SectionDraft = {
@@ -534,8 +513,8 @@ export default function HomeSectionsWizard() {
 
                 // 2) Persist meta row sort/category/body_en (keeping kind/owner).
                 const metaKey = s.metaKey || `section.${s.sectionId}.meta`;
-                const metaJson: SectionMeta = {
-                    ...(s.metaJson || { version: 1, kind: s.kind }),
+                const metaJson: any = {
+                    ...((s.metaJson as any) || { version: 1, kind: s.kind }),
                     version: 1,
                     kind: s.kind,
                     owner: { type: 'page', key: PAGE_KEY },
@@ -551,11 +530,24 @@ export default function HomeSectionsWizard() {
                 }
                 if (s.kind === 'card_group') {
                     const opt = getCardGroupOption(s.cardGroupSourceKey);
-                    const variant = String(s.cardGroupVariant || '').trim();
-                    metaJson.fields = {
+                    const nextCardMeta: SectionMeta = {
+                        version: 1,
+                        kind: 'card_group',
+                        owner: { type: 'page', key: PAGE_KEY },
+                        sort,
                         sourceKey: opt.sourceKey,
-                        ...(variant ? { variant } : {}),
+                        ...(s.cardGroupVariant ? { variant: s.cardGroupVariant } : {}),
                     };
+                    await adminSaveCmsRow({
+                        op: 'save',
+                        page_key: metaKey,
+                        category: CANONICAL_CATEGORY,
+                        sort,
+                        body_en: JSON.stringify(nextCardMeta),
+                    });
+
+                    // No legacy `home.cards.*` writes in Phase 4.
+                    continue;
                 }
 
                 await adminSaveCmsRow({
@@ -776,9 +768,14 @@ export default function HomeSectionsWizard() {
                                                                 setSections((prev) =>
                                                                     prev.map((it) => {
                                                                         if (it.localId !== s.localId) return it;
-                                                                        const nextMeta = { ...(it.metaJson || { version: 1, kind: 'card_group' }) } as any;
-                                                                        nextMeta.kind = 'card_group';
-                                                                        nextMeta.fields = { ...(nextMeta.fields || {}), sourceKey };
+                                                                        const nextMeta: SectionMeta = {
+                                                                            version: 1,
+                                                                            kind: 'card_group',
+                                                                            owner: it.metaJson?.owner ?? { type: 'page', key: PAGE_KEY },
+                                                                            sort: it.sort,
+                                                                            sourceKey,
+                                                                            ...(it.cardGroupVariant ? { variant: it.cardGroupVariant } : {}),
+                                                                        };
                                                                         return { ...it, cardGroupSourceKey: sourceKey, metaJson: nextMeta };
                                                                     })
                                                                 );
@@ -792,24 +789,39 @@ export default function HomeSectionsWizard() {
                                                         </Select>
                                                     </FormControl>
 
-                                                    <TextField
-                                                        label={admin.t('admin.sectionsWizard.cardGroup.variant', 'Variant (optional)')}
-                                                        size="small"
-                                                        value={s.cardGroupVariant}
-                                                        onChange={(e) => {
-                                                            const v = e.target.value;
-                                                            setSections((prev) =>
-                                                                prev.map((it) => {
-                                                                    if (it.localId !== s.localId) return it;
-                                                                    const nextMeta = { ...(it.metaJson || { version: 1, kind: 'card_group' }) } as any;
-                                                                    nextMeta.kind = 'card_group';
-                                                                    nextMeta.fields = { ...(nextMeta.fields || {}), variant: v };
-                                                                    return { ...it, cardGroupVariant: v, metaJson: nextMeta };
-                                                                })
-                                                            );
-                                                        }}
-                                                        sx={{ maxWidth: 420 }}
-                                                    />
+                                                    <FormControl size="small" sx={{ maxWidth: 420 }}>
+                                                        <InputLabel id={`card-variant-${s.localId}`}>Variant (optional)</InputLabel>
+                                                        <Select
+                                                            labelId={`card-variant-${s.localId}`}
+                                                            label="Variant (optional)"
+                                                            value={s.cardGroupVariant || ''}
+                                                            onChange={(e) => {
+                                                                const raw = String(e.target.value || '');
+                                                                const v = raw === 'default' ? 'default' : '';
+                                                                setSections((prev) =>
+                                                                    prev.map((it) => {
+                                                                        if (it.localId !== s.localId) return it;
+                                                                        const nextMeta: SectionMeta = {
+                                                                            version: 1,
+                                                                            kind: 'card_group',
+                                                                            owner: it.metaJson?.owner ?? { type: 'page', key: PAGE_KEY },
+                                                                            sort: it.sort,
+                                                                            sourceKey: getCardGroupOption(it.cardGroupSourceKey).sourceKey,
+                                                                            ...(v ? { variant: v } : {}),
+                                                                        };
+                                                                        return { ...it, cardGroupVariant: v, metaJson: nextMeta };
+                                                                    })
+                                                                );
+                                                            }}
+                                                        >
+                                                            <MenuItem value="">(none)</MenuItem>
+                                                            {CARD_GROUP_VARIANT_OPTIONS.map((o) => (
+                                                                <MenuItem key={o.value} value={o.value}>
+                                                                    {o.label}
+                                                                </MenuItem>
+                                                            ))}
+                                                        </Select>
+                                                    </FormControl>
 
                                                     <Typography variant="body2" color="text.secondary">
                                                         {admin.t(
@@ -853,78 +865,84 @@ export default function HomeSectionsWizard() {
                             </Box>
                         </Box>
                     ) : (
-                        <Box sx={{ display: 'grid', gap: 2 }}>
-                            <Typography variant="body2" color="text.secondary">
-                                {admin.t(
-                                    'admin.sectionsWizard.preview.note',
-                                    'Admin-only preview of the staged section order. This does not change public rendering yet.'
-                                )}
-                            </Typography>
-
+                        <ContentBundleProvider prefix="home.">
                             <Box sx={{ display: 'grid', gap: 2 }}>
-                                {visibleSections.map((s) => {
-                                    if (s.kind === 'hero') {
-                                        const title = localeTab === 'es' && s.richTextEs.trim() ? s.richTextEs : s.richTextEn;
-                                        return (
-                                            <Box
-                                                key={s.localId}
-                                                sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}
-                                                onClickCapture={(e) => {
-                                                    const target = e.target as HTMLElement | null;
-                                                    if (!target) return;
-                                                    const anchor = target.closest('a[href]') as HTMLAnchorElement | null;
-                                                    if (anchor) {
-                                                        e.preventDefault();
-                                                        e.stopPropagation();
-                                                    }
-                                                }}
-                                            >
-                                                <Hero
-                                                    title={title || 'Hero'}
-                                                    subtitle={admin.t('admin.sectionsWizard.preview.heroSubtitle', '(edited in Home Hero Wizard)')}
-                                                    backgroundUrl={s.mediaUrl || undefined}
-                                                    primaryAction={admin.t('admin.sectionsWizard.preview.heroPrimary', 'Primary')}
-                                                    secondaryAction={admin.t('admin.sectionsWizard.preview.heroSecondary', 'Secondary')}
-                                                    primaryHref={'/book'}
-                                                    secondaryHref={'/mission_statement'}
-                                                />
-                                            </Box>
-                                        );
-                                    }
+                                <Typography variant="body2" color="text.secondary">
+                                    {admin.t(
+                                        'admin.sectionsWizard.preview.note',
+                                        'Admin-only preview of the staged section order. This does not change public rendering yet.'
+                                    )}
+                                </Typography>
 
-                                    if (s.kind === 'richText') {
-                                        const json = localeTab === 'es' && s.richTextEs.trim() ? s.richTextEs : s.richTextEn;
+                                <Box sx={{ display: 'grid', gap: 2 }}>
+                                    {visibleSections.map((s) => {
+                                        if (s.kind === 'hero') {
+                                            const title = localeTab === 'es' && s.richTextEs.trim() ? s.richTextEs : s.richTextEn;
+                                            return (
+                                                <Box
+                                                    key={s.localId}
+                                                    sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}
+                                                    onClickCapture={(e) => {
+                                                        const target = e.target as HTMLElement | null;
+                                                        if (!target) return;
+                                                        const anchor = target.closest('a[href]') as HTMLAnchorElement | null;
+                                                        if (anchor) {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                        }
+                                                    }}
+                                                >
+                                                    <Hero
+                                                        title={title || 'Hero'}
+                                                        subtitle={admin.t('admin.sectionsWizard.preview.heroSubtitle', '(edited in Home Hero Wizard)')}
+                                                        backgroundUrl={s.mediaUrl || undefined}
+                                                        primaryAction={admin.t('admin.sectionsWizard.preview.heroPrimary', 'Primary')}
+                                                        secondaryAction={admin.t('admin.sectionsWizard.preview.heroSecondary', 'Secondary')}
+                                                        primaryHref={'/book'}
+                                                        secondaryHref={'/mission_statement'}
+                                                    />
+                                                </Box>
+                                            );
+                                        }
+
+                                        if (s.kind === 'richText') {
+                                            const json = localeTab === 'es' && s.richTextEs.trim() ? s.richTextEs : s.richTextEn;
+                                            return (
+                                                <Box key={s.localId} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+                                                    {json ? <RichTextRenderer json={json} /> : null}
+                                                    {!json ? (
+                                                        <Typography variant="body2" color="text.secondary">
+                                                            {admin.t('admin.sectionsWizard.preview.emptyRichText', 'Empty rich text')}
+                                                        </Typography>
+                                                    ) : null}
+                                                </Box>
+                                            );
+                                        }
+
+                                        if (s.kind === 'card_group') {
+                                            return (
+                                                <Box key={s.localId} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
+                                                    <AdminSectionPreview meta={s.metaJson} />
+                                                </Box>
+                                            );
+                                        }
+
+                                        // media
                                         return (
                                             <Box key={s.localId} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
-                                                {json ? <RichTextRenderer json={json} /> : null}
-                                                {!json ? (
+                                                {s.mediaUrl ? (
+                                                    <Box component="img" src={s.mediaUrl} alt="" sx={{ width: '100%', borderRadius: 1 }} />
+                                                ) : (
                                                     <Typography variant="body2" color="text.secondary">
-                                                        {admin.t('admin.sectionsWizard.preview.emptyRichText', 'Empty rich text')}
+                                                        {admin.t('admin.sectionsWizard.preview.emptyMedia', 'No media selected')}
                                                     </Typography>
-                                                ) : null}
+                                                )}
                                             </Box>
                                         );
-                                    }
-
-                                    if (s.kind === 'card_group') {
-                                        return <CardGroupPreview key={s.localId} sourceKey={s.cardGroupSourceKey} locale={localeTab} />;
-                                    }
-
-                                    // media
-                                    return (
-                                        <Box key={s.localId} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
-                                            {s.mediaUrl ? (
-                                                <Box component="img" src={s.mediaUrl} alt="" sx={{ width: '100%', borderRadius: 1 }} />
-                                            ) : (
-                                                <Typography variant="body2" color="text.secondary">
-                                                    {admin.t('admin.sectionsWizard.preview.emptyMedia', 'No media selected')}
-                                                </Typography>
-                                            )}
-                                        </Box>
-                                    );
-                                })}
+                                    })}
+                                </Box>
                             </Box>
-                        </Box>
+                        </ContentBundleProvider>
                     )}
 
                     <MediaPickerDialog
