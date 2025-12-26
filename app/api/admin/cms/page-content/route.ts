@@ -11,9 +11,38 @@ export async function GET(req: Request) {
     const pageKey = String(url.searchParams.get('page_key') || '').trim();
     const category = String(url.searchParams.get('category') || '').trim();
     const pageKeyLike = String(url.searchParams.get('page_key_like') || '').trim();
+    const limitRaw = String(url.searchParams.get('limit') || '').trim();
 
     if (!pageKey && !category) {
         return NextResponse.json({ ok: false, message: 'Missing page_key or category' }, { status: 400 });
+    }
+
+    // List-mode safety: require a constrained filter + a bounded limit so this endpoint
+    // cannot be used to crawl all CMS keys.
+    const MAX_LIMIT = 2000;
+    const DEFAULT_LIMIT = 500;
+    let limit = DEFAULT_LIMIT;
+    if (limitRaw) {
+        const n = Number(limitRaw);
+        if (!Number.isFinite(n)) {
+            return NextResponse.json({ ok: false, message: 'Invalid limit' }, { status: 400 });
+        }
+        limit = Math.floor(n);
+    }
+    if (limit < 1) {
+        return NextResponse.json({ ok: false, message: 'limit must be >= 1' }, { status: 400 });
+    }
+    if (limit > MAX_LIMIT) {
+        return NextResponse.json({ ok: false, message: `limit too large (max ${MAX_LIMIT})` }, { status: 400 });
+    }
+
+    if (!pageKey && category) {
+        if (!pageKeyLike) {
+            return NextResponse.json({ ok: false, message: 'Missing page_key_like' }, { status: 400 });
+        }
+        if (!pageKeyLike.startsWith('section.%')) {
+            return NextResponse.json({ ok: false, message: "page_key_like must start with 'section.%'" }, { status: 400 });
+        }
     }
 
     if (pageKeyLike && pageKeyLike.length > 256) {
@@ -58,7 +87,7 @@ export async function GET(req: Request) {
         .eq('category', category)
         .order('sort', { ascending: true })
         .order('page_key', { ascending: true })
-        .limit(500);
+        .limit(limit);
 
     if (pageKeyLike) {
         q = q.like('page_key', pageKeyLike);
