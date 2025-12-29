@@ -183,7 +183,7 @@ function HomeRichTextBlock({ bodyKey, locale }: { bodyKey: string; locale: strin
     );
 }
 
-function CardGroupCard(props: {
+export function CardGroupCard(props: {
     locale: string;
     sourceKey: CardGroupSourceKey;
     tDb: (key: string, fallback?: string) => string;

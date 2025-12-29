@@ -12,19 +12,16 @@ import {
     DialogTitle,
     Divider,
     FormControl,
+    Grid,
     InputLabel,
     MenuItem,
     Select,
-    Tab,
-    Tabs,
     Typography,
 } from '@mui/material';
-import Hero from '@/components/Hero';
 import MediaPickerDialog, { type MediaSelection } from '@/components/admin/MediaPickerDialog';
-import { RichTextEditor, RichTextRenderer } from '@/components/admin/RichText';
+import { RichTextEditor } from '@/components/admin/RichText';
 import useContentBundle from '@/hooks/useContentBundle';
-import ContentBundleProvider from '@/components/content/ContentBundleContext';
-import { AdminSectionPreview } from '@/components/admin/sections/sectionRegistry';
+import HomeSectionsPreviewRenderer from '@/components/sections/HomeSectionsPreviewRenderer';
 import type { CardGroupSourceKey, CardGroupVariant, SectionKind, SectionMeta } from '@/components/admin/sections/sectionMeta';
 
 type CmsListRow = {
@@ -226,7 +223,6 @@ export default function HomeSectionsWizard() {
     const [addKind, setAddKind] = React.useState<SectionKind>('richText');
     const [pickerOpenFor, setPickerOpenFor] = React.useState<string | null>(null);
 
-    const [tab, setTab] = React.useState<'list' | 'preview'>('list');
     const [localeTab, setLocaleTab] = React.useState<'en' | 'es'>('en');
 
     const load = React.useCallback(async () => {
@@ -356,7 +352,6 @@ export default function HomeSectionsWizard() {
 
     const openWizard = async () => {
         setOpen(true);
-        setTab('list');
         setLocaleTab('en');
         await load();
     };
@@ -600,7 +595,6 @@ export default function HomeSectionsWizard() {
             }
 
             await load();
-            setTab('preview');
         } catch (e: any) {
             setError(e?.message || admin.t('admin.sectionsWizard.errors.saveFailed', 'Save failed'));
         } finally {
@@ -616,7 +610,7 @@ export default function HomeSectionsWizard() {
 
             <Dialog open={open} onClose={closeWizard} fullWidth maxWidth="lg">
                 <DialogTitle>{admin.t('admin.sectionsWizard.title', 'Home: Page Sections')}</DialogTitle>
-                <DialogContent sx={{ pt: 2, display: 'grid', gap: 2 }}>
+                <DialogContent sx={{ pt: 2 }}>
                     {error ? <Alert severity="error">{error}</Alert> : null}
 
                     {loading ? (
@@ -626,324 +620,281 @@ export default function HomeSectionsWizard() {
                         </Box>
                     ) : null}
 
-                    <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                        <Tab value="list" label={admin.t('admin.sectionsWizard.tabs.structure', 'Structure')} />
-                        <Tab value="preview" label={admin.t('admin.sectionsWizard.tabs.preview', 'Preview')} />
-                    </Tabs>
-
-                    {tab === 'list' ? (
-                        <Box sx={{ display: 'grid', gap: 2 }}>
-                            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-                                <FormControl size="small" sx={{ minWidth: 220 }}>
-                                    <InputLabel id="add-kind">{admin.t('admin.sectionsWizard.add.kind', 'Add section')}</InputLabel>
-                                    <Select
-                                        labelId="add-kind"
-                                        label={admin.t('admin.sectionsWizard.add.kind', 'Add section')}
-                                        value={addKind}
-                                        onChange={(e) => setAddKind(e.target.value as SectionKind)}
-                                    >
-                                        <MenuItem value="hero">Hero</MenuItem>
-                                        <MenuItem value="richText">Rich text</MenuItem>
-                                        <MenuItem value="card_group">Cards block</MenuItem>
-                                        <MenuItem value="media">Media</MenuItem>
-                                    </Select>
-                                </FormControl>
-                                <Button variant="contained" onClick={addSection}>
-                                    {admin.t('admin.sectionsWizard.add.action', 'Add')}
-                                </Button>
-                                <Box sx={{ flex: 1 }} />
-                                <Button variant="outlined" onClick={load} disabled={loading}>
-                                    {admin.t('admin.common.refresh', 'Refresh')}
-                                </Button>
-                            </Box>
-
-                            <Divider />
-
-                            {!visibleSections.length ? (
-                                <Typography variant="body2" color="text.secondary">
-                                    {admin.t('admin.sectionsWizard.empty', 'No sections yet. Add one.')}
-                                </Typography>
-                            ) : null}
-
-                            <Box sx={{ display: 'grid', gap: 1.5 }}>
-                                {visibleSections.map((s, idx) => {
-                                    const title =
-                                        s.kind === 'hero'
-                                            ? admin.t('admin.sectionsWizard.kind.hero', 'Hero')
-                                            : s.kind === 'richText'
-                                                ? admin.t('admin.sectionsWizard.kind.richText', 'Rich text')
-                                                : s.kind === 'card_group'
-                                                    ? admin.t('admin.sectionsWizard.kind.cardGroup', 'Cards block')
-                                                    : admin.t('admin.sectionsWizard.kind.media', 'Media');
-
-                                    return (
-                                        <Box
-                                            key={s.localId}
-                                            sx={{
-                                                border: '1px solid',
-                                                borderColor: 'divider',
-                                                borderRadius: 1,
-                                                p: 1.5,
-                                                display: 'grid',
-                                                gap: 1,
-                                            }}
+                    <Grid container spacing={2} sx={{ mt: 1 }}>
+                        <Grid item xs={12} md={5}>
+                            <Box sx={{ display: 'grid', gap: 2 }}>
+                                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+                                    <FormControl size="small" sx={{ minWidth: 220 }}>
+                                        <InputLabel id="add-kind">{admin.t('admin.sectionsWizard.add.kind', 'Add section')}</InputLabel>
+                                        <Select
+                                            labelId="add-kind"
+                                            label={admin.t('admin.sectionsWizard.add.kind', 'Add section')}
+                                            value={addKind}
+                                            onChange={(e) => setAddKind(e.target.value as SectionKind)}
                                         >
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-                                                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                                    {idx + 1}. {title}
-                                                </Typography>
-                                                <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
-                                                    {s.sectionId ? `section.${s.sectionId}` : '(new)'}
-                                                </Typography>
-                                                <Box sx={{ flex: 1 }} />
-                                                <Button size="small" onClick={() => move(s.localId, -1)} disabled={idx === 0}>
-                                                    {admin.t('admin.common.up', 'Up')}
-                                                </Button>
-                                                <Button
-                                                    size="small"
-                                                    onClick={() => move(s.localId, 1)}
-                                                    disabled={idx === visibleSections.length - 1}
-                                                >
-                                                    {admin.t('admin.common.down', 'Down')}
-                                                </Button>
-                                                <Button size="small" color="error" onClick={() => markDeleted(s.localId)}>
-                                                    {admin.t('admin.common.delete', 'Delete')}
-                                                </Button>
-                                            </Box>
+                                            <MenuItem value="hero">Hero</MenuItem>
+                                            <MenuItem value="richText">Rich text</MenuItem>
+                                            <MenuItem value="card_group">Cards block</MenuItem>
+                                            <MenuItem value="media">Media</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                    <Button variant="contained" onClick={addSection}>
+                                        {admin.t('admin.sectionsWizard.add.action', 'Add')}
+                                    </Button>
+                                    <Box sx={{ flex: 1 }} />
+                                    <Button variant="outlined" onClick={load} disabled={loading}>
+                                        {admin.t('admin.common.refresh', 'Refresh')}
+                                    </Button>
+                                </Box>
 
-                                            {s.kind === 'hero' ? (
-                                                <Typography variant="body2" color="text.secondary">
-                                                    {admin.t(
-                                                        'admin.sectionsWizard.hero.note',
-                                                        'Hero content (text/actions/media) is edited in the Home Hero Wizard; this wizard controls ordering + presence.'
-                                                    )}
-                                                </Typography>
-                                            ) : null}
+                                <Divider />
 
-                                            {s.kind === 'richText' ? (
-                                                <>
-                                                    <Tabs
-                                                        value={localeTab}
-                                                        onChange={(_, v) => setLocaleTab(v)}
-                                                        sx={{ borderBottom: 1, borderColor: 'divider' }}
-                                                    >
-                                                        <Tab value="en" label={admin.t('admin.common.english', 'English')} />
-                                                        <Tab value="es" label={admin.t('admin.common.spanish', 'Spanish (draft)')} />
-                                                    </Tabs>
-                                                    {localeTab === 'en' ? (
-                                                        <RichTextEditor
-                                                            label={admin.t('admin.sectionsWizard.richText.en', 'Rich text (EN)')}
-                                                            value={s.richTextEn}
-                                                            onChange={(v) =>
-                                                                setSections((prev) =>
-                                                                    prev.map((it) => (it.localId === s.localId ? { ...it, richTextEn: v } : it))
-                                                                )
-                                                            }
-                                                        />
-                                                    ) : (
-                                                        <RichTextEditor
-                                                            label={admin.t('admin.sectionsWizard.richText.es', 'Rich text (ES draft)')}
-                                                            value={s.richTextEs}
-                                                            onChange={(v) =>
-                                                                setSections((prev) =>
-                                                                    prev.map((it) => (it.localId === s.localId ? { ...it, richTextEs: v } : it))
-                                                                )
-                                                            }
-                                                        />
-                                                    )}
-                                                </>
-                                            ) : null}
+                                {!visibleSections.length ? (
+                                    <Typography variant="body2" color="text.secondary">
+                                        {admin.t('admin.sectionsWizard.empty', 'No sections yet. Add one.')}
+                                    </Typography>
+                                ) : null}
 
-                                            {s.kind === 'card_group' ? (
-                                                <Box sx={{ display: 'grid', gap: 1.5 }}>
-                                                    <FormControl size="small" sx={{ maxWidth: 420 }}>
-                                                        <InputLabel id={`card-group-${s.localId}`}>Cards group</InputLabel>
-                                                        <Select
-                                                            labelId={`card-group-${s.localId}`}
-                                                            label="Cards group"
-                                                            value={getCardGroupOption(s.cardGroupSourceKey).sourceKey}
-                                                            onChange={(e) => {
-                                                                const nextKey = String(e.target.value || '');
-                                                                const sourceKey = isCardGroupSourceKey(nextKey) ? nextKey : CARD_GROUP_OPTIONS[0].sourceKey;
-                                                                setSections((prev) =>
-                                                                    prev.map((it) => {
-                                                                        if (it.localId !== s.localId) return it;
-                                                                        const nextMeta: SectionMeta = {
-                                                                            version: 1,
-                                                                            kind: 'card_group',
-                                                                            owner: it.metaJson?.owner ?? { type: 'page', key: PAGE_KEY },
-                                                                            sort: it.sort,
-                                                                            sourceKey,
-                                                                            ...(it.cardGroupVariant ? { variant: it.cardGroupVariant } : {}),
-                                                                        };
-                                                                        return { ...it, cardGroupSourceKey: sourceKey, metaJson: nextMeta };
-                                                                    })
-                                                                );
-                                                            }}
-                                                        >
-                                                            {CARD_GROUP_OPTIONS.map((o) => (
-                                                                <MenuItem key={o.sourceKey} value={o.sourceKey}>
-                                                                    {o.label} ({o.sourceKey})
-                                                                </MenuItem>
-                                                            ))}
-                                                        </Select>
-                                                    </FormControl>
+                                <Box sx={{ display: 'grid', gap: 1.5 }}>
+                                    {visibleSections.map((s, idx) => {
+                                        const title =
+                                            s.kind === 'hero'
+                                                ? admin.t('admin.sectionsWizard.kind.hero', 'Hero')
+                                                : s.kind === 'richText'
+                                                    ? admin.t('admin.sectionsWizard.kind.richText', 'Rich text')
+                                                    : s.kind === 'card_group'
+                                                        ? admin.t('admin.sectionsWizard.kind.cardGroup', 'Cards block')
+                                                        : admin.t('admin.sectionsWizard.kind.media', 'Media');
 
-                                                    <FormControl size="small" sx={{ maxWidth: 420 }}>
-                                                        <InputLabel id={`card-variant-${s.localId}`}>Variant (optional)</InputLabel>
-                                                        <Select
-                                                            labelId={`card-variant-${s.localId}`}
-                                                            label="Variant (optional)"
-                                                            value={s.cardGroupVariant || ''}
-                                                            onChange={(e) => {
-                                                                const raw = String(e.target.value || '');
-                                                                const v = raw === 'default' ? 'default' : '';
-                                                                setSections((prev) =>
-                                                                    prev.map((it) => {
-                                                                        if (it.localId !== s.localId) return it;
-                                                                        const nextMeta: SectionMeta = {
-                                                                            version: 1,
-                                                                            kind: 'card_group',
-                                                                            owner: it.metaJson?.owner ?? { type: 'page', key: PAGE_KEY },
-                                                                            sort: it.sort,
-                                                                            sourceKey: getCardGroupOption(it.cardGroupSourceKey).sourceKey,
-                                                                            ...(v ? { variant: v } : {}),
-                                                                        };
-                                                                        return { ...it, cardGroupVariant: v, metaJson: nextMeta };
-                                                                    })
-                                                                );
-                                                            }}
-                                                        >
-                                                            <MenuItem value="">(none)</MenuItem>
-                                                            {CARD_GROUP_VARIANT_OPTIONS.map((o) => (
-                                                                <MenuItem key={o.value} value={o.value}>
-                                                                    {o.label}
-                                                                </MenuItem>
-                                                            ))}
-                                                        </Select>
-                                                    </FormControl>
-
-                                                    <Typography variant="body2" color="text.secondary">
-                                                        {admin.t(
-                                                            'admin.sectionsWizard.cardGroup.note',
-                                                            'This section bridges to existing legacy card keys (home.cards.*). Card content is not edited here in Phase 4.'
-                                                        )}
+                                        return (
+                                            <Box
+                                                key={s.localId}
+                                                sx={{
+                                                    border: '1px solid',
+                                                    borderColor: 'divider',
+                                                    borderRadius: 1,
+                                                    p: 1.5,
+                                                    display: 'grid',
+                                                    gap: 1,
+                                                }}
+                                            >
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                                        {idx + 1}. {title}
                                                     </Typography>
-                                                </Box>
-                                            ) : null}
-
-                                            {s.kind === 'media' ? (
-                                                <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-                                                    <Button variant="outlined" onClick={() => setPickerOpenFor(s.localId)}>
-                                                        {admin.t('admin.sectionsWizard.media.choose', 'Choose Media')}
+                                                    <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                                                        {s.sectionId ? `section.${s.sectionId}` : '(new)'}
+                                                    </Typography>
+                                                    <Box sx={{ flex: 1 }} />
+                                                    <Button size="small" onClick={() => move(s.localId, -1)} disabled={idx === 0}>
+                                                        {admin.t('admin.common.up', 'Up')}
                                                     </Button>
                                                     <Button
-                                                        variant="outlined"
-                                                        color="inherit"
-                                                        onClick={() =>
-                                                            setSections((prev) =>
-                                                                prev.map((it) =>
-                                                                    it.localId === s.localId ? { ...it, mediaSelection: null, mediaUrl: '' } : it
-                                                                )
-                                                            )
-                                                        }
-                                                        disabled={!s.mediaSelection}
+                                                        size="small"
+                                                        onClick={() => move(s.localId, 1)}
+                                                        disabled={idx === visibleSections.length - 1}
                                                     >
-                                                        {admin.t('admin.sectionsWizard.media.clear', 'Clear')}
+                                                        {admin.t('admin.common.down', 'Down')}
                                                     </Button>
-                                                    {s.mediaSelection ? (
-                                                        <Typography variant="body2" color="text.secondary">
-                                                            {admin.t('admin.sectionsWizard.media.selected', 'Selected')}: {s.mediaSelection.bucket}/
-                                                            {s.mediaSelection.path}
-                                                        </Typography>
-                                                    ) : null}
+                                                    <Button size="small" color="error" onClick={() => markDeleted(s.localId)}>
+                                                        {admin.t('admin.common.delete', 'Delete')}
+                                                    </Button>
                                                 </Box>
-                                            ) : null}
-                                        </Box>
-                                    );
-                                })}
-                            </Box>
-                        </Box>
-                    ) : (
-                        <ContentBundleProvider prefix="home.">
-                            <Box sx={{ display: 'grid', gap: 2 }}>
-                                <Typography variant="body2" color="text.secondary">
-                                    {admin.t(
-                                        'admin.sectionsWizard.preview.note',
-                                        'Admin-only preview of the staged section order. This does not change public rendering yet.'
-                                    )}
-                                </Typography>
 
-                                <Box sx={{ display: 'grid', gap: 2 }}>
-                                    {visibleSections.map((s) => {
-                                        if (s.kind === 'hero') {
-                                            const title = localeTab === 'es' && s.richTextEs.trim() ? s.richTextEs : s.richTextEn;
-                                            return (
-                                                <Box
-                                                    key={s.localId}
-                                                    sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}
-                                                    onClickCapture={(e) => {
-                                                        const target = e.target as HTMLElement | null;
-                                                        if (!target) return;
-                                                        const anchor = target.closest('a[href]') as HTMLAnchorElement | null;
-                                                        if (anchor) {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                        }
-                                                    }}
-                                                >
-                                                    <Hero
-                                                        title={title || 'Hero'}
-                                                        subtitle={admin.t('admin.sectionsWizard.preview.heroSubtitle', '(edited in Home Hero Wizard)')}
-                                                        backgroundUrl={s.mediaUrl || undefined}
-                                                        primaryAction={admin.t('admin.sectionsWizard.preview.heroPrimary', 'Primary')}
-                                                        secondaryAction={admin.t('admin.sectionsWizard.preview.heroSecondary', 'Secondary')}
-                                                        primaryHref={'/book'}
-                                                        secondaryHref={'/mission_statement'}
-                                                    />
-                                                </Box>
-                                            );
-                                        }
-
-                                        if (s.kind === 'richText') {
-                                            const json = localeTab === 'es' && s.richTextEs.trim() ? s.richTextEs : s.richTextEn;
-                                            return (
-                                                <Box key={s.localId} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
-                                                    {json ? <RichTextRenderer json={json} /> : null}
-                                                    {!json ? (
-                                                        <Typography variant="body2" color="text.secondary">
-                                                            {admin.t('admin.sectionsWizard.preview.emptyRichText', 'Empty rich text')}
-                                                        </Typography>
-                                                    ) : null}
-                                                </Box>
-                                            );
-                                        }
-
-                                        if (s.kind === 'card_group') {
-                                            return (
-                                                <Box key={s.localId} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
-                                                    <AdminSectionPreview meta={s.metaJson} />
-                                                </Box>
-                                            );
-                                        }
-
-                                        // media
-                                        return (
-                                            <Box key={s.localId} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 2 }}>
-                                                {s.mediaUrl ? (
-                                                    <Box component="img" src={s.mediaUrl} alt="" sx={{ width: '100%', borderRadius: 1 }} />
-                                                ) : (
+                                                {s.kind === 'hero' ? (
                                                     <Typography variant="body2" color="text.secondary">
-                                                        {admin.t('admin.sectionsWizard.preview.emptyMedia', 'No media selected')}
+                                                        {admin.t(
+                                                            'admin.sectionsWizard.hero.note',
+                                                            'Hero content (text/actions/media) is edited in the Home Hero Wizard; this wizard controls ordering + presence.'
+                                                        )}
                                                     </Typography>
-                                                )}
+                                                ) : null}
+
+                                                {s.kind === 'richText' ? (
+                                                    <>
+                                                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                                            <Button
+                                                                size="small"
+                                                                variant={localeTab === 'en' ? 'contained' : 'outlined'}
+                                                                onClick={() => setLocaleTab('en')}
+                                                            >
+                                                                {admin.t('admin.common.english', 'English')}
+                                                            </Button>
+                                                            <Button
+                                                                size="small"
+                                                                variant={localeTab === 'es' ? 'contained' : 'outlined'}
+                                                                onClick={() => setLocaleTab('es')}
+                                                            >
+                                                                {admin.t('admin.common.spanish', 'Spanish (draft)')}
+                                                            </Button>
+                                                        </Box>
+
+                                                        {localeTab === 'en' ? (
+                                                            <RichTextEditor
+                                                                label={admin.t('admin.sectionsWizard.richText.en', 'Rich text (EN)')}
+                                                                value={s.richTextEn}
+                                                                onChange={(v) =>
+                                                                    setSections((prev) =>
+                                                                        prev.map((it) => (it.localId === s.localId ? { ...it, richTextEn: v } : it))
+                                                                    )
+                                                                }
+                                                            />
+                                                        ) : (
+                                                            <RichTextEditor
+                                                                label={admin.t('admin.sectionsWizard.richText.es', 'Rich text (ES draft)')}
+                                                                value={s.richTextEs}
+                                                                onChange={(v) =>
+                                                                    setSections((prev) =>
+                                                                        prev.map((it) => (it.localId === s.localId ? { ...it, richTextEs: v } : it))
+                                                                    )
+                                                                }
+                                                            />
+                                                        )}
+                                                    </>
+                                                ) : null}
+
+                                                {s.kind === 'card_group' ? (
+                                                    <Box sx={{ display: 'grid', gap: 1.5 }}>
+                                                        <FormControl size="small" sx={{ maxWidth: 420 }}>
+                                                            <InputLabel id={`card-group-${s.localId}`}>Cards group</InputLabel>
+                                                            <Select
+                                                                labelId={`card-group-${s.localId}`}
+                                                                label="Cards group"
+                                                                value={getCardGroupOption(s.cardGroupSourceKey).sourceKey}
+                                                                onChange={(e) => {
+                                                                    const nextKey = String(e.target.value || '');
+                                                                    const sourceKey = isCardGroupSourceKey(nextKey)
+                                                                        ? nextKey
+                                                                        : CARD_GROUP_OPTIONS[0].sourceKey;
+                                                                    setSections((prev) =>
+                                                                        prev.map((it) => {
+                                                                            if (it.localId !== s.localId) return it;
+                                                                            const nextMeta: SectionMeta = {
+                                                                                version: 1,
+                                                                                kind: 'card_group',
+                                                                                owner: it.metaJson?.owner ?? { type: 'page', key: PAGE_KEY },
+                                                                                sort: it.sort,
+                                                                                sourceKey,
+                                                                                ...(it.cardGroupVariant ? { variant: it.cardGroupVariant } : {}),
+                                                                            };
+                                                                            return { ...it, cardGroupSourceKey: sourceKey, metaJson: nextMeta };
+                                                                        })
+                                                                    );
+                                                                }}
+                                                            >
+                                                                {CARD_GROUP_OPTIONS.map((o) => (
+                                                                    <MenuItem key={o.sourceKey} value={o.sourceKey}>
+                                                                        {o.label} ({o.sourceKey})
+                                                                    </MenuItem>
+                                                                ))}
+                                                            </Select>
+                                                        </FormControl>
+
+                                                        <FormControl size="small" sx={{ maxWidth: 420 }}>
+                                                            <InputLabel id={`card-variant-${s.localId}`}>Variant (optional)</InputLabel>
+                                                            <Select
+                                                                labelId={`card-variant-${s.localId}`}
+                                                                label="Variant (optional)"
+                                                                value={s.cardGroupVariant || ''}
+                                                                onChange={(e) => {
+                                                                    const raw = String(e.target.value || '');
+                                                                    const v = raw === 'default' ? 'default' : '';
+                                                                    setSections((prev) =>
+                                                                        prev.map((it) => {
+                                                                            if (it.localId !== s.localId) return it;
+                                                                            const nextMeta: SectionMeta = {
+                                                                                version: 1,
+                                                                                kind: 'card_group',
+                                                                                owner: it.metaJson?.owner ?? { type: 'page', key: PAGE_KEY },
+                                                                                sort: it.sort,
+                                                                                sourceKey: getCardGroupOption(it.cardGroupSourceKey).sourceKey,
+                                                                                ...(v ? { variant: v } : {}),
+                                                                            };
+                                                                            return { ...it, cardGroupVariant: v, metaJson: nextMeta };
+                                                                        })
+                                                                    );
+                                                                }}
+                                                            >
+                                                                <MenuItem value="">(none)</MenuItem>
+                                                                {CARD_GROUP_VARIANT_OPTIONS.map((o) => (
+                                                                    <MenuItem key={o.value} value={o.value}>
+                                                                        {o.label}
+                                                                    </MenuItem>
+                                                                ))}
+                                                            </Select>
+                                                        </FormControl>
+
+                                                        <Typography variant="body2" color="text.secondary">
+                                                            {admin.t(
+                                                                'admin.sectionsWizard.cardGroup.note',
+                                                                'This section bridges to existing legacy card keys (home.cards.*). Card content is not edited here in Phase 4.'
+                                                            )}
+                                                        </Typography>
+                                                    </Box>
+                                                ) : null}
+
+                                                {s.kind === 'media' ? (
+                                                    <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                                                        <Button variant="outlined" onClick={() => setPickerOpenFor(s.localId)}>
+                                                            {admin.t('admin.sectionsWizard.media.choose', 'Choose Media')}
+                                                        </Button>
+                                                        <Button
+                                                            variant="outlined"
+                                                            color="inherit"
+                                                            onClick={() =>
+                                                                setSections((prev) =>
+                                                                    prev.map((it) =>
+                                                                        it.localId === s.localId
+                                                                            ? { ...it, mediaSelection: null, mediaUrl: '' }
+                                                                            : it
+                                                                    )
+                                                                )
+                                                            }
+                                                            disabled={!s.mediaSelection}
+                                                        >
+                                                            {admin.t('admin.sectionsWizard.media.clear', 'Clear')}
+                                                        </Button>
+                                                        {s.mediaSelection ? (
+                                                            <Typography variant="body2" color="text.secondary">
+                                                                {admin.t('admin.sectionsWizard.media.selected', 'Selected')}: {s.mediaSelection.bucket}/
+                                                                {s.mediaSelection.path}
+                                                            </Typography>
+                                                        ) : null}
+                                                    </Box>
+                                                ) : null}
                                             </Box>
                                         );
                                     })}
                                 </Box>
                             </Box>
-                        </ContentBundleProvider>
-                    )}
+                        </Grid>
+
+                        <Grid item xs={12} md={7}>
+                            <Box
+                                sx={{
+                                    position: { md: 'sticky' },
+                                    top: { md: 96 },
+                                    maxHeight: { md: 'calc(100vh - 160px)' },
+                                    overflow: { md: 'auto' },
+                                    border: '1px solid',
+                                    borderColor: 'divider',
+                                    borderRadius: 1,
+                                    background: 'hsl(var(--background))',
+                                }}
+                                onClickCapture={(e) => {
+                                    const target = e.target as HTMLElement | null;
+                                    if (!target) return;
+                                    const anchor = target.closest('a[href]') as HTMLAnchorElement | null;
+                                    if (anchor) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                    }
+                                }}
+                            >
+                                <HomeSectionsPreviewRenderer sections={visibleSections as any} localeTab={localeTab} />
+                            </Box>
+                        </Grid>
+                    </Grid>
 
                     <MediaPickerDialog
                         open={!!pickerOpenFor}
