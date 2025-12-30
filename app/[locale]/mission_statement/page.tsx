@@ -6,8 +6,15 @@ import useCmsPageBody from '../../../hooks/useCmsPageBody';
 import CmsRichTextRenderer from '../../../components/CmsRichTextRenderer';
 import { isEmptyDoc } from '../../../lib/cmsRichText';
 import ContentBundleProvider, { useContentBundleContext } from '@/components/content/ContentBundleContext';
+import usePageSections from '@/hooks/usePageSections';
+import PageSectionsRenderer from '@/components/sections/PageSectionsRenderer';
 
 export default function MissionStatementPage() {
+    const sections = usePageSections('mission_statement');
+    if (sections.sections.length > 0) {
+        return <PageSectionsRenderer pageKey="mission_statement" sections={sections.sections} />;
+    }
+
     return (
         <ContentBundleProvider prefix="mission.">
             <MissionInner />

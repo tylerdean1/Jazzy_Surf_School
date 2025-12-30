@@ -2,18 +2,16 @@
 
 import React, { useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useLocale } from 'next-intl';
-import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
+import Typography from '@mui/material/Typography';
 import { AdminEditProvider } from '@/components/admin/edit/AdminEditContext';
 import useContentBundle from '@/hooks/useContentBundle';
 
 import { ADMIN_PAGES, type AdminPageKey } from './adminPages';
+
+import PageStructureWizard from '@/components/admin/wizard/PageStructureWizard';
+import PageContentWizard from '@/components/admin/wizard/PageContentWizard';
 
 import HomePage from '@/app/[locale]/page';
 import LessonsPage from '@/app/[locale]/lessons/page';
@@ -29,9 +27,23 @@ import GalleryMediaSlotsEditor from '@/components/admin/GalleryMediaSlotsEditor'
 export default function AdminLiveEditor() {
     const admin = useContentBundle('admin.');
     const searchParams = useSearchParams();
-    const router = useRouter();
-    const locale = useLocale();
-    const page = (searchParams.get('page') || 'home') as AdminPageKey;
+    const pageParam = searchParams.get('page');
+    const modeParam = searchParams.get('mode');
+    const mode: 'structure' | 'content' = modeParam === 'content' ? 'content' : 'structure';
+
+    if (!pageParam) {
+        return (
+            <Alert severity="info">
+                {admin.t('admin.liveEditor.selectPage', 'Select a page to edit')}
+            </Alert>
+        );
+    }
+
+    const page = String(pageParam || '') as AdminPageKey;
+    if (!ADMIN_PAGES.includes(page)) {
+        const msg = admin.t('admin.liveEditor.unknownPage', 'Unknown page: {page}').replace('{page}', String(pageParam));
+        return <Alert severity="error">{msg}</Alert>;
+    }
 
     const Component = useMemo(() => {
         switch (page) {
@@ -63,10 +75,6 @@ export default function AdminLiveEditor() {
         return <Alert severity="error">{msg}</Alert>;
     }
 
-    const onChangePage = (next: string) => {
-        router.push(`/${locale}/admin?page=${encodeURIComponent(next)}`);
-    };
-
     const blockNavigationCapture = (e: React.MouseEvent) => {
         const target = e.target as HTMLElement | null;
         if (!target) return;
@@ -83,21 +91,16 @@ export default function AdminLiveEditor() {
         <AdminEditProvider enabled>
             <Box sx={{ mt: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                    <FormControl size="small" sx={{ minWidth: 260 }}>
-                        <InputLabel id="admin-edit-page-label">{admin.t('admin.liveEditor.pageLabel', 'Page')}</InputLabel>
-                        <Select
-                            labelId="admin-edit-page-label"
-                            label={admin.t('admin.liveEditor.pageLabel', 'Page')}
-                            value={page}
-                            onChange={(e) => onChangePage(String(e.target.value))}
-                        >
-                            {ADMIN_PAGES.map((p) => (
-                                <MenuItem key={p} value={p}>
-                                    {p}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
+                    <Typography variant="body2" color="text.secondary">
+                        {admin.t('admin.liveEditor.pageLabel', 'Page')}: <Box component="span" sx={{ fontFamily: 'monospace' }}>{page}</Box>
+                        {' · '}
+                        mode: <Box component="span" sx={{ fontFamily: 'monospace' }}>{mode}</Box>
+                    </Typography>
+                </Box>
+
+                <Box sx={{ mt: 2 }}>
+                    {mode === 'structure' ? <PageStructureWizard pageKey={page} autoOpen /> : null}
+                    {mode === 'content' ? <PageContentWizard pageKey={page} autoOpen /> : null}
                 </Box>
 
                 {page === 'gallery' ? <GalleryMediaSlotsEditor /> : null}

@@ -171,6 +171,48 @@ export type Database = {
           },
         ]
       }
+      page_sections: {
+        Row: {
+          anchor: string | null
+          content_source: Json
+          created_at: string
+          id: string
+          kind: string
+          media_source: Json
+          meta: Json
+          page_key: string
+          sort: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          anchor?: string | null
+          content_source?: Json
+          created_at?: string
+          id?: string
+          kind: string
+          media_source?: Json
+          meta?: Json
+          page_key: string
+          sort?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          anchor?: string | null
+          content_source?: Json
+          created_at?: string
+          id?: string
+          kind?: string
+          media_source?: Json
+          meta?: Json
+          page_key?: string
+          sort?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sessions: {
         Row: {
           client_names: string[] | null
@@ -510,7 +552,47 @@ export type Database = {
         }
       }
       is_admin: { Args: never; Returns: boolean }
+      is_site_admin: { Args: never; Returns: boolean }
       is_valid_json: { Args: { p_text: string }; Returns: boolean }
+      rpc_create_page_section: {
+        Args: {
+          p_anchor?: string
+          p_kind: string
+          p_meta?: Json
+          p_page_key: string
+          p_sort?: number
+          p_status?: string
+        }
+        Returns: string
+      }
+      rpc_delete_page_section: {
+        Args: { p_page_key: string; p_section_id: string }
+        Returns: undefined
+      }
+      rpc_get_page_sections: {
+        Args: { p_include_drafts?: boolean; p_page_key: string }
+        Returns: {
+          anchor: string
+          content_source: Json
+          created_at: string
+          id: string
+          kind: string
+          media_source: Json
+          meta: Json
+          page_key: string
+          sort: number
+          status: string
+          updated_at: string
+        }[]
+      }
+      rpc_upsert_page_sections: {
+        Args: {
+          p_page_key: string
+          p_prune_missing?: boolean
+          p_sections: Json
+        }
+        Returns: undefined
+      }
       sync_media_assets_from_storage: {
         Args: never
         Returns: {

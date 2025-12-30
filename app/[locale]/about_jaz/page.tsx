@@ -6,8 +6,15 @@ import useCmsPageBody from '../../../hooks/useCmsPageBody';
 import CmsRichTextRenderer from '../../../components/CmsRichTextRenderer';
 import { isEmptyDoc } from '../../../lib/cmsRichText';
 import ContentBundleProvider, { useContentBundleContext } from '@/components/content/ContentBundleContext';
+import usePageSections from '@/hooks/usePageSections';
+import PageSectionsRenderer from '@/components/sections/PageSectionsRenderer';
 
 export default function AboutJazPage() {
+    const sections = usePageSections('about_jaz');
+    if (sections.sections.length > 0) {
+        return <PageSectionsRenderer pageKey="about_jaz" sections={sections.sections} />;
+    }
+
     return (
         <ContentBundleProvider prefix="about.">
             <AboutInner />

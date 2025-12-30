@@ -13,100 +13,10 @@ import { useCmsStringValue } from '@/hooks/useCmsStringValue';
 import { hasSectionsForPage } from '@/lib/sections/types';
 import HomeSectionsRenderer from '@/components/sections/HomeSectionsRenderer';
 import type { HomeSectionMetaRow } from '@/lib/sections/parseHomeSections';
+import PageSectionsRenderer from '@/components/sections/PageSectionsRenderer';
+import usePageSections from '@/hooks/usePageSections';
 
 const TARGET_AUDIENCE_FALLBACK_IMAGES: string[] = [];
-
-type ParsedHomeSection = {
-  id: string;
-  page_key: string;
-  sort: number;
-  kind: string;
-  meta: unknown;
-};
-
-type CardGroupSourceKey = 'home.cards.lessons' | 'home.cards.gallery' | 'home.cards.team';
-type CardGroupVariant = 'default';
-
-type CardGroupSectionMeta = {
-  kind: 'card_group';
-  sourceKey: CardGroupSourceKey;
-  variant?: CardGroupVariant;
-};
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object';
-}
-
-function safeJsonParse<T>(raw: string | null | undefined): T | null {
-  if (!raw) return null;
-  const trimmed = String(raw).trim();
-  if (!trimmed) return null;
-  try {
-    return JSON.parse(trimmed) as T;
-  } catch {
-    return null;
-  }
-}
-
-function parseSectionIdFromMetaKey(pageKey: string): string | null {
-  const m = /^section\.([^.]+)\.meta$/.exec(String(pageKey || ''));
-  return m?.[1] ?? null;
-}
-
-function isCardGroupSourceKey(value: unknown): value is CardGroupSourceKey {
-  return value === 'home.cards.lessons' || value === 'home.cards.gallery' || value === 'home.cards.team';
-}
-
-function isCardGroupVariant(value: unknown): value is CardGroupVariant {
-  return value === 'default';
-}
-
-// Runtime guard + backward-compat parser.
-// Accepts both:
-// - New shape: { kind:'card_group', sourceKey, variant? }
-// - Legacy shape: { kind:'card_group', fields:{ sourceKey, variant? } }
-function parseCardGroupSectionMeta(meta: unknown): CardGroupSectionMeta | null {
-  if (!isObject(meta)) return null;
-  if (meta.kind !== 'card_group') return null;
-
-  const sourceKeyRaw = (meta as any).sourceKey ?? (meta as any)?.fields?.sourceKey;
-  if (!isCardGroupSourceKey(sourceKeyRaw)) return null;
-
-  const variantRaw = (meta as any).variant ?? (meta as any)?.fields?.variant;
-  const variant = isCardGroupVariant(variantRaw) ? variantRaw : undefined;
-
-  return {
-    kind: 'card_group',
-    sourceKey: sourceKeyRaw,
-    ...(variant ? { variant } : {}),
-  };
-}
-
-function parseHomeSections(rows: HomeSectionMetaRow[]): ParsedHomeSection[] {
-  const parsed: ParsedHomeSection[] = [];
-
-  for (const row of rows) {
-    const id = parseSectionIdFromMetaKey(row.page_key);
-    if (!id) continue;
-
-    const meta = safeJsonParse<unknown>(row.body_en);
-    if (!meta || !isObject(meta)) continue;
-
-    const kind = (meta as any).kind;
-    if (typeof kind !== 'string' || !kind) continue;
-
-    parsed.push({
-      id,
-      page_key: String(row.page_key || ''),
-      sort: typeof row.sort === 'number' ? row.sort : 0,
-      kind,
-      meta,
-    });
-  }
-
-  parsed.sort((a, b) => (a.sort - b.sort) || a.page_key.localeCompare(b.page_key));
-  return parsed;
-}
 
 let cachedHomeSectionsMeta: HomeSectionMetaRow[] | null = null;
 let inflightHomeSectionsMeta: Promise<HomeSectionMetaRow[]> | null = null;
@@ -164,7 +74,13 @@ function useHomeSectionsMeta() {
 }
 
 export default function HomePage() {
+  const pageSections = usePageSections('home');
   const sections = useHomeSectionsMeta();
+
+  // Prefer the new universal system if we have published page_sections for home.
+  if (Array.isArray(pageSections.sections) && pageSections.sections.length > 0) {
+    return <PageSectionsRenderer pageKey="home" sections={pageSections.sections} />;
+  }
 
   if (hasSectionsForPage(sections as any)) {
     return <HomeSectionsRenderer sections={sections as HomeSectionMetaRow[]} />;

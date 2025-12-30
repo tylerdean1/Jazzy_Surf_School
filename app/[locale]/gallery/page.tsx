@@ -5,8 +5,15 @@ import { Container, Typography, Grid, Box, Card, Alert } from '@mui/material';
 import ContentBundleProvider from '@/components/content/ContentBundleContext';
 import { useContentBundleContext } from '@/components/content/ContentBundleContext';
 import type { ContentBundleMediaItem } from '@/types/contentBundle';
+import usePageSections from '@/hooks/usePageSections';
+import PageSectionsRenderer from '@/components/sections/PageSectionsRenderer';
 
 export default function GalleryPage() {
+  const sections = usePageSections('gallery');
+  if (sections.sections.length > 0) {
+    return <PageSectionsRenderer pageKey="gallery" sections={sections.sections} />;
+  }
+
   return (
     <ContentBundleProvider prefix="gallery.">
       <GalleryInner />

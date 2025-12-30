@@ -8,8 +8,15 @@ import CmsRichTextRenderer from '../../../components/CmsRichTextRenderer';
 import { isEmptyDoc } from '../../../lib/cmsRichText';
 import ContentBundleProvider, { useContentBundleContext } from '@/components/content/ContentBundleContext';
 import { useCmsStringValue } from '@/hooks/useCmsStringValue';
+import usePageSections from '@/hooks/usePageSections';
+import PageSectionsRenderer from '@/components/sections/PageSectionsRenderer';
 
 export default function TeamPage() {
+    const sections = usePageSections('team');
+    if (sections.sections.length > 0) {
+        return <PageSectionsRenderer pageKey="team" sections={sections.sections} />;
+    }
+
     return (
         <ContentBundleProvider prefix="team.">
             <TeamInner />

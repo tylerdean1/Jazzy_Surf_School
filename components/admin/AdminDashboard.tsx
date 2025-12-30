@@ -1,14 +1,12 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Alert, Box, Button, CircularProgress, Container, Tab, Tabs, Typography } from '@mui/material';
-import { usePathname } from 'next/navigation';
+import { Alert, Box, Button, CircularProgress, Container, FormControl, InputLabel, MenuItem, Select, Tab, Tabs, Typography } from '@mui/material';
+import { usePathname, useRouter } from 'next/navigation';
 import MediaManager from './MediaManager';
-import AdminLiveEditor from './AdminLiveEditor';
 import SessionsManager from './SessionsManager';
-import HomeHeroWizard from '@/components/admin/wizard/HomeHeroWizard';
-import HomeSectionsWizard from '@/components/admin/wizard/HomeSectionsWizard';
 import useContentBundle from '@/hooks/useContentBundle';
+import { ADMIN_PAGES, type AdminPageKey } from './adminPages';
 
 function TabPanel({ value, index, children }: { value: number; index: number; children: React.ReactNode }) {
     if (value !== index) return null;
@@ -21,6 +19,8 @@ export default function AdminDashboard() {
     const [loading, setLoading] = useState(true);
     const [authError, setAuthError] = useState<string | null>(null);
     const pathname = usePathname();
+    const router = useRouter();
+    const [selectedPage, setSelectedPage] = useState<AdminPageKey | ''>('');
 
     const locale = (() => {
         const p = String(pathname || '/');
@@ -34,6 +34,12 @@ export default function AdminDashboard() {
         setLoading(false);
         setAuthError(null);
     }, []);
+
+    const goToLiveEditor = (pageKey: string) => {
+        const key = String(pageKey || '').trim();
+        if (!key) return;
+        router.push(`/${locale}/admin/live-editor?page=${encodeURIComponent(key)}&mode=structure`);
+    };
 
 
     return (
@@ -69,13 +75,38 @@ export default function AdminDashboard() {
                                 'You are viewing the real site UI. Click the edit icons to change content inline.'
                             )}
                         </Typography>
-                        <Box sx={{ mb: 2 }}>
-                            <HomeHeroWizard />
+
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', mb: 2 }}>
+                            <FormControl size="small" sx={{ minWidth: 280 }}>
+                                <InputLabel id="admin-edit-page-label">{admin.t('admin.liveEditor.pageLabel', 'Page')}</InputLabel>
+                                <Select
+                                    labelId="admin-edit-page-label"
+                                    label={admin.t('admin.liveEditor.pageLabel', 'Page')}
+                                    value={selectedPage}
+                                    onChange={(e) => {
+                                        const next = String(e.target.value || '');
+                                        setSelectedPage(next as AdminPageKey | '');
+                                        if (next) goToLiveEditor(next);
+                                    }}
+                                >
+                                    <MenuItem value="">{admin.t('admin.common.select', 'Select…')}</MenuItem>
+                                    {ADMIN_PAGES.map((p) => (
+                                        <MenuItem key={p} value={p}>
+                                            {p}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                            <Button
+                                variant="outlined"
+                                onClick={() => {
+                                    if (selectedPage) goToLiveEditor(selectedPage);
+                                }}
+                                disabled={!selectedPage}
+                            >
+                                {admin.t('admin.common.open', 'Open')}
+                            </Button>
                         </Box>
-                        <Box sx={{ mb: 2 }}>
-                            <HomeSectionsWizard />
-                        </Box>
-                        <AdminLiveEditor />
                     </TabPanel>
 
                     <TabPanel value={tab} index={1}>

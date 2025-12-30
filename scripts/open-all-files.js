@@ -9,7 +9,7 @@ const { exec } = require('child_process');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 
-const DEFAULT_DELAY_MS = 500;
+const DEFAULT_DELAY_MS = 200;
 const delayMs = Number.parseInt(process.env.OPENALL_DELAY_MS || '', 10);
 const DELAY = Number.isFinite(delayMs) ? delayMs : DEFAULT_DELAY_MS;
 
