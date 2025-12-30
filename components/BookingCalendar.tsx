@@ -22,6 +22,9 @@ import Checkbox from '@mui/material/Checkbox';
 import ListItemText from '@mui/material/ListItemText';
 import { sendBookingNotification } from '@/lib/notifications';
 import { useCmsStringValue } from '@/hooks/useCmsStringValue';
+import useContentBundle from '@/hooks/useContentBundle';
+
+const FALLBACK_COPY = 'Content unavailable';
 
 export type BookingData = {
   date: string; // yyyy-mm-dd
@@ -50,49 +53,49 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
     customerPhone: ''
   });
 
-  const stepChooseLesson = useCmsStringValue('booking.steps.chooseLesson', 'Choose Lesson').value;
-  const stepSelectDateTime = useCmsStringValue('booking.steps.selectDateTime', 'Select Date & Time').value;
-  const stepCustomerInfo = useCmsStringValue('booking.steps.customerInfo', 'Customer Info').value;
+  const ui = useContentBundle('ui.');
+
+  const stepChooseLesson = ui.t('ui.booking.steps.chooseLesson', FALLBACK_COPY);
+  const stepSelectDateTime = ui.t('ui.booking.steps.selectDateTime', FALLBACK_COPY);
+  const stepCustomerInfo = ui.t('ui.booking.steps.customerInfo', FALLBACK_COPY);
   const steps = [stepChooseLesson, stepSelectDateTime, stepCustomerInfo];
 
-  const lessonTypeLabel = useCmsStringValue('booking.lessonTypeLabel', 'Lesson Type').value;
-  const partySizeLabel = useCmsStringValue('booking.partySizeLabel', 'Party Size').value;
-  const totalLabel = useCmsStringValue('booking.totalLabel', 'Total').value;
-  const totalBreakdownTemplate = useCmsStringValue('booking.totalBreakdown', '{count} person(s) × ${price}').value;
+  const lessonTypeLabel = ui.t('ui.booking.lessonTypeLabel', FALLBACK_COPY);
+  const partySizeLabel = ui.t('ui.booking.partySizeLabel', FALLBACK_COPY);
+  const totalLabel = ui.t('ui.booking.totalLabel', FALLBACK_COPY);
+  const totalBreakdownTemplate = ui.t('ui.booking.totalBreakdown', FALLBACK_COPY);
 
-  const step0Title = useCmsStringValue('booking.step0.title', 'Choose Your Lesson and Party Size').value;
-  const step1Title = useCmsStringValue('booking.step1.title', 'Select Your Preferred Date and Time').value;
-  const dateLabel = useCmsStringValue('booking.dateLabel', 'Date').value;
-  const timeLabel = useCmsStringValue('booking.timeLabel', 'Time').value;
-  const timeHelp = useCmsStringValue(
-    'booking.timeHelp',
-    'Pick one or more 30-minute time blocks that work for you; we will send these to the coach for confirmation.'
-  ).value;
+  const step0Title = ui.t('ui.booking.step0.title', FALLBACK_COPY);
+  const step1Title = ui.t('ui.booking.step1.title', FALLBACK_COPY);
+  const dateLabel = ui.t('ui.booking.dateLabel', FALLBACK_COPY);
+  const timeLabel = ui.t('ui.booking.timeLabel', FALLBACK_COPY);
+  const timeHelp = ui.t('ui.booking.timeHelp', FALLBACK_COPY);
 
-  const step2Title = useCmsStringValue('booking.step2.title', 'Customer Information').value;
-  const fullNameLabel = useCmsStringValue('booking.fullNameLabel', 'Full Name').value;
-  const emailLabel = useCmsStringValue('booking.emailLabel', 'Email Address').value;
-  const phoneLabel = useCmsStringValue('booking.phoneLabel', 'Phone Number').value;
+  const step2Title = ui.t('ui.booking.step2.title', FALLBACK_COPY);
+  const fullNameLabel = ui.t('ui.booking.fullNameLabel', FALLBACK_COPY);
+  const emailLabel = ui.t('ui.booking.emailLabel', FALLBACK_COPY);
+  const phoneLabel = ui.t('ui.booking.phoneLabel', FALLBACK_COPY);
 
-  const summaryTitle = useCmsStringValue('booking.summary.title', 'Booking Summary').value;
-  const summaryDateLabel = useCmsStringValue('booking.summary.dateLabel', 'Date').value;
-  const summaryTimeLabel = useCmsStringValue('booking.summary.timeLabel', 'Time').value;
-  const summaryLessonLabel = useCmsStringValue('booking.summary.lessonLabel', 'Lesson').value;
-  const summaryPartySizeLabel = useCmsStringValue('booking.summary.partySizeLabel', 'Party Size').value;
+  const summaryTitle = ui.t('ui.booking.summary.title', FALLBACK_COPY);
+  const summaryDateLabel = ui.t('ui.booking.summary.dateLabel', FALLBACK_COPY);
+  const summaryTimeLabel = ui.t('ui.booking.summary.timeLabel', FALLBACK_COPY);
+  const summaryLessonLabel = ui.t('ui.booking.summary.lessonLabel', FALLBACK_COPY);
+  const summaryPartySizeLabel = ui.t('ui.booking.summary.partySizeLabel', FALLBACK_COPY);
 
-  const backLabel = useCmsStringValue('booking.actions.back', 'Back').value;
-  const nextLabel = useCmsStringValue('booking.actions.next', 'Next').value;
-  const submitLabel = useCmsStringValue('booking.actions.submit', 'Submit Request').value;
+  const backLabel = ui.t('ui.booking.actions.back', FALLBACK_COPY);
+  const nextLabel = ui.t('ui.booking.actions.next', FALLBACK_COPY);
+  const submitLabel = ui.t('ui.booking.actions.submit', FALLBACK_COPY);
 
-  const adminPhone = useCmsStringValue('booking.adminPhone', '939-525-0307').value;
-  const adminEmail = useCmsStringValue('booking.adminEmail', 'sunsetsurfacademy@gmail.com').value;
+  const adminPhone = useCmsStringValue('page.contact.phone', FALLBACK_COPY).value;
+  const adminEmail = useCmsStringValue('page.contact.email', FALLBACK_COPY).value;
 
   type LessonType = { id: string; name: string; price: number };
 
   // Frontend-only placeholder data (no Supabase / no API dependency)
-  const lessonBeginnerName = useCmsStringValue('booking.lessonTypes.beginner', 'Beginner Lesson (2 hours)').value;
-  const lessonIntermediateName = useCmsStringValue('booking.lessonTypes.intermediate', 'Intermediate Lesson (2 hours)').value;
-  const lessonAdvancedName = useCmsStringValue('booking.lessonTypes.advanced', 'Advanced Coaching (2 hours)').value;
+  const lessons = useContentBundle('page.lessons.');
+  const lessonBeginnerName = lessons.t('page.lessons.beginner.title', FALLBACK_COPY);
+  const lessonIntermediateName = lessons.t('page.lessons.intermediate.title', FALLBACK_COPY);
+  const lessonAdvancedName = lessons.t('page.lessons.advanced.title', FALLBACK_COPY);
 
   const lessonTypes: LessonType[] = [
     { id: 'beginner', name: lessonBeginnerName, price: 100 },

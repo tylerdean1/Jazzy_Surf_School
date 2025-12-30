@@ -8,6 +8,7 @@ import theme from '../../theme';
 import Navigation from '../../components/Navigation';
 import type { Metadata } from 'next';
 import AppLoadingFrame from '@/components/AppLoadingFrame';
+import { getPublicCmsString } from '@/lib/publicCms';
 
 const locales = ['en', 'es'];
 
@@ -17,9 +18,12 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params: { locale } }: { params: { locale: string } }): Promise<Metadata> {
   if (!locales.includes(locale as any)) notFound();
+  const fallbackCopy = 'Content unavailable';
+  const title = await getPublicCmsString('ui.meta.title', locale, fallbackCopy);
+  const description = await getPublicCmsString('ui.meta.description', locale, fallbackCopy);
   return {
-    title: 'Sunset Surf Academy - Professional Surf Lessons in Rincón, PR',
-    description: 'Learn from some of the best surfers in the world at Sunset Surf Academy in Rincón, Puerto Rico. Professional surf instruction for all levels.',
+    title,
+    description,
     icons: {
       icon: [{ url: '/SSA_Orange_Logo.png', type: 'image/png' }],
     },

@@ -18,23 +18,24 @@ export default function ContactPage() {
   }
 
   return (
-    <ContentBundleProvider prefix="contact.">
+    <ContentBundleProvider prefix="page.contact." mediaPrefix="contact.">
       <ContactInner />
     </ContentBundleProvider>
   );
 }
 
 function ContactInner() {
-  const instagramUrl = useCmsStringValue('contact.instagramUrl', 'https://www.instagram.com/sunsetsurfacademy/').value;
-  const instagramHandle = useCmsStringValue('contact.instagramHandle', '@sunsetsurfacademy').value;
-  const phoneDisplay = useCmsStringValue('contact.phone', '939-525-0307').value;
-  const emailAddress = useCmsStringValue('contact.email', 'sunsetsurfacademy@gmail.com').value;
-  const linksIntro = useCmsStringValue('contact.linksIntro', 'Have questions or want to check our online presence? Check the links below.').value;
-  const logoAlt = useCmsStringValue('contact.logoAlt', 'Sunset Surf Academy').value;
+  const fallbackCopy = 'Content unavailable';
+  const instagramUrl = useCmsStringValue('page.contact.instagramUrl', '#').value;
+  const instagramHandle = useCmsStringValue('page.contact.instagramHandle', fallbackCopy).value;
+  const phoneDisplay = useCmsStringValue('page.contact.phone', fallbackCopy).value;
+  const emailAddress = useCmsStringValue('page.contact.email', fallbackCopy).value;
+  const linksIntro = useCmsStringValue('page.contact.linksIntro', fallbackCopy).value;
+  const logoAlt = useCmsStringValue('page.contact.logoAlt', fallbackCopy).value;
 
   const phoneHref = String(phoneDisplay).replace(/[^\d+]/g, '');
   const locale = useLocale();
-  const cms = useCmsPageBody('contact', locale);
+  const cms = useCmsPageBody('page.contact.body', locale);
   const hasCms = !cms.loading && !cms.error && !isEmptyDoc(cms.body);
 
   const ctx = useContentBundleContext();

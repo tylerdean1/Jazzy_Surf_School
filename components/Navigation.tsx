@@ -24,6 +24,8 @@ import { Menu, Waves } from '@mui/icons-material';
 import LanguageToggle from './LanguageToggle';
 import useContentBundle from '@/hooks/useContentBundle';
 
+const FALLBACK_COPY = 'Content unavailable';
+
 const Navigation: React.FC = () => {
   const locale = useLocale();
   const pathname = usePathname();
@@ -34,12 +36,12 @@ const Navigation: React.FC = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  const bundle = useContentBundle('nav.');
+  const bundle = useContentBundle('ui.', 'nav.');
   const logoUrl = bundle.mediaByKey('nav.logo')?.url || '';
 
-  const brandName = bundle.t('nav.brandName', 'Sunset Surf Academy');
-  const logoAlt = bundle.t('nav.logoAlt', 'Sunset Surf Academy logo');
-  const openDrawerAria = bundle.t('nav.aria.openDrawer', 'open navigation');
+  const brandName = bundle.t('ui.brandName', FALLBACK_COPY);
+  const logoAlt = bundle.t('ui.nav.logoAlt', FALLBACK_COPY);
+  const openDrawerAria = bundle.t('ui.nav.aria.openDrawer', FALLBACK_COPY);
 
   const onAdminPage = pathname === `/${locale}/admin`;
   const selectedAdminPage = searchParams.get('page') || 'home';
@@ -64,13 +66,13 @@ const Navigation: React.FC = () => {
   }, [onAdminPage]);
 
   const navItems = [
-    { key: 'home', href: `/${locale}`, label: bundle.t('nav.home', 'Home') },
-    { key: 'lessons', href: `/${locale}/lessons`, label: bundle.t('nav.lessons', 'Lessons') },
-    { key: 'schedule', href: `/${locale}/book`, label: bundle.t('nav.schedule', 'Book Now') },
-    { key: 'gallery', href: `/${locale}/gallery`, label: bundle.t('nav.gallery', 'Gallery') },
-    { key: 'about', href: `/${locale}/mission_statement`, label: bundle.t('nav.about', 'About') },
-    { key: 'faq', href: `/${locale}/faq`, label: bundle.t('nav.faq', 'FAQ') },
-    { key: 'contact', href: `/${locale}/contact`, label: bundle.t('nav.contact', 'Contact') }
+    { key: 'home', href: `/${locale}`, label: bundle.t('ui.nav.home', FALLBACK_COPY) },
+    { key: 'lessons', href: `/${locale}/lessons`, label: bundle.t('ui.nav.lessons', FALLBACK_COPY) },
+    { key: 'schedule', href: `/${locale}/book`, label: bundle.t('ui.nav.schedule', FALLBACK_COPY) },
+    { key: 'gallery', href: `/${locale}/gallery`, label: bundle.t('ui.nav.gallery', FALLBACK_COPY) },
+    { key: 'about', href: `/${locale}/mission_statement`, label: bundle.t('ui.nav.about', FALLBACK_COPY) },
+    { key: 'faq', href: `/${locale}/faq`, label: bundle.t('ui.nav.faq', FALLBACK_COPY) },
+    { key: 'contact', href: `/${locale}/contact`, label: bundle.t('ui.nav.contact', FALLBACK_COPY) }
   ];
 
   const handleDrawerToggle = () => {
@@ -232,7 +234,7 @@ const Navigation: React.FC = () => {
                       <Box
                         component="img"
                         src={logoUrl}
-                        alt="Surf School logo"
+                        alt={logoAlt}
                         sx={{ width: 44, height: 44, borderRadius: 1.25, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}
                       />
                     ) : null}
@@ -246,7 +248,7 @@ const Navigation: React.FC = () => {
                       <Box
                         component="img"
                         src={logoUrl}
-                        alt="Surf School logo"
+                        alt={logoAlt}
                         sx={{ width: 44, height: 44, borderRadius: 1.25, boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}
                       />
                     ) : null}

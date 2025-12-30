@@ -4,17 +4,15 @@ import { useLocale } from 'next-intl';
 import { Container, Typography, Grid, Box } from '@mui/material';
 import LessonCard from '../../../components/LessonCard';
 import useCmsPageBody from '../../../hooks/useCmsPageBody';
-import CmsRichTextRenderer from '../../../components/CmsRichTextRenderer';
 import { isEmptyDoc } from '../../../lib/cmsRichText';
 import { useAdminEdit } from '@/components/admin/edit/AdminEditContext';
 import EditableRichTextBlock from '@/components/admin/edit/EditableRichTextBlock';
 import EditableInlineText from '@/components/admin/edit/EditableInlineText';
 import ContentBundleProvider, { useContentBundleContext } from '@/components/content/ContentBundleContext';
-import { useCmsStringValue } from '@/hooks/useCmsStringValue';
 
 export default function LessonsPage() {
   return (
-    <ContentBundleProvider prefix="lessons.">
+    <ContentBundleProvider prefix="page.lessons." mediaPrefix="lessons.">
       <LessonsInner />
     </ContentBundleProvider>
   );
@@ -23,24 +21,30 @@ export default function LessonsPage() {
 function LessonsInner() {
   const locale = useLocale();
   const { enabled: adminEdit } = useAdminEdit();
-  const cms = useCmsPageBody('lessons', locale);
+  const cms = useCmsPageBody('page.lessons.body', locale);
   const hasCms = !cms.loading && !cms.error && !isEmptyDoc(cms.body);
   const ctx = useContentBundleContext();
+  const strings = ctx?.strings ?? {};
   const pricesUrl = (ctx?.media || []).find((m) => m?.slot_key === 'lessons.prices')?.url || '';
-  const pricesAlt = useCmsStringValue('lessons.pricesAlt', 'Prices').value;
+  const fallbackCopy = 'Content unavailable';
+  const tDb = (key: string, fallback: string) => {
+    const v = strings[key];
+    return typeof v === 'string' && v.trim().length > 0 ? v : fallback;
+  };
+  const pricesAlt = tDb('page.lessons.pricesAlt', fallbackCopy);
 
   return (
     <Container maxWidth="lg" sx={{ py: 8 }}>
       <Box textAlign="center" sx={{ mb: 6 }}>
         <Typography variant="h2" gutterBottom color="#20B2AA">
-          <EditableInlineText cmsKey="lessons.title" fallback={'Surf Lessons'}>
+          <EditableInlineText cmsKey="page.lessons.title" fallback={fallbackCopy}>
             {(v) => <>{v}</>}
           </EditableInlineText>
         </Typography>
         <Typography variant="h5" color="text.secondary">
           <EditableInlineText
-            cmsKey="lessons.subtitle"
-            fallback={'Professional instruction tailored to your skill level'}
+            cmsKey="page.lessons.subtitle"
+            fallback={fallbackCopy}
             multiline
             fullWidth
           >
@@ -66,54 +70,39 @@ function LessonsInner() {
       <Grid container spacing={4} justifyContent="center">
         <Grid item xs={12} md={4}>
           <LessonCard
-            title={'Lessons'}
-            price={'$100'}
-            duration={'2 hours'}
-            location={'Rincón to Isabela/Jobos'}
-            description={'The beginner lessons teach the fundamentals of surfing.'}
-            includes={[
-              'Surfboard rental',
-              'Safety briefing',
-              'Personalized beach & water coaching',
-              'Photos of your session'
-            ]}
-            cmsKeyBase="lessons.beginner"
+            title={fallbackCopy}
+            price={fallbackCopy}
+            duration={fallbackCopy}
+            location={fallbackCopy}
+            description={fallbackCopy}
+            includes={[fallbackCopy, fallbackCopy, fallbackCopy, fallbackCopy]}
+            cmsKeyBase="page.lessons.beginner"
             bookLessonTypeId="beginner"
           />
         </Grid>
 
         <Grid item xs={12} md={4}>
           <LessonCard
-            title={'Advanced Coaching'}
-            price={'$100'}
-            duration={'2 hours'}
-            location={'Rincón to Isabela/Jobos'}
-            description={'Intermediate lessons teach how to read waves, interact in any lineup, and gain practical skills to surf more confidently.'}
-            includes={[
-              'Surfboard rental',
-              'Wave reading & lineup etiquette',
-              'Skills development',
-              'Photos and short video clips'
-            ]}
-            cmsKeyBase="lessons.intermediate"
+            title={fallbackCopy}
+            price={fallbackCopy}
+            duration={fallbackCopy}
+            location={fallbackCopy}
+            description={fallbackCopy}
+            includes={[fallbackCopy, fallbackCopy, fallbackCopy, fallbackCopy]}
+            cmsKeyBase="page.lessons.intermediate"
             bookLessonTypeId="intermediate"
           />
         </Grid>
 
         <Grid item xs={12} md={4}>
           <LessonCard
-            title={'Surf Guide'}
-            price={'$100'}
-            duration={'2 hours'}
-            location={'Various locations'}
-            description={'Advanced lessons cover advanced skills, video analysis, competition preparation, and custom programs.'}
-            includes={[
-              'Video review',
-              'Technique analysis',
-              'Competition prep',
-              'Custom programs'
-            ]}
-            cmsKeyBase="lessons.advanced"
+            title={fallbackCopy}
+            price={fallbackCopy}
+            duration={fallbackCopy}
+            location={fallbackCopy}
+            description={fallbackCopy}
+            includes={[fallbackCopy, fallbackCopy, fallbackCopy, fallbackCopy]}
+            cmsKeyBase="page.lessons.advanced"
             bookLessonTypeId="advanced"
           />
         </Grid>

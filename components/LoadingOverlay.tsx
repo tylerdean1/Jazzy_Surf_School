@@ -44,7 +44,7 @@ export default function LoadingOverlay({
     appReady,
     minMs = 1000,
     maxMs = 8000,
-    title = 'Sunset Surf Academy',
+    title = 'Loading…',
     subtitle = 'Loading…',
     videoSrc = '/loading_video.mp4',
     fadeMs = 280,

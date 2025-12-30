@@ -15,7 +15,7 @@ export default function GalleryPage() {
   }
 
   return (
-    <ContentBundleProvider prefix="gallery.">
+    <ContentBundleProvider prefix="page.gallery." mediaPrefix="gallery.">
       <GalleryInner />
     </ContentBundleProvider>
   );
@@ -27,6 +27,7 @@ function GalleryInner() {
   const error = ctx?.error ?? null;
   const strings = ctx?.strings ?? {};
   const media = ctx?.media ?? [];
+  const fallbackCopy = 'Content unavailable';
 
   const tDb = (key: string, fallback: string) => {
     const v = strings[key];
@@ -34,7 +35,7 @@ function GalleryInner() {
   };
 
   const desiredCount = (() => {
-    const raw = strings['gallery.images.count'];
+    const raw = strings['page.gallery.images.count'];
     const n = raw != null ? Number(raw) : NaN;
     if (!Number.isFinite(n)) return null;
     return Math.max(0, Math.min(100, Math.floor(n)));
@@ -53,10 +54,10 @@ function GalleryInner() {
     <Container maxWidth="lg" sx={{ py: 8 }}>
       <Box textAlign="center" sx={{ mb: 6 }}>
         <Typography variant="h2" gutterBottom color="#20B2AA">
-          {tDb('gallery.title', 'Gallery')}
+          {tDb('page.gallery.title', fallbackCopy)}
         </Typography>
         <Typography variant="h5" color="text.secondary">
-          {tDb('gallery.subtitle', 'Check out some of the content from our past lessons :)')}
+          {tDb('page.gallery.subtitle', fallbackCopy)}
         </Typography>
       </Box>
 
@@ -68,7 +69,7 @@ function GalleryInner() {
 
       {!error && !loading && rows.length === 0 ? (
         <Alert severity="info" sx={{ mb: 3 }}>
-          {tDb('gallery.empty', 'No gallery media selected yet.')}
+          {tDb('page.gallery.empty', fallbackCopy)}
         </Alert>
       ) : null}
 

@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { useLocale } from 'next-intl';
 import { Card, CardContent, IconButton, Box, Typography } from '@mui/material';
 import { ChevronLeft, ChevronRight } from '@mui/icons-material';
-import { useCmsStringValue } from '@/hooks/useCmsStringValue';
+import useContentBundle from '@/hooks/useContentBundle';
+
+const FALLBACK_COPY = 'Content unavailable';
 
 interface Props {
     name: string;
@@ -15,10 +17,11 @@ interface Props {
 export default function TeamCard({ name, images }: Props) {
     const [index, setIndex] = useState(0);
 
-    const noPhotosText = useCmsStringValue('team.card.noPhotos', 'No photos yet').value;
-    const browseHintText = useCmsStringValue('team.card.browseHint', 'Click the arrows to browse photos.').value;
-    const prevAria = useCmsStringValue('team.card.prevAria', 'previous').value;
-    const nextAria = useCmsStringValue('team.card.nextAria', 'next').value;
+    const ui = useContentBundle('ui.');
+    const noPhotosText = ui.t('ui.team.card.noPhotos', FALLBACK_COPY);
+    const browseHintText = ui.t('ui.team.card.browseHint', FALLBACK_COPY);
+    const prevAria = ui.t('ui.team.card.prevAria', FALLBACK_COPY);
+    const nextAria = ui.t('ui.team.card.nextAria', FALLBACK_COPY);
 
     const hasImages = images.length > 0;
     const prev = () => {

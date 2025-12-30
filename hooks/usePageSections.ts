@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import supabaseClient from '@/lib/supabaseClient';
+import { getSupabaseClient } from '@/lib/supabaseClient';
 import type { Database } from '@/lib/database.types';
 
 type PageSectionRow = Database['public']['Functions']['rpc_get_page_sections']['Returns'][number];
@@ -28,7 +28,14 @@ async function fetchSections(pageKey: string): Promise<PageSectionRow[]> {
     if (existing) return existing;
 
     const p = (async () => {
-        const { data, error } = await supabaseClient.rpc('rpc_get_page_sections', {
+        const supabase = getSupabaseClient();
+        if (!supabase) {
+            const empty: PageSectionRow[] = [];
+            cache.set(key, empty);
+            return empty;
+        }
+
+        const { data, error } = await supabase.rpc('rpc_get_page_sections', {
             p_page_key: key,
             p_include_drafts: false,
         });

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAdminApi } from '@/lib/adminAuth';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import type { Database } from '@/lib/database.types';
+import { normalizeGalleryImagesSlotKey } from '@/lib/mediaSlots';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,18 +15,6 @@ function normalizePrefix(raw: string | null): string {
     return p;
 }
 
-function normalizeGalleryImagesSlotKey(slotKey: string): string {
-    const key = String(slotKey || '').trim();
-    const prefix = 'gallery.images.';
-    if (!key.startsWith(prefix)) return key;
-    const suffix = key.slice(prefix.length);
-    // Normalize any numeric suffix (including padded) to its canonical integer form.
-    if (/^[0-9]+$/.test(suffix)) {
-        const n = parseInt(suffix, 10);
-        if (Number.isFinite(n) && n >= 0) return `${prefix}${n}`;
-    }
-    return key;
-}
 
 type SlotItem = {
     slot_key: string;

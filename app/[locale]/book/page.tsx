@@ -5,11 +5,11 @@ import { useSearchParams } from 'next/navigation';
 import { Container, Typography, Box, Alert } from '@mui/material';
 import BookingCalendar, { type BookingData } from '../../../components/BookingCalendar';
 import ContentBundleProvider from '@/components/content/ContentBundleContext';
-import { useCmsStringValue } from '@/hooks/useCmsStringValue';
+import { useContentBundleContext } from '@/components/content/ContentBundleContext';
 
 export default function BookPage() {
   return (
-    <ContentBundleProvider prefix="booking.">
+    <ContentBundleProvider prefix="page.book.">
       <BookInner />
     </ContentBundleProvider>
   );
@@ -19,9 +19,16 @@ function BookInner() {
   const searchParams = useSearchParams();
   const [bookingComplete, setBookingComplete] = useState(false);
   const initialLessonTypeId = searchParams.get('lesson') || undefined;
+  const ctx = useContentBundleContext();
+  const strings = ctx?.strings ?? {};
+  const fallbackCopy = 'Content unavailable';
+  const tDb = (key: string, fallback: string) => {
+    const v = strings[key];
+    return typeof v === 'string' && v.trim().length > 0 ? v : fallback;
+  };
 
-  const title = useCmsStringValue('booking.title', 'Book Your Lesson').value;
-  const requestReceived = useCmsStringValue('booking.requestReceived', 'Booking request received!').value;
+  const title = tDb('page.book.title', fallbackCopy);
+  const requestReceived = tDb('page.book.requestReceived', fallbackCopy);
 
   const handleBookingComplete = (booking: BookingData) => {
     console.log('Booking completed:', booking);

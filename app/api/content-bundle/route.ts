@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
-import supabaseClient from '@/lib/supabaseClient';
 import type { Database } from '@/lib/database.types';
 
 export const runtime = 'nodejs';
@@ -42,11 +41,11 @@ function resolveCmsValue(row: CmsRow, locale: Locale): string | null {
 }
 
 function publicUrl(bucket: string, path: string): string {
-    try {
-        return supabaseClient.storage.from(bucket).getPublicUrl(path).data.publicUrl;
-    } catch {
-        return '';
-    }
+    const base = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    if (!base) return '';
+    const trimmedBase = base.replace(/\/+$/, '');
+    const trimmedPath = String(path || '').replace(/^\/+/, '');
+    return `${trimmedBase}/storage/v1/object/public/${bucket}/${trimmedPath}`;
 }
 
 export async function GET(req: Request) {
@@ -54,15 +53,23 @@ export async function GET(req: Request) {
         const url = new URL(req.url);
         const locale = normalizeLocale(url.searchParams.get('locale'));
         const prefix = normalizePrefix(url.searchParams.get('prefix'));
+        const mediaPrefixRaw = url.searchParams.get('media_prefix');
+        const mediaPrefix = mediaPrefixRaw == null ? prefix : normalizePrefix(mediaPrefixRaw);
 
         if (!prefix) {
             return NextResponse.json({ ok: false, message: 'Missing prefix' }, { status: 400 });
         }
 
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || '';
+        if (!supabaseUrl || !serviceKey) {
+            return NextResponse.json({ ok: false, message: 'Supabase env vars not configured' }, { status: 500 });
+        }
+
         const supabase = getSupabaseAdmin();
 
         // 1) Batch CMS strings by prefix (DB-first).
-        // Note: inline editor keys (e.g. `home.hero.title`) may not set `category`,
+        // Note: inline editor keys (e.g. `page.home.hero.title`) may not set `category`,
         // so we cannot safely filter by category here.
         const { data: cmsRowsRaw, error: cmsErr } = await supabase
             .from('cms_page_content')
@@ -87,7 +94,7 @@ export async function GET(req: Request) {
 
         // 2) Deterministic public media by slot_key prefix.
         const { data: mediaData, error: mediaErr } = await supabase.rpc('get_public_media_assets_by_prefix', {
-            p_prefix: prefix,
+            p_prefix: mediaPrefix,
         });
 
         if (mediaErr) {
@@ -116,7 +123,7 @@ export async function GET(req: Request) {
             })
             .filter((m) => m.public && !!m.url);
 
-        return NextResponse.json({ ok: true, locale, prefix, strings, updatedAtByKey, media });
+        return NextResponse.json({ ok: true, locale, prefix, mediaPrefix, strings, updatedAtByKey, media });
     } catch (e: any) {
         return NextResponse.json({ ok: false, message: e?.message || 'Failed' }, { status: 500 });
     }

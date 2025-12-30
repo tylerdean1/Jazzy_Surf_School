@@ -81,6 +81,7 @@ function parseCardGroupSourceKey(content_source: Record<string, Json> | null): C
 }
 
 const TARGET_AUDIENCE_FALLBACK_IMAGES: string[] = [];
+const FALLBACK_COPY = 'Content unavailable';
 
 export default function PageSectionsRenderer(props: { pageKey: string; sections: PageSectionRow[] }) {
     const locale = useLocale();
@@ -89,7 +90,7 @@ export default function PageSectionsRenderer(props: { pageKey: string; sections:
     const sectionBundle = useContentBundle('section.');
 
     // For home card_group content/media (sourceKey values are home.cards.*)
-    const homeBundle = useContentBundle('home.');
+    const homeBundle = useContentBundle('page.home.', 'home.');
 
     const sectionStrings = sectionBundle.strings || {};
     const sectionMedia = (sectionBundle.media || []) as unknown as MediaItem[];
@@ -123,7 +124,7 @@ export default function PageSectionsRenderer(props: { pageKey: string; sections:
     })();
 
     const teamCardImage = homeMediaByKey('home.cards.team.image')?.url || '';
-    const teamImageAlt = tHome('home.cards.team.imageAlt', 'Meet the team');
+    const teamImageAlt = tHome('page.home.cards.team.imageAlt', FALLBACK_COPY);
 
     const ordered = React.useMemo(
         () => [...props.sections].sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0)),
@@ -212,14 +213,11 @@ export default function PageSectionsRenderer(props: { pageKey: string; sections:
             out.push(
                 <React.Fragment key={s.id}>
                     <Hero
-                        title={tSection(titleKey, 'Learn to Surf at Sunset Surf Academy')}
-                        subtitle={tSection(
-                            subtitleKey,
-                            'Professional surf instruction in the beautiful waters of Rincón, Puerto Rico'
-                        )}
+                        title={tSection(titleKey, FALLBACK_COPY)}
+                        subtitle={tSection(subtitleKey, FALLBACK_COPY)}
                         backgroundUrl={firstMediaUrl(sectionMedia, bgSlot) || undefined}
-                        primaryAction={tSection(primaryLabelKey, 'Book Your Lesson')}
-                        secondaryAction={tSection(secondaryLabelKey, 'Learn More')}
+                        primaryAction={tSection(primaryLabelKey, FALLBACK_COPY)}
+                        secondaryAction={tSection(secondaryLabelKey, FALLBACK_COPY)}
                         primaryHref={normalizeHref(tSection(primaryHrefKey, primaryHrefFallback))}
                         secondaryHref={normalizeHref(tSection(secondaryHrefKey, secondaryHrefFallback))}
                         cmsKeyBase={`section.${sectionId}`}

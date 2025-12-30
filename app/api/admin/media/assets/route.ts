@@ -2,24 +2,12 @@ import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import type { Database } from '@/lib/database.types';
 import { requireAdminApi } from '@/lib/adminAuth';
+import { normalizeGalleryImagesSlotKey } from '@/lib/mediaSlots';
 
 type MediaAssetRow = Database['public']['Tables']['media_assets']['Row'];
 type MediaAssetInsert = Database['public']['Tables']['media_assets']['Insert'];
 
 type MediaAssetWithKey = MediaAssetRow & { asset_key: string | null };
-
-function normalizeGalleryImagesSlotKey(slotKey: string | null): string | null {
-    if (!slotKey) return null;
-    const key = String(slotKey).trim();
-    const prefix = 'gallery.images.';
-    if (!key.startsWith(prefix)) return key;
-    const suffix = key.slice(prefix.length);
-    if (/^[0-9]+$/.test(suffix)) {
-        const n = parseInt(suffix, 10);
-        if (Number.isFinite(n) && n >= 0) return `${prefix}${n}`;
-    }
-    return key;
-}
 
 export async function GET(req: Request) {
     const gate = await requireAdminApi(req);

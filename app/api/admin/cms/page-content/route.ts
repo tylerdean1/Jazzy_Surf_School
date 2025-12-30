@@ -52,17 +52,6 @@ export async function GET(req: Request) {
         return NextResponse.json({ ok: false, message: 'Invalid page_key_like' }, { status: 400 });
     }
 
-    // List mode constraints: require a safe prefix so this endpoint cannot be used
-    // to crawl all CMS keys.
-    if (!pageKey && category) {
-        if (!pageKeyLike) {
-            return NextResponse.json({ ok: false, message: 'Missing page_key_like' }, { status: 400 });
-        }
-        if (!pageKeyLike.startsWith('section.%')) {
-            return NextResponse.json({ ok: false, message: "page_key_like must start with 'section.%'" }, { status: 400 });
-        }
-    }
-
     const supabase = getSupabaseAdmin();
 
     if (pageKey) {

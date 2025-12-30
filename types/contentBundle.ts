@@ -18,6 +18,7 @@ export type ContentBundleResponse = {
     ok: true;
     locale: 'en' | 'es';
     prefix: string;
+    mediaPrefix: string;
     strings: Record<string, string>;
     updatedAtByKey: Record<string, string>;
     media: ContentBundleMediaItem[];

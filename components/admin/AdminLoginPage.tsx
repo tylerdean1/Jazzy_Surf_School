@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Alert, Box, Button, Container, TextField, Typography } from "@mui/material";
 import { usePathname } from "next/navigation";
-import supabaseClient from "@/lib/supabaseClient";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 import useContentBundle from "@/hooks/useContentBundle";
 
 export default function AdminLoginPage() {
@@ -26,7 +26,13 @@ export default function AdminLoginPage() {
         setLoading(true);
 
         try {
-            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            const supabase = getSupabaseClient();
+            if (!supabase) {
+                setError(admin.t('admin.login.errors.network', 'Network error'));
+                return;
+            }
+
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
             if (error || !data?.session) {
                 setError(error?.message || admin.t('admin.login.errors.signInFailed', 'Sign-in failed'));
                 return;
@@ -47,7 +53,7 @@ export default function AdminLoginPage() {
             const body = await res.json().catch(() => ({}));
             if (res.status === 403) {
                 // They authenticated with Supabase, but are not an admin in our DB.
-                await supabaseClient.auth.signOut();
+                await supabase.auth.signOut();
             }
             setError(body?.message || admin.t('admin.login.errors.invalidCredentials', 'Invalid credentials'));
         } catch {

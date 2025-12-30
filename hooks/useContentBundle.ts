@@ -6,6 +6,7 @@ import type { ContentBundleError, ContentBundleResponse, ContentBundleMediaItem 
 
 type Result = {
     prefix: string;
+    mediaPrefix: string;
     locale: 'en' | 'es';
     strings: Record<string, string>;
     media: ContentBundleMediaItem[];
@@ -23,8 +24,8 @@ function normalizeLocale(raw: string): 'en' | 'es' {
     return raw === 'es' ? 'es' : 'en';
 }
 
-async function fetchBundle(locale: 'en' | 'es', prefix: string): Promise<ContentBundleResponse> {
-    const key = `${locale}::${prefix}`;
+async function fetchBundle(locale: 'en' | 'es', prefix: string, mediaPrefix: string): Promise<ContentBundleResponse> {
+    const key = `${locale}::${prefix}::${mediaPrefix}`;
     const cached = cache.get(key);
     if (cached) return cached;
 
@@ -32,7 +33,9 @@ async function fetchBundle(locale: 'en' | 'es', prefix: string): Promise<Content
     if (existing) return existing;
 
     const p = (async () => {
-        const res = await fetch(`/api/content-bundle?locale=${encodeURIComponent(locale)}&prefix=${encodeURIComponent(prefix)}`);
+        const params = new URLSearchParams({ locale, prefix });
+        if (mediaPrefix !== prefix) params.set('media_prefix', mediaPrefix);
+        const res = await fetch(`/api/content-bundle?${params.toString()}`);
         const body = (await res.json().catch(() => null)) as ContentBundleResponse | ContentBundleError | null;
         if (!res.ok || !body || (body as any).ok !== true) {
             const msg = (body as any)?.message || `Failed to load content bundle (${res.status})`;
@@ -56,8 +59,9 @@ function isDev() {
 
 const missingLogged = new Set<string>();
 
-export default function useContentBundle(prefix: string): Result {
+export default function useContentBundle(prefix: string, mediaPrefix?: string): Result {
     const locale = normalizeLocale(useLocale());
+    const effectiveMediaPrefix = mediaPrefix ?? prefix;
 
     const [strings, setStrings] = useState<Record<string, string>>({});
     const [media, setMedia] = useState<ContentBundleMediaItem[]>([]);
@@ -71,7 +75,7 @@ export default function useContentBundle(prefix: string): Result {
 
         (async () => {
             try {
-                const b = await fetchBundle(locale, prefix);
+                const b = await fetchBundle(locale, prefix, effectiveMediaPrefix);
                 if (cancelled) return;
                 setStrings(b.strings || {});
                 setMedia(b.media || []);
@@ -88,7 +92,7 @@ export default function useContentBundle(prefix: string): Result {
         return () => {
             cancelled = true;
         };
-    }, [locale, prefix]);
+    }, [locale, prefix, effectiveMediaPrefix]);
 
     const mediaBySlotKey = useMemo(() => {
         const map = new Map<string, ContentBundleMediaItem>();
@@ -124,6 +128,7 @@ export default function useContentBundle(prefix: string): Result {
 
     return {
         prefix,
+        mediaPrefix: effectiveMediaPrefix,
         locale,
         strings,
         media,

@@ -7,7 +7,7 @@
 import * as React from 'react';
 import { Box, Card, CardContent, Grid, Typography } from '@mui/material';
 import GalleryCarousel from '@/components/GalleryCarousel';
-import { useContentBundleContext } from '@/components/content/ContentBundleContext';
+import useContentBundle from '@/hooks/useContentBundle';
 import type { CardGroupSectionMeta, CardGroupSourceKey, CardGroupVariant } from './sectionMeta';
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -59,9 +59,9 @@ export function AdminSectionPreview({ meta }: { meta: unknown }) {
 }
 
 function CardGroupSectionPreview({ meta }: { meta: CardGroupSectionMeta }) {
-    const ctx = useContentBundleContext();
-    const strings = ctx?.strings || {};
-    const media = ctx?.media || [];
+    const bundle = useContentBundle('page.home.', 'home.');
+    const strings = bundle.strings || {};
+    const media = bundle.media || [];
 
     const tDb = (key: string, fallback: string) => {
         const v = strings[key];
@@ -74,31 +74,18 @@ function CardGroupSectionPreview({ meta }: { meta: CardGroupSectionMeta }) {
             .filter((m) => String(m?.slot_key || '').startsWith(slotKeyPrefix))
             .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
 
-    const titleKey = `${meta.sourceKey}.title`;
-    const descKey = `${meta.sourceKey}.description`;
+    const fallbackCopy = 'Content unavailable';
+    const titleKey = `page.${meta.sourceKey}.title`;
+    const descKey = `page.${meta.sourceKey}.description`;
 
-    const titleFallback =
-        meta.sourceKey === 'home.cards.lessons'
-            ? 'Surf Lessons'
-            : meta.sourceKey === 'home.cards.gallery'
-              ? 'Experience the Journey'
-              : 'Meet the Team';
-
-    const descFallback =
-        meta.sourceKey === 'home.cards.lessons'
-            ? 'From beginner-friendly sessions to advanced coaching'
-            : meta.sourceKey === 'home.cards.gallery'
-              ? 'Watch videos and see photos from our surf adventures'
-              : 'Get to know the coaches who make Sunset Surf Academy special';
-
-    const title = tDb(titleKey, titleFallback);
-    const description = tDb(descKey, descFallback);
+    const title = tDb(titleKey, fallbackCopy);
+    const description = tDb(descKey, fallbackCopy);
 
     const lessonsImages = mediaList('home.target_audience.').map((m) => m.url).filter(Boolean);
     const galleryImages = mediaList('home.cards.gallery.images.').map((m) => m.url).filter(Boolean);
 
     const teamImage = mediaByKey('home.cards.team.image')?.url || '';
-    const teamAlt = tDb('home.cards.team.imageAlt', 'Meet the team');
+    const teamAlt = tDb('page.home.cards.team.imageAlt', fallbackCopy);
 
     const mediaBlock =
         meta.sourceKey === 'home.cards.lessons' ? (
