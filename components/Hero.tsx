@@ -3,7 +3,6 @@
 import React from 'react';
 import { Box, Typography, Button, Container } from '@mui/material';
 import Link from 'next/link';
-import { useLocale } from 'next-intl';
 import EditableInlineText from '@/components/admin/edit/EditableInlineText';
 
 interface HeroProps {
@@ -28,8 +27,6 @@ const Hero: React.FC<HeroProps> = ({
   ,
   cmsKeyBase
 }) => {
-  const locale = useLocale();
-
   return (
     <Box
       sx={{

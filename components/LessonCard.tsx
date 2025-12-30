@@ -18,7 +18,9 @@ import { CheckCircle, AccessTime, LocationOn, Group } from '@mui/icons-material'
 import Link from 'next/link';
 import { useLocale } from 'next-intl';
 import EditableInlineText from '@/components/admin/edit/EditableInlineText';
-import { useCmsStringValue } from '@/hooks/useCmsStringValue';
+import useContentBundle from '@/hooks/useContentBundle';
+
+const FALLBACK_COPY = 'Content unavailable';
 
 interface LessonCardProps {
   title: string;
@@ -46,23 +48,24 @@ const LessonCard: React.FC<LessonCardProps> = ({
   const locale = useLocale();
   const bookHref = bookLessonTypeId ? `/${locale}/book?lesson=${encodeURIComponent(bookLessonTypeId)}` : `/${locale}/book`;
 
-  const perPersonLabel = useCmsStringValue('lessons.card.perPersonLabel', 'per person').value;
-  const includesLabel = useCmsStringValue('lessons.card.includesLabel', "What's Included:").value;
-  const bookCta = useCmsStringValue('lessons.card.bookCta', 'Book This Lesson').value;
-  const contactPricingValue = useCmsStringValue('lessons.card.contactPricingValue', 'Contact for pricing').value;
+  const ui = useContentBundle('ui.');
+  const perPersonLabel = ui.t('ui.lessons.card.perPersonLabel', FALLBACK_COPY);
+  const includesLabel = ui.t('ui.lessons.card.includesLabel', FALLBACK_COPY);
+  const bookCta = ui.t('ui.lessons.card.bookCta', FALLBACK_COPY);
+  const contactPricingValue = ui.t('ui.lessons.card.contactPricingValue', FALLBACK_COPY);
 
   const durationLabel = cmsKeyBase ? (
-    <EditableInlineText cmsKey={`${cmsKeyBase}.duration`} fallback={duration}>
-      {(v) => <>{v}</>}
-    </EditableInlineText>
+            <EditableInlineText cmsKey={`${cmsKeyBase}.duration`} fallback={duration}>
+              {(v) => <>{v}</>}
+            </EditableInlineText>
   ) : (
     duration
   );
 
   const locationLabel = cmsKeyBase ? (
-    <EditableInlineText cmsKey={`${cmsKeyBase}.location`} fallback={location}>
-      {(v) => <>{v}</>}
-    </EditableInlineText>
+            <EditableInlineText cmsKey={`${cmsKeyBase}.location`} fallback={location}>
+              {(v) => <>{v}</>}
+            </EditableInlineText>
   ) : (
     location
   );

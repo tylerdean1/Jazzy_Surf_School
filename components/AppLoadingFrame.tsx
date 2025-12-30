@@ -5,6 +5,8 @@ import { usePathname } from 'next/navigation';
 import useContentBundle from '@/hooks/useContentBundle';
 import LoadingOverlay from '@/components/LoadingOverlay';
 
+const FALLBACK_LOADING = 'Loading…';
+
 function normalizePathname(pathname: string) {
     // ensure no trailing slash (except root)
     if (pathname.length > 1 && pathname.endsWith('/')) return pathname.slice(0, -1);
@@ -22,12 +24,12 @@ export default function AppLoadingFrame({
     const pathname = normalizePathname(pathnameRaw);
 
     // Always treat the nav bundle as critical (logo + nav media).
-    const nav = useContentBundle('nav.');
+    const nav = useContentBundle('ui.');
 
     // Only gate on home bundle for the initial route (e.g. /en, /es).
     // This uses the same underlying fetch/cache as page-level providers, so it should not double-fetch.
     const isHome = pathname === `/${locale}`;
-    const home = useContentBundle('home.');
+    const home = useContentBundle('page.home.', 'home.');
 
     const appReady = React.useMemo(() => {
         const navReady = !nav.loading;
@@ -41,8 +43,8 @@ export default function AppLoadingFrame({
                 appReady={appReady}
                 minMs={2000}
                 maxMs={8000}
-                title={nav.t('nav.brandName', 'Sunset Surf Academy')}
-                subtitle={nav.t('nav.loading', 'Loading…')}
+                title={nav.t('ui.brandName', FALLBACK_LOADING)}
+                subtitle={nav.t('ui.loading', FALLBACK_LOADING)}
                 videoSrc="/loading_video.mp4"
             />
             {children}

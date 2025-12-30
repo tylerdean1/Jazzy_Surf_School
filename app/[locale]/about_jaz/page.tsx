@@ -16,7 +16,7 @@ export default function AboutJazPage() {
     }
 
     return (
-        <ContentBundleProvider prefix="about.">
+        <ContentBundleProvider prefix="page.about_jaz.">
             <AboutInner />
         </ContentBundleProvider>
     );
@@ -24,31 +24,32 @@ export default function AboutJazPage() {
 
 function AboutInner() {
     const locale = useLocale();
-    const cms = useCmsPageBody('about_jaz', locale);
+    const cms = useCmsPageBody('page.about_jaz.body', locale);
     const hasCms = !cms.loading && !cms.error && !isEmptyDoc(cms.body);
 
     const ctx = useContentBundleContext();
     const strings = ctx?.strings ?? {};
+    const fallbackCopy = 'Content unavailable';
     const tDb = (key: string, fallback: string) => {
         const v = strings[key];
         return typeof v === 'string' && v.trim().length > 0 ? v : fallback;
     };
 
     const accolades = [
-        tDb('about.accolades.0', '4x East Coast Champion'),
-        tDb('about.accolades.1', 'Pan-American Games 2nd Place'),
-        tDb('about.accolades.2', 'ISA World Surfing Games Competitor'),
-        tDb('about.accolades.3', 'Team Puerto Rico Member'),
-        tDb('about.accolades.4', 'Professional Surf Instructor'),
+        tDb('page.about_jaz.accolades.0', fallbackCopy),
+        tDb('page.about_jaz.accolades.1', fallbackCopy),
+        tDb('page.about_jaz.accolades.2', fallbackCopy),
+        tDb('page.about_jaz.accolades.3', fallbackCopy),
+        tDb('page.about_jaz.accolades.4', fallbackCopy),
     ].filter((s) => !!String(s).trim());
 
     return (
         <Container maxWidth="md" sx={{ py: 8 }}>
             <Typography variant="h2" gutterBottom color="#20B2AA">
-                {tDb('about.title', 'About Jazmine Dean Perez')}
+                {tDb('page.about_jaz.title', fallbackCopy)}
             </Typography>
             <Typography variant="h5" gutterBottom color="text.secondary">
-                {tDb('about.subtitle', 'Professional Surfer & Instructor')}
+                {tDb('page.about_jaz.subtitle', fallbackCopy)}
             </Typography>
 
             <Box sx={{ mt: 4 }}>
@@ -58,13 +59,13 @@ function AboutInner() {
                     <>
                         <Typography variant="body1" paragraph sx={{ fontSize: '1.05rem', lineHeight: 1.7 }}>
                             {tDb(
-                                'about.bio',
-                                'Jazmine Dean is a professional surfer representing Team Puerto Rico with an impressive competitive record. Based in the world-renowned surf town of Rincón, she brings years of experience and passion to every lesson.'
+                                'page.about_jaz.bio',
+                                fallbackCopy
                             )}
                         </Typography>
 
                         <Typography variant="h5" gutterBottom color="#20B2AA" sx={{ mt: 4 }}>
-                            {tDb('about.achievements', 'Achievements')}
+                            {tDb('page.about_jaz.achievements', fallbackCopy)}
                         </Typography>
 
                         {accolades.length ? (

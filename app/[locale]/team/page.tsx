@@ -18,7 +18,7 @@ export default function TeamPage() {
     }
 
     return (
-        <ContentBundleProvider prefix="team.">
+        <ContentBundleProvider prefix="page.team." mediaPrefix="team.">
             <TeamInner />
         </ContentBundleProvider>
     );
@@ -26,19 +26,17 @@ export default function TeamPage() {
 
 function TeamInner() {
     const locale = useLocale();
-    const cms = useCmsPageBody('team', locale);
+    const cms = useCmsPageBody('page.team.body', locale);
     const hasCms = !cms.loading && !cms.error && !isEmptyDoc(cms.body);
 
-    const title = useCmsStringValue('team.title', 'Meet the Team').value;
-    const subtitle = useCmsStringValue('team.subtitle', 'Learn from some of the best surfers in the world.').value;
-    const intro = useCmsStringValue(
-        'team.intro',
-        'These are our top coaches who will take you to the next level in your surfing. Click on their profiles to learn a little about them!'
-    ).value;
-    const jazName = useCmsStringValue('team.jaz.name', 'Jazmine Dean Perez').value;
-    const moreTitle = useCmsStringValue('team.moreDetailsTitle', 'More team details').value;
-    const moreBody = useCmsStringValue('team.moreDetailsBody', 'More team details, bios, and highlights are coming soon.').value;
-    const logoAlt = useCmsStringValue('team.logoAlt', 'SSA logo').value;
+    const fallbackCopy = 'Content unavailable';
+    const title = useCmsStringValue('page.team.title', fallbackCopy).value;
+    const subtitle = useCmsStringValue('page.team.subtitle', fallbackCopy).value;
+    const intro = useCmsStringValue('page.team.intro', fallbackCopy).value;
+    const jazName = useCmsStringValue('page.team.jaz.name', fallbackCopy).value;
+    const moreTitle = useCmsStringValue('page.team.moreDetailsTitle', fallbackCopy).value;
+    const moreBody = useCmsStringValue('page.team.moreDetailsBody', fallbackCopy).value;
+    const logoAlt = useCmsStringValue('page.team.logoAlt', fallbackCopy).value;
 
     const ctx = useContentBundleContext();
     const media = ctx?.media || [];

@@ -7,14 +7,16 @@ import { Button } from '@mui/material';
 import { Language } from '@mui/icons-material';
 import useContentBundle from '@/hooks/useContentBundle';
 
+const FALLBACK_COPY = 'Content unavailable';
+
 const LanguageToggle: React.FC = () => {
   const router = useRouter();
   const pathname = usePathname();
   const locale = useLocale();
-  const nav = useContentBundle('nav.');
+  const nav = useContentBundle('ui.');
 
-  const enLabel = nav.t('nav.langToggle.en', 'EN');
-  const esLabel = nav.t('nav.langToggle.es', 'ES');
+  const enLabel = nav.t('ui.nav.langToggle.en', FALLBACK_COPY);
+  const esLabel = nav.t('ui.nav.langToggle.es', FALLBACK_COPY);
 
   const switchLanguage = () => {
     const newLocale = locale === 'en' ? 'es' : 'en';

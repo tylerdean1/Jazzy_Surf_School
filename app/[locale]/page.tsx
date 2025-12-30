@@ -9,7 +9,6 @@ import Link from 'next/link';
 import EditableInlineText from '@/components/admin/edit/EditableInlineText';
 import ContentBundleProvider from '@/components/content/ContentBundleContext';
 import { useContentBundleContext } from '@/components/content/ContentBundleContext';
-import { useCmsStringValue } from '@/hooks/useCmsStringValue';
 import { hasSectionsForPage } from '@/lib/sections/types';
 import HomeSectionsRenderer from '@/components/sections/HomeSectionsRenderer';
 import type { HomeSectionMetaRow } from '@/lib/sections/parseHomeSections';
@@ -17,6 +16,7 @@ import PageSectionsRenderer from '@/components/sections/PageSectionsRenderer';
 import usePageSections from '@/hooks/usePageSections';
 
 const TARGET_AUDIENCE_FALLBACK_IMAGES: string[] = [];
+const FALLBACK_COPY = 'Content unavailable';
 
 let cachedHomeSectionsMeta: HomeSectionMetaRow[] | null = null;
 let inflightHomeSectionsMeta: Promise<HomeSectionMetaRow[]> | null = null;
@@ -91,7 +91,7 @@ export default function HomePage() {
 
 function LegacyHome() {
   return (
-    <ContentBundleProvider prefix="home.">
+    <ContentBundleProvider prefix="page.home." mediaPrefix="home.">
       <HomeInner />
     </ContentBundleProvider>
   );
@@ -126,25 +126,28 @@ function HomeInner() {
   const heroBg = mediaByKey('home.hero')?.url || '';
   const teamCardImage = mediaByKey('home.cards.team.image')?.url || '';
 
-  const teamImageAlt = useCmsStringValue('home.cards.team.imageAlt', 'Meet the team').value;
+  const teamImageAlt = tDb('page.home.cards.team.imageAlt', FALLBACK_COPY);
+
+  const primaryHref = tDb('page.home.hero.primaryHref', '#');
+  const secondaryHref = tDb('page.home.hero.secondaryHref', '#');
 
   return (
     <>
       <Hero
-        title={tDb('home.hero.title', 'Learn to Surf at Sunset Surf Academy')}
-        subtitle={tDb('home.hero.subtitle', 'Professional surf instruction in the beautiful waters of Rincón, Puerto Rico')}
+        title={tDb('page.home.hero.title', FALLBACK_COPY)}
+        subtitle={tDb('page.home.hero.subtitle', FALLBACK_COPY)}
         backgroundUrl={heroBg || undefined}
-        primaryAction={tDb('home.hero.primaryAction', 'Book Your Lesson')}
-        secondaryAction={tDb('home.hero.secondaryAction', 'Learn More')}
-        primaryHref={`/${locale}/book`}
-        secondaryHref={`/${locale}/mission_statement`}
-        cmsKeyBase="home.hero"
+        primaryAction={tDb('page.home.hero.primaryAction', FALLBACK_COPY)}
+        secondaryAction={tDb('page.home.hero.secondaryAction', FALLBACK_COPY)}
+        primaryHref={primaryHref}
+        secondaryHref={secondaryHref}
+        cmsKeyBase="page.home.hero"
       />
 
       <Container maxWidth="lg" sx={{ py: 8 }}>
         <Box textAlign="center" sx={{ mb: 6 }}>
-          <Typography variant="h3" gutterBottom color="#20B2AA">
-            <EditableInlineText cmsKey="home.aboutPreview" fallback={'Learn from some of the best surfers in the world.'}>
+            <Typography variant="h3" gutterBottom color="#20B2AA">
+            <EditableInlineText cmsKey="page.home.aboutPreview" fallback={FALLBACK_COPY}>
               {(v) => <>{v}</>}
             </EditableInlineText>
           </Typography>
@@ -172,12 +175,17 @@ function HomeInner() {
                     />
                   </Box>
                   <Typography variant="h5" gutterBottom color="#20B2AA">
-                    <EditableInlineText cmsKey="home.cards.lessons.title" fallback={'Surf Lessons'}>
+                    <EditableInlineText cmsKey="page.home.cards.lessons.title" fallback={FALLBACK_COPY}>
                       {(v) => <>{v}</>}
                     </EditableInlineText>
                   </Typography>
                   <Typography variant="body1">
-                    <EditableInlineText cmsKey="home.cards.lessons.description" fallback={'From beginner-friendly sessions to advanced coaching'} multiline fullWidth>
+                    <EditableInlineText
+                      cmsKey="page.home.cards.lessons.description"
+                      fallback={FALLBACK_COPY}
+                      multiline
+                      fullWidth
+                    >
                       {(v) => <>{v}</>}
                     </EditableInlineText>
                   </Typography>
@@ -203,12 +211,17 @@ function HomeInner() {
                     <GalleryCarousel images={galleryCardImages} mode="ordered" />
                   </Box>
                   <Typography variant="h5" gutterBottom color="#20B2AA">
-                    <EditableInlineText cmsKey="home.cards.gallery.title" fallback={'Experience the Journey'}>
+                    <EditableInlineText cmsKey="page.home.cards.gallery.title" fallback={FALLBACK_COPY}>
                       {(v) => <>{v}</>}
                     </EditableInlineText>
                   </Typography>
                   <Typography variant="body1">
-                    <EditableInlineText cmsKey="home.cards.gallery.description" fallback={'Watch videos and see photos from our surf adventures'} multiline fullWidth>
+                    <EditableInlineText
+                      cmsKey="page.home.cards.gallery.description"
+                      fallback={FALLBACK_COPY}
+                      multiline
+                      fullWidth
+                    >
                       {(v) => <>{v}</>}
                     </EditableInlineText>
                   </Typography>
@@ -247,12 +260,17 @@ function HomeInner() {
                     <Box sx={{ height: 200, borderRadius: 2, mb: 3, background: 'hsl(var(--background))' }} />
                   )}
                   <Typography variant="h5" gutterBottom color="#20B2AA">
-                    <EditableInlineText cmsKey="home.cards.team.title" fallback={'Meet the Team'}>
+                    <EditableInlineText cmsKey="page.home.cards.team.title" fallback={FALLBACK_COPY}>
                       {(v) => <>{v}</>}
                     </EditableInlineText>
                   </Typography>
                   <Typography variant="body1">
-                    <EditableInlineText cmsKey="home.cards.team.description" fallback={'Get to know the coaches who make Sunset Surf Academy special'} multiline fullWidth>
+                    <EditableInlineText
+                      cmsKey="page.home.cards.team.description"
+                      fallback={FALLBACK_COPY}
+                      multiline
+                      fullWidth
+                    >
                       {(v) => <>{v}</>}
                     </EditableInlineText>
                   </Typography>

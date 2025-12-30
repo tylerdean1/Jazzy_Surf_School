@@ -56,7 +56,7 @@ export default function GalleryMediaSlotsEditor() {
     const locale = useLocale();
     const admin = useContentBundle('admin.');
 
-    const { value: countValue } = useCmsStringValue('gallery.images.count', '12');
+    const { value: countValue } = useCmsStringValue('page.gallery.images.count', '12');
     const parsedCount = clampCount(Number(countValue));
 
     const [countDraft, setCountDraft] = React.useState(String(parsedCount));
@@ -137,7 +137,7 @@ export default function GalleryMediaSlotsEditor() {
         setError(null);
         try {
             // 1) Persist the desired count.
-            await saveCmsStringValue('gallery.images.count', locale, String(count));
+            await saveCmsStringValue('page.gallery.images.count', locale, String(count));
 
             // 2) Canonical rewrite: delete all gallery.images.* then recreate 0..N-1 with sort 0..N-1.
             const asset_ids = Array.from({ length: count }, (_, i) => {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import supabaseClient from '../lib/supabaseClient';
+import { getSupabaseClient } from '../lib/supabaseClient';
 import type { Database } from '../lib/database.types';
 
 type Result = {
@@ -40,7 +40,14 @@ export default function useCmsPageBody(pageKey: string, locale: string, enabled:
             setEffectiveLocale(null);
             setUpdatedAt(null);
 
-            const { data, error } = await supabaseClient.rpc('get_page_content', {
+            const supabase = getSupabaseClient();
+            if (!supabase) {
+                setError('Supabase client unavailable');
+                setLoading(false);
+                return;
+            }
+
+            const { data, error } = await supabase.rpc('get_page_content', {
                 p_page_key: pageKey,
                 p_locale: locale,
             });

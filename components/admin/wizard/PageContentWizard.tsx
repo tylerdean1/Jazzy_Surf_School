@@ -22,7 +22,7 @@ import {
 import MediaPickerDialog, { type MediaSelection } from '@/components/admin/MediaPickerDialog';
 import { RichTextEditor } from '@/components/admin/RichText';
 import useContentBundle from '@/hooks/useContentBundle';
-import supabaseClient from '@/lib/supabaseClient';
+import { getSupabaseClient } from '@/lib/supabaseClient';
 import type { Database, Json } from '@/lib/database.types';
 import { PagePreviewRendererInner, type StagedContentMap, type StagedMediaMap } from '@/components/sections/PagePreviewRenderer';
 
@@ -110,7 +110,9 @@ function defaultSlotKey(sectionId: string, suffix: string): string {
 }
 
 async function rpcGetPageSections(pageKey: string): Promise<PageSectionRow[]> {
-    const { data, error } = await supabaseClient.rpc('rpc_get_page_sections', { p_page_key: pageKey, p_include_drafts: true });
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error('Supabase client unavailable');
+    const { data, error } = await supabase.rpc('rpc_get_page_sections', { p_page_key: pageKey, p_include_drafts: true });
     if (error) throw new Error(error.message);
     return (data || []) as PageSectionRow[];
 }

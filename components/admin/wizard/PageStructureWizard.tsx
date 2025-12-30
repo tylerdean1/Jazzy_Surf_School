@@ -17,7 +17,7 @@ import {
     Typography,
 } from '@mui/material';
 import useContentBundle from '@/hooks/useContentBundle';
-import supabaseClient from '@/lib/supabaseClient';
+import { getSupabaseClient } from '@/lib/supabaseClient';
 import type { Database, Json } from '@/lib/database.types';
 import PagePreviewRenderer from '../../sections/PagePreviewRenderer';
 
@@ -137,7 +137,9 @@ function withDefaultPointers(
 }
 
 async function rpcGetPageSections(pageKey: string): Promise<PageSectionRow[]> {
-    const { data, error } = await supabaseClient.rpc('rpc_get_page_sections', { p_page_key: pageKey, p_include_drafts: true });
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error('Supabase client unavailable');
+    const { data, error } = await supabase.rpc('rpc_get_page_sections', { p_page_key: pageKey, p_include_drafts: true });
     if (error) throw new Error(error.message);
     return (data || []) as PageSectionRow[];
 }
@@ -148,7 +150,9 @@ async function rpcCreatePageSection(args: {
     sort: number;
     status: 'draft';
 }) {
-    const { data, error } = await supabaseClient.rpc('rpc_create_page_section', {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error('Supabase client unavailable');
+    const { data, error } = await supabase.rpc('rpc_create_page_section', {
         p_page_key: args.pageKey,
         p_kind: args.kind,
         p_sort: args.sort,
@@ -162,12 +166,16 @@ async function rpcCreatePageSection(args: {
 }
 
 async function rpcDeletePageSection(pageKey: string, sectionId: string) {
-    const { error } = await supabaseClient.rpc('rpc_delete_page_section', { p_page_key: pageKey, p_section_id: sectionId });
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error('Supabase client unavailable');
+    const { error } = await supabase.rpc('rpc_delete_page_section', { p_page_key: pageKey, p_section_id: sectionId });
     if (error) throw new Error(error.message);
 }
 
 async function rpcUpsertPageSections(pageKey: string, sections: Array<Record<string, any>>) {
-    const { error } = await supabaseClient.rpc('rpc_upsert_page_sections', {
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error('Supabase client unavailable');
+    const { error } = await supabase.rpc('rpc_upsert_page_sections', {
         p_page_key: pageKey,
         p_sections: sections,
         p_prune_missing: true,

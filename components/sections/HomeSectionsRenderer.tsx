@@ -13,6 +13,7 @@ import useCmsPageBody from '@/hooks/useCmsPageBody';
 import useContentBundle from '@/hooks/useContentBundle';
 
 const TARGET_AUDIENCE_FALLBACK_IMAGES: string[] = [];
+const FALLBACK_COPY = 'Content unavailable';
 
 export default function HomeSectionsRenderer({ sections }: { sections: HomeSectionMetaRow[] }) {
     const parsed = React.useMemo(() => parseHomeSections(sections), [sections]);
@@ -21,7 +22,7 @@ export default function HomeSectionsRenderer({ sections }: { sections: HomeSecti
     if (!parsed.length) return null;
 
     return (
-        <ContentBundleProvider prefix="home.">
+        <ContentBundleProvider prefix="page.home." mediaPrefix="home.">
             <HomeSectionsInner sections={parsed} />
         </ContentBundleProvider>
     );
@@ -59,7 +60,7 @@ function HomeSectionsInner({
 
     const heroBg = mediaByKey('home.hero')?.url || '';
     const teamCardImage = mediaByKey('home.cards.team.image')?.url || '';
-    const teamImageAlt = tDb('home.cards.team.imageAlt', 'Meet the team');
+    const teamImageAlt = tDb('page.home.cards.team.imageAlt', FALLBACK_COPY);
 
     const out: React.ReactNode[] = [];
     let i = 0;
@@ -70,17 +71,14 @@ function HomeSectionsInner({
             out.push(
                 <Hero
                     key={s.page_key}
-                    title={tDb('home.hero.title', 'Learn to Surf at Sunset Surf Academy')}
-                    subtitle={tDb(
-                        'home.hero.subtitle',
-                        'Professional surf instruction in the beautiful waters of Rincón, Puerto Rico'
-                    )}
+                    title={tDb('page.home.hero.title', FALLBACK_COPY)}
+                    subtitle={tDb('page.home.hero.subtitle', FALLBACK_COPY)}
                     backgroundUrl={heroBg || undefined}
-                    primaryAction={tDb('home.hero.primaryAction', 'Book Your Lesson')}
-                    secondaryAction={tDb('home.hero.secondaryAction', 'Learn More')}
-                    primaryHref={`/${locale}/book`}
-                    secondaryHref={`/${locale}/mission_statement`}
-                    cmsKeyBase="home.hero"
+                    primaryAction={tDb('page.home.hero.primaryAction', FALLBACK_COPY)}
+                    secondaryAction={tDb('page.home.hero.secondaryAction', FALLBACK_COPY)}
+                    primaryHref={tDb('page.home.hero.primaryHref', '#')}
+                    secondaryHref={tDb('page.home.hero.secondaryHref', '#')}
+                    cmsKeyBase="page.home.hero"
                 />
             );
             i += 1;
@@ -201,19 +199,8 @@ export function CardGroupCard(props: {
                 ? `/${locale}/gallery`
                 : `/${locale}/team`;
 
-    const fallbackTitle =
-        sourceKey === 'home.cards.lessons'
-            ? 'Surf Lessons'
-            : sourceKey === 'home.cards.gallery'
-                ? 'Experience the Journey'
-                : 'Meet the Team';
-
-    const fallbackDescription =
-        sourceKey === 'home.cards.lessons'
-            ? 'From beginner-friendly sessions to advanced coaching'
-            : sourceKey === 'home.cards.gallery'
-                ? 'Watch videos and see photos from our surf adventures'
-                : 'Get to know the coaches who make Sunset Surf Academy special';
+    const fallbackTitle = FALLBACK_COPY;
+    const fallbackDescription = FALLBACK_COPY;
 
     const mediaBlock =
         sourceKey === 'home.cards.lessons' ? (
@@ -255,10 +242,10 @@ export function CardGroupCard(props: {
                     <Box sx={{ mb: 3 }}>{mediaBlock}</Box>
 
                     <Typography variant="h5" gutterBottom color="#20B2AA">
-                        {tDb(`${sourceKey}.title`, fallbackTitle)}
+                        {tDb(`page.${sourceKey}.title`, fallbackTitle)}
                     </Typography>
 
-                    <Typography variant="body1">{tDb(`${sourceKey}.description`, fallbackDescription)}</Typography>
+                    <Typography variant="body1">{tDb(`page.${sourceKey}.description`, fallbackDescription)}</Typography>
                 </CardContent>
             </Card>
         </Link>
