@@ -33,6 +33,7 @@ import { getSupabaseClient } from '@/lib/supabaseClient';
 import { rpc } from '@/lib/rpc';
 
 type LessonStatus = Database['public']['Enums']['lesson_status'];
+type LessonTypeRow = Database['public']['Tables']['lesson_types']['Row'];
 
 type Mode = 'year' | 'month';
 
@@ -60,7 +61,6 @@ type FinanceResponse = {
     month: number;
     start: string;
     end: string;
-    availableLessonTypes: string[];
     totals: {
         revenue: number;
         tips: number;
@@ -163,6 +163,8 @@ export default function FinancesManager() {
     const [selectedLessonTypes, setSelectedLessonTypes] = useState<string[]>([]);
     const [selectedStatuses, setSelectedStatuses] = useState<LessonStatus[]>([]);
 
+    const [lessonTypeOptions, setLessonTypeOptions] = useState<Array<{ key: string; label: string }>>([]);
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<FinanceResponse | null>(null);
@@ -207,8 +209,23 @@ export default function FinancesManager() {
                     tip: number | null;
                     lesson_status: LessonStatus | null;
                     deleted_at: string | null;
+                    lesson_type_key?: string | null;
                 }>
             >(supabase, 'admin_list_sessions', { include_deleted: false });
+
+            const lessonTypes = await rpc<LessonTypeRow[]>(supabase, 'admin_list_lesson_types');
+            const activeLessonTypes = (lessonTypes || []).filter((lt) => lt.is_active);
+            const labelByKey = new Map<string, string>();
+            for (const lt of activeLessonTypes) {
+                const key = String(lt.key || '').trim();
+                if (!key) continue;
+                labelByKey.set(key, String(lt.display_name || key));
+            }
+
+            const keys = activeLessonTypes
+                .map((lt) => String(lt.key || '').trim())
+                .filter(Boolean)
+                .sort((a, b) => a.localeCompare(b));
 
             const inRange = (sessions || []).filter((s) => {
                 if (!s.session_time) return false;
@@ -216,34 +233,26 @@ export default function FinancesManager() {
                 return String(s.session_time) >= start && String(s.session_time) < end;
             });
 
-            const sessionIds = inRange.map((s) => s.id).filter(Boolean);
-
-            const mappingRows = sessionIds.length
-                ? await rpc<Array<{ session_id: string; lesson_type: string }>>(supabase, 'admin_map_session_to_lesson_type', {
-                    p_session_ids: sessionIds,
-                })
-                : [];
-
-            const sessionToLessonType = new Map<string, string>();
-            for (const r of mappingRows || []) {
-                const sid = String(r.session_id || '').trim();
-                const lt = String(r.lesson_type || '').trim() || 'Unknown';
-                if (sid) sessionToLessonType.set(sid, lt);
-            }
-
             const enriched = inRange.map((s) => {
-                const lessonType = sessionToLessonType.get(s.id) || 'Unknown';
+                const k = String((s as any).lesson_type_key ?? '').trim();
+                const lessonTypeKey = k ? k : 'unknown';
                 return {
                     id: s.id,
                     session_time: s.session_time,
                     paid: safeMoney(s.paid),
                     tip: safeMoney(s.tip),
                     lesson_status: (s.lesson_status || 'unknown') as LessonStatus | 'unknown',
-                    lesson_type: lessonType,
+                    lesson_type_key: lessonTypeKey,
                 };
             });
 
-            const availableLessonTypes = Array.from(new Set(enriched.map((s) => s.lesson_type))).sort((a, b) => a.localeCompare(b));
+            const hasUnknown = enriched.some((s) => s.lesson_type_key === 'unknown');
+            const options: Array<{ key: string; label: string }> = keys.map((k) => ({
+                key: k,
+                label: labelByKey.get(k) || k,
+            }));
+            if (hasUnknown) options.unshift({ key: 'unknown', label: 'Unknown' });
+            setLessonTypeOptions(options);
 
             const filtered = enriched.filter((s) => {
                 if (selectedStatuses.length) {
@@ -251,7 +260,7 @@ export default function FinancesManager() {
                     if (!selectedStatuses.includes(s.lesson_status as LessonStatus)) return false;
                 }
                 if (selectedLessonTypes.length) {
-                    if (!selectedLessonTypes.includes(s.lesson_type)) return false;
+                    if (!selectedLessonTypes.includes(s.lesson_type_key)) return false;
                 }
                 return true;
             });
@@ -340,7 +349,6 @@ export default function FinancesManager() {
                 month: normalizedMonth,
                 start,
                 end,
-                availableLessonTypes,
                 totals,
                 byStatus,
                 points,
@@ -359,7 +367,7 @@ export default function FinancesManager() {
         void fetchData();
     }, [fetchData]);
 
-    const availableLessonTypes = data?.availableLessonTypes || [];
+    const availableLessonTypes = lessonTypeOptions;
 
     const chartData = useMemo(() => {
         const pts = data?.points || [];
@@ -464,11 +472,15 @@ export default function FinancesManager() {
                         label={admin.t('admin.finances.lessonTypes', 'Lesson types')}
                         value={selectedLessonTypes}
                         onChange={(e) => setSelectedLessonTypes(e.target.value as string[])}
-                        renderValue={(selected) => (selected.length ? selected.join(', ') : admin.t('admin.common.all', 'All'))}
+                        renderValue={(selected) => {
+                            if (!selected.length) return admin.t('admin.common.all', 'All');
+                            const labelByKey = new Map(availableLessonTypes.map((o) => [o.key, o.label] as const));
+                            return selected.map((k) => labelByKey.get(String(k)) || String(k)).join(', ');
+                        }}
                     >
                         {availableLessonTypes.map((lt) => (
-                            <MenuItem key={lt} value={lt}>
-                                {lt}
+                            <MenuItem key={lt.key} value={lt.key}>
+                                {lt.label}
                             </MenuItem>
                         ))}
                     </Select>

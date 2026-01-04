@@ -88,6 +88,8 @@ export async function POST(req: Request) {
         const payload: Database['public']['Functions']['admin_create_session']['Args'] = {
             p_client_names: Array.isArray(s.p_client_names) ? s.p_client_names.map((x: any) => String(x)) : undefined,
             p_group_size: typeof s.p_group_size === 'number' ? s.p_group_size : undefined,
+            // Always pass to avoid ambiguity if legacy overloads exist in DB.
+            p_lesson_type_key: (s.p_lesson_type_key != null ? String(s.p_lesson_type_key) : null) as any,
             p_lesson_status: normalizeStatus(s.p_lesson_status),
             p_paid: typeof s.p_paid === 'number' ? s.p_paid : undefined,
             p_session_time: s.p_session_time != null ? String(s.p_session_time) : undefined,
@@ -108,6 +110,8 @@ export async function POST(req: Request) {
             p_id: id,
             p_client_names: Array.isArray(s.p_client_names) ? s.p_client_names.map((x: any) => String(x)) : undefined,
             p_group_size: typeof s.p_group_size === 'number' ? s.p_group_size : undefined,
+            // Always pass to avoid ambiguity if legacy overloads exist in DB.
+            p_lesson_type_key: (s.p_lesson_type_key != null ? String(s.p_lesson_type_key) : null) as any,
             p_lesson_status: normalizeStatus(s.p_lesson_status),
             p_paid: typeof s.p_paid === 'number' ? s.p_paid : undefined,
             p_session_time: s.p_session_time != null ? String(s.p_session_time) : undefined,
@@ -117,10 +121,13 @@ export async function POST(req: Request) {
         const { data, error } = await supabase.rpc('admin_update_session', payload as any);
         if (error) return NextResponse.json({ ok: false, message: error.message }, { status: 500 });
 
-        // Notes are stored on the sessions table but not currently part of the RPC signature.
+        // Notes are stored on the sessions table; keep this RPC-only.
         if (s.p_notes !== undefined) {
             const notes = s.p_notes == null ? null : String(s.p_notes);
-            const { error: notesErr } = await supabase.from('sessions').update({ notes }).eq('id', id);
+            const { error: notesErr } = await supabase.rpc('admin_update_session_v2' as any, {
+                p_session_id: id,
+                p_notes: notes,
+            } as any);
             if (notesErr) return NextResponse.json({ ok: false, message: notesErr.message }, { status: 500 });
         }
 

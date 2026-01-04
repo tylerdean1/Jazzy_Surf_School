@@ -132,6 +132,13 @@ export type Database = {
             referencedRelation: "admin_users"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "booking_requests_requested_lesson_type_fk"
+            columns: ["requested_lesson_type"]
+            isOneToOne: false
+            referencedRelation: "lesson_types"
+            referencedColumns: ["key"]
+          },
         ]
       }
       business_expenses: {
@@ -507,6 +514,7 @@ export type Database = {
           group_size: number | null
           id: string
           lesson_status: Database["public"]["Enums"]["lesson_status"] | null
+          lesson_type_key: string | null
           notes: string | null
           paid: number
           session_time: string | null
@@ -520,6 +528,7 @@ export type Database = {
           group_size?: number | null
           id?: string
           lesson_status?: Database["public"]["Enums"]["lesson_status"] | null
+          lesson_type_key?: string | null
           notes?: string | null
           paid?: number
           session_time?: string | null
@@ -533,12 +542,21 @@ export type Database = {
           group_size?: number | null
           id?: string
           lesson_status?: Database["public"]["Enums"]["lesson_status"] | null
+          lesson_type_key?: string | null
           notes?: string | null
           paid?: number
           session_time?: string | null
           tip?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sessions_lesson_type_key_fk"
+            columns: ["lesson_type_key"]
+            isOneToOne: false
+            referencedRelation: "lesson_types"
+            referencedColumns: ["key"]
+          },
+        ]
       }
     }
     Views: {
@@ -589,6 +607,7 @@ export type Database = {
           p_client_names?: string[]
           p_group_size?: number
           p_lesson_status?: Database["public"]["Enums"]["lesson_status"]
+          p_lesson_type_key?: string
           p_paid?: number
           p_session_time?: string
           p_tip?: number
@@ -601,6 +620,7 @@ export type Database = {
           group_size: number | null
           id: string
           lesson_status: Database["public"]["Enums"]["lesson_status"] | null
+          lesson_type_key: string | null
           notes: string | null
           paid: number
           session_time: string | null
@@ -834,6 +854,7 @@ export type Database = {
               group_size: number | null
               id: string
               lesson_status: Database["public"]["Enums"]["lesson_status"] | null
+              lesson_type_key: string | null
               notes: string | null
               paid: number
               session_time: string | null
@@ -856,6 +877,7 @@ export type Database = {
               group_size: number | null
               id: string
               lesson_status: Database["public"]["Enums"]["lesson_status"] | null
+              lesson_type_key: string | null
               notes: string | null
               paid: number
               session_time: string | null
@@ -989,6 +1011,7 @@ export type Database = {
           p_group_size?: number
           p_id: string
           p_lesson_status?: Database["public"]["Enums"]["lesson_status"]
+          p_lesson_type_key?: string
           p_paid?: number
           p_session_time?: string
           p_tip?: number
@@ -1001,6 +1024,7 @@ export type Database = {
           group_size: number | null
           id: string
           lesson_status: Database["public"]["Enums"]["lesson_status"] | null
+          lesson_type_key: string | null
           notes: string | null
           paid: number
           session_time: string | null
@@ -1198,6 +1222,7 @@ export type Database = {
           group_size: number | null
           id: string
           lesson_status: Database["public"]["Enums"]["lesson_status"] | null
+          lesson_type_key: string | null
           notes: string | null
           paid: number
           session_time: string | null

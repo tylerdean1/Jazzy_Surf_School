@@ -24,6 +24,7 @@ import { getSupabaseClient } from '@/lib/supabaseClient';
 import { rpc } from '@/lib/rpc';
 
 type SessionRow = Database['public']['Tables']['sessions']['Row'];
+type LessonTypeRow = Database['public']['Tables']['lesson_types']['Row'];
 
 type LessonStatus = Database['public']['Enums']['lesson_status'];
 
@@ -40,6 +41,7 @@ type SessionDraft = {
     groupSize: number;
     date: string; // yyyy-mm-dd
     timeLabel: string; // e.g. '7:30 AM'
+    lessonTypeKey: string; // lesson_types.key (empty means unknown)
     lessonStatus: LessonStatus;
     paid: number;
     tip: number;
@@ -161,6 +163,7 @@ export default function SessionsManager() {
     const admin = useContentBundle('admin.');
     const [includeDeleted, setIncludeDeleted] = useState(false);
     const [items, setItems] = useState<SessionRow[]>([]);
+    const [lessonTypes, setLessonTypes] = useState<LessonTypeRow[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [busyId, setBusyId] = useState<string | null>(null);
@@ -203,6 +206,7 @@ export default function SessionsManager() {
     const [newGroupSize, setNewGroupSize] = useState<number>(1);
     const [newSessionDate, setNewSessionDate] = useState('');
     const [newSessionTimeLabel, setNewSessionTimeLabel] = useState('');
+    const [newLessonTypeKey, setNewLessonTypeKey] = useState('');
 
     const statusLabel = (st: LessonStatus) => {
         const key = `admin.sessions.status.${st}`;
@@ -228,6 +232,9 @@ export default function SessionsManager() {
             const supabase = getSupabaseClient();
             const data = await rpc<SessionRow[]>(supabase, 'admin_list_sessions', { include_deleted: includeDeleted });
             setItems((data || []) as SessionRow[]);
+
+            const lts = await rpc<LessonTypeRow[]>(supabase, 'admin_list_lesson_types');
+            setLessonTypes((lts || []) as LessonTypeRow[]);
         } catch (e: any) {
             setError(e?.message || admin.t('admin.sessions.errors.loadFailed', 'Failed to load sessions'));
         } finally {
@@ -240,6 +247,27 @@ export default function SessionsManager() {
     }, [refresh]);
 
     const timeSlots = useMemo(() => generateTimeSlots(), []);
+
+    const lessonTypeOptions = useMemo(() => {
+        const active = (lessonTypes || []).filter((lt) => Boolean(lt.is_active));
+        const sorted = [...active].sort(
+            (a, b) => Number(a.sort_order ?? 0) - Number(b.sort_order ?? 0) || String(a.key).localeCompare(String(b.key))
+        );
+        return sorted
+            .map((lt) => {
+                const key = String(lt.key || '').trim();
+                if (!key) return null;
+                const label = String(lt.display_name || key).trim() || key;
+                return { key, label };
+            })
+            .filter(Boolean) as Array<{ key: string; label: string }>;
+    }, [lessonTypes]);
+
+    useEffect(() => {
+        if (!newLessonTypeKey && lessonTypeOptions.length) {
+            setNewLessonTypeKey(lessonTypeOptions[0].key);
+        }
+    }, [lessonTypeOptions, newLessonTypeKey]);
 
     const filteredAndSorted = useMemo(() => {
         const nameNeedle = String(filterName || '').trim().toLowerCase();
@@ -283,6 +311,7 @@ export default function SessionsManager() {
             groupSize: Number(s.group_size ?? 1) || 1,
             date,
             timeLabel,
+            lessonTypeKey: String((s as any).lesson_type_key || ''),
             lessonStatus: (s.lesson_status || 'booked_unpaid') as LessonStatus,
             paid: Number(s.paid ?? 0) || 0,
             tip: Number(s.tip ?? 0) || 0,
@@ -312,11 +341,14 @@ export default function SessionsManager() {
                 p_lesson_status: 'booked_unpaid',
                 p_paid: 0,
                 p_tip: 0,
+                // Always pass to avoid ambiguity if legacy overloads exist in DB.
+                p_lesson_type_key: newLessonTypeKey ? newLessonTypeKey : null,
             });
             setNewClientNames('');
             setNewGroupSize(1);
             setNewSessionDate('');
             setNewSessionTimeLabel('');
+            setNewLessonTypeKey('');
             await refresh();
         } catch (e: any) {
             setError(e?.message || admin.t('admin.sessions.errors.createFailed', 'Failed to create session'));
@@ -334,6 +366,8 @@ export default function SessionsManager() {
 
             const wantsNotes = (patch as any).notes !== undefined;
 
+            const existing = items.find((x) => x.id === id);
+
             // Use the typed RPC that returns the updated row for the supported fields.
             const payload: any = { p_id: id };
             if (patch.client_names !== undefined) payload.p_client_names = patch.client_names;
@@ -342,6 +376,10 @@ export default function SessionsManager() {
             if (patch.lesson_status !== undefined) payload.p_lesson_status = patch.lesson_status;
             if (patch.paid !== undefined) payload.p_paid = patch.paid;
             if (patch.tip !== undefined) payload.p_tip = patch.tip;
+            // Always pass to avoid ambiguity if legacy overloads exist in DB.
+            // Use the current value when not editing lesson type to avoid accidental clearing.
+            payload.p_lesson_type_key =
+                (patch as any).lesson_type_key !== undefined ? (patch as any).lesson_type_key : (existing?.lesson_type_key ?? null);
 
             const hasAny = Object.keys(payload).length > 1;
             if (hasAny) {
@@ -471,6 +509,22 @@ export default function SessionsManager() {
                         ))}
                     </Select>
                 </FormControl>
+
+                <FormControl sx={{ width: 220 }} disabled={!lessonTypeOptions.length}>
+                    <InputLabel id="create-lesson-type">{admin.t('admin.sessions.create.lessonTypeLabel', 'Lesson type')}</InputLabel>
+                    <Select
+                        labelId="create-lesson-type"
+                        label={admin.t('admin.sessions.create.lessonTypeLabel', 'Lesson type')}
+                        value={newLessonTypeKey}
+                        onChange={(e) => setNewLessonTypeKey(String(e.target.value || ''))}
+                    >
+                        {lessonTypeOptions.map((lt) => (
+                            <MenuItem key={lt.key} value={lt.key}>
+                                {lt.label}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
                 <Button
                     variant="contained"
                     onClick={createSession}
@@ -576,6 +630,9 @@ export default function SessionsManager() {
                             const patch: Partial<SessionRow> = {};
                             patch.client_names = parseClientNames(d.clientNamesText);
                             patch.group_size = Number(d.groupSize) || 1;
+                            if (d.lessonTypeKey && d.lessonTypeKey !== String((s as any).lesson_type_key || '')) {
+                                (patch as any).lesson_type_key = d.lessonTypeKey;
+                            }
                             patch.lesson_status = d.lessonStatus;
                             patch.paid = Number(d.paid) || 0;
                             patch.tip = Number(d.tip) || 0;
@@ -692,6 +749,27 @@ export default function SessionsManager() {
                                                 {STATUSES.map((st) => (
                                                     <MenuItem key={st} value={st}>
                                                         {statusLabel(st)}
+                                                    </MenuItem>
+                                                ))}
+                                            </Select>
+                                        </FormControl>
+
+                                        <FormControl sx={{ width: 220 }} size="small" disabled={busy || !isEditing || !lessonTypeOptions.length}>
+                                            <InputLabel id={`lesson-type-${s.id}`}>{admin.t('admin.sessions.fields.lessonType', 'Lesson type')}</InputLabel>
+                                            <Select
+                                                labelId={`lesson-type-${s.id}`}
+                                                label={admin.t('admin.sessions.fields.lessonType', 'Lesson type')}
+                                                value={isEditing ? currentDraft.lessonTypeKey : String((s as any).lesson_type_key || '')}
+                                                onChange={(e) =>
+                                                    isEditing
+                                                        ? setDraftField(s.id, { lessonTypeKey: String(e.target.value || '') })
+                                                        : undefined
+                                                }
+                                            >
+                                                <MenuItem value="">{admin.t('admin.common.unknown', 'Unknown')}</MenuItem>
+                                                {lessonTypeOptions.map((lt) => (
+                                                    <MenuItem key={lt.key} value={lt.key}>
+                                                        {lt.label}
                                                     </MenuItem>
                                                 ))}
                                             </Select>
