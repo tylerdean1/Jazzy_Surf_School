@@ -102,6 +102,10 @@ function pad2(n: number): string {
     return String(n).padStart(2, '0');
 }
 
+function formatYmd(d: Date): string {
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
 function startOfNextMonth(year: number, month: number): { y: number; m: number } {
     if (month >= 12) return { y: year + 1, m: 1 };
     return { y: year, m: month + 1 };
@@ -140,6 +144,44 @@ function parseDateKeyFromYmd(value: string | null): { y: number; m: number; d: n
     const d = Number(m[3]);
     if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) return null;
     return { y, m: mo, d };
+}
+
+function listPeriods(mode: Mode, startIso: string, endIso: string): string[] {
+    const startDate = startIso.slice(0, 10);
+    const endDate = endIso.slice(0, 10);
+
+    if (mode === 'month') {
+        const out: string[] = [];
+        const start = new Date(`${startDate}T00:00:00`);
+        const end = new Date(`${endDate}T00:00:00`);
+        if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) return out;
+
+        const cur = new Date(start.getTime());
+        while (cur < end) {
+            out.push(formatYmd(cur));
+            cur.setDate(cur.getDate() + 1);
+        }
+        return out;
+    }
+
+    // year mode: month buckets
+    const out: string[] = [];
+    const start = parseDateKeyFromYmd(startDate);
+    const end = parseDateKeyFromYmd(endDate);
+    if (!start || !end) return out;
+
+    let y = start.y;
+    let m = start.m;
+
+    // end is exclusive; iterate months until we reach end month/year.
+    while (y < end.y || (y === end.y && m < end.m)) {
+        out.push(`${y}-${pad2(m)}`);
+        const next = startOfNextMonth(y, m);
+        y = next.y;
+        m = next.m;
+    }
+
+    return out;
 }
 
 const STATUS_OPTIONS: Array<{ value: LessonStatus; label: string }> = [
@@ -371,10 +413,30 @@ export default function FinancesManager() {
 
     const chartData = useMemo(() => {
         const pts = data?.points || [];
-        return pts.map((p) => ({
-            ...p,
-            label: formatXAxisLabel(mode, p.period),
-        }));
+        const start = data?.start;
+        const end = data?.end;
+        if (!start || !end) return [];
+
+        const byPeriod = new Map<string, FinancePoint>();
+        for (const p of pts) byPeriod.set(p.period, p);
+
+        const periods = listPeriods(mode, start, end);
+        const filled: Array<FinancePoint & { label: string; runningNet: number; netDelta: number }> = [];
+
+        let runningNet = 0;
+        for (const period of periods) {
+            const base = byPeriod.get(period) || { period, revenue: 0, tips: 0, expenses: 0, count: 0 };
+            const netDelta = Math.round((base.revenue + base.tips - base.expenses) * 100) / 100;
+            runningNet = Math.round((runningNet + netDelta) * 100) / 100;
+            filled.push({
+                ...base,
+                label: formatXAxisLabel(mode, period),
+                netDelta,
+                runningNet,
+            });
+        }
+
+        return filled;
     }, [data, mode]);
 
     const revenueColor = theme.palette.primary.main;
@@ -583,14 +645,19 @@ export default function FinancesManager() {
                                     <Tooltip
                                         formatter={(value: any, name: any) => {
                                             const n = Number(value);
-                                            if (name === 'revenue' || name === 'tips' || name === 'expenses') return formatMoney(n);
+                                            if (name === 'runningNet' || name === 'netDelta') return formatMoney(n);
                                             return String(value);
                                         }}
                                     />
                                     <Legend />
-                                    <Line type="monotone" dataKey="revenue" name="Revenue" stroke={revenueColor} strokeWidth={2} dot={false} />
-                                    <Line type="monotone" dataKey="tips" name="Tips" stroke={tipsColor} strokeWidth={2} dot={false} />
-                                    <Line type="monotone" dataKey="expenses" name="Expenses" stroke={expensesColor} strokeWidth={2} dot={false} />
+                                    <Line
+                                        type="monotone"
+                                        dataKey="runningNet"
+                                        name={admin.t('admin.finances.runningTotal', 'Running total')}
+                                        stroke={revenueColor}
+                                        strokeWidth={2}
+                                        dot={false}
+                                    />
                                 </LineChart>
                             )}
                         </ResponsiveContainer>
@@ -603,6 +670,30 @@ export default function FinancesManager() {
 
                         {data.byStatus.length ? (
                             <Stack spacing={0.5}>
+                                <Box
+                                    sx={{
+                                        display: 'flex',
+                                        gap: 2,
+                                        justifyContent: 'space-between',
+                                        flexWrap: 'wrap',
+                                        borderTop: '1px solid',
+                                        borderColor: 'divider',
+                                        pt: 1,
+                                    }}
+                                >
+                                    <Typography sx={{ minWidth: 220, fontWeight: 700 }}>
+                                        {admin.t('admin.finances.byStatus.headers.status', 'Status')}
+                                    </Typography>
+                                    <Typography sx={{ minWidth: 180, fontWeight: 700 }}>
+                                        {admin.t('admin.finances.byStatus.headers.revenue', 'Revenue')}
+                                    </Typography>
+                                    <Typography sx={{ minWidth: 160, fontWeight: 700 }}>
+                                        {admin.t('admin.finances.byStatus.headers.tips', 'Tips')}
+                                    </Typography>
+                                    <Typography sx={{ minWidth: 120, fontWeight: 700 }}>
+                                        {admin.t('admin.finances.byStatus.headers.count', 'Count')}
+                                    </Typography>
+                                </Box>
                                 {data.byStatus.map((row) => (
                                     <Box
                                         key={row.status}

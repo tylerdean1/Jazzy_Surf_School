@@ -89,6 +89,17 @@ function parseClientNames(input: string): string[] {
     return Array.from(new Set(items));
 }
 
+function formatUsd(value: unknown): string {
+    const n = Number(value ?? 0);
+    const safe = Number.isFinite(n) ? n : 0;
+    return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(safe);
+}
+
 function formatYmd(d: Date): string {
     const pad = (n: number) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -608,6 +619,11 @@ export default function SessionsManager() {
                         const hasDraft = Boolean(drafts[s.id]);
                         const currentDraft = hasDraft ? drafts[s.id] : draft;
 
+                        const billed = Number((s as any).bill_total ?? 0) || 0;
+                        const paid = Number(isEditing ? currentDraft.paid : (s.paid ?? 0)) || 0;
+                        const balance = billed - paid;
+                        const tip = Number(isEditing ? currentDraft.tip : (s.tip ?? 0)) || 0;
+
                         const canEdit = !busy;
 
                         const startEdit = () => {
@@ -676,6 +692,18 @@ export default function SessionsManager() {
                                             {formatSessionDateTime(s.session_time)}
                                             {isDeleted ? admin.t('admin.sessions.deletedMarker', ' • Deleted') : ''}
                                         </Typography>
+
+                                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                            {admin.t('admin.sessions.summary.billed', 'Billed')}: {formatUsd(billed)} •{' '}
+                                            {admin.t('admin.sessions.summary.paid', 'Paid')}: {formatUsd(paid)} •{' '}
+                                            {admin.t('admin.sessions.summary.balance', 'Balance')}: {formatUsd(balance)}
+                                        </Typography>
+                                        {tip ? (
+                                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                                                {admin.t('admin.sessions.summary.tip', 'Tip')}: {formatUsd(tip)}
+                                            </Typography>
+                                        ) : null}
+
                                         {!isEditing && (s as any).notes ? (
                                             <Typography
                                                 variant="body2"
