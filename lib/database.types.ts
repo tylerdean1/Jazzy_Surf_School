@@ -38,6 +38,167 @@ export type Database = {
         }
         Relationships: []
       }
+      booking_requests: {
+        Row: {
+          amount_paid_cents: number
+          approved_session_id: string | null
+          balance_cents: number | null
+          bill_total_cents: number | null
+          created_at: string
+          customer_email: string
+          customer_name: string
+          customer_phone: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          id: string
+          manual_bill_total_cents: number | null
+          manual_pricing: boolean
+          notes: string | null
+          party_names: string[] | null
+          party_size: number
+          requested_date: string
+          requested_lesson_type: string
+          requested_time_labels: string[]
+          requested_time_slots: string | null
+          selected_time_slot: string | null
+          status: Database["public"]["Enums"]["booking_request_status"]
+          updated_at: string
+        }
+        Insert: {
+          amount_paid_cents?: number
+          approved_session_id?: string | null
+          balance_cents?: number | null
+          bill_total_cents?: number | null
+          created_at?: string
+          customer_email: string
+          customer_name: string
+          customer_phone: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          id?: string
+          manual_bill_total_cents?: number | null
+          manual_pricing?: boolean
+          notes?: string | null
+          party_names?: string[] | null
+          party_size: number
+          requested_date: string
+          requested_lesson_type: string
+          requested_time_labels?: string[]
+          requested_time_slots?: string | null
+          selected_time_slot?: string | null
+          status?: Database["public"]["Enums"]["booking_request_status"]
+          updated_at?: string
+        }
+        Update: {
+          amount_paid_cents?: number
+          approved_session_id?: string | null
+          balance_cents?: number | null
+          bill_total_cents?: number | null
+          created_at?: string
+          customer_email?: string
+          customer_name?: string
+          customer_phone?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          id?: string
+          manual_bill_total_cents?: number | null
+          manual_pricing?: boolean
+          notes?: string | null
+          party_names?: string[] | null
+          party_size?: number
+          requested_date?: string
+          requested_lesson_type?: string
+          requested_time_labels?: string[]
+          requested_time_slots?: string | null
+          selected_time_slot?: string | null
+          status?: Database["public"]["Enums"]["booking_request_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_requests_approved_session_id_fkey"
+            columns: ["approved_session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "booking_requests_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "admin_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_expenses: {
+        Row: {
+          category: Database["public"]["Enums"]["finance_category"]
+          created_at: string
+          description: string | null
+          expense_date: string
+          id: string
+          is_refund: boolean
+          notes: string | null
+          parent_expense_id: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          subtotal_cents: number | null
+          tax_cents: number | null
+          tip_cents: number | null
+          total_cents: number
+          transaction_id: string | null
+          updated_at: string
+          vendor_name: string | null
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["finance_category"]
+          created_at?: string
+          description?: string | null
+          expense_date: string
+          id?: string
+          is_refund?: boolean
+          notes?: string | null
+          parent_expense_id?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          subtotal_cents?: number | null
+          tax_cents?: number | null
+          tip_cents?: number | null
+          total_cents: number
+          transaction_id?: string | null
+          updated_at?: string
+          vendor_name?: string | null
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["finance_category"]
+          created_at?: string
+          description?: string | null
+          expense_date?: string
+          id?: string
+          is_refund?: boolean
+          notes?: string | null
+          parent_expense_id?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          subtotal_cents?: number | null
+          tax_cents?: number | null
+          tip_cents?: number | null
+          total_cents?: number
+          transaction_id?: string | null
+          updated_at?: string
+          vendor_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_expenses_parent_expense_id_fkey"
+            columns: ["parent_expense_id"]
+            isOneToOne: false
+            referencedRelation: "business_expenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cms_page_content: {
         Row: {
           approved: boolean
@@ -80,6 +241,39 @@ export type Database = {
           sort?: number
           updated_at?: string
           updated_by?: string | null
+        }
+        Relationships: []
+      }
+      lesson_types: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_name: string
+          is_active: boolean
+          key: string
+          price_per_person_cents: number
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_name: string
+          is_active?: boolean
+          key: string
+          price_per_person_cents: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_name?: string
+          is_active?: boolean
+          key?: string
+          price_per_person_cents?: number
+          sort_order?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -213,36 +407,133 @@ export type Database = {
         }
         Relationships: []
       }
+      receipts: {
+        Row: {
+          category: Database["public"]["Enums"]["finance_category"]
+          created_at: string
+          description: string | null
+          expense_id: string | null
+          id: string
+          is_refund: boolean
+          notes: string | null
+          parent_receipt_id: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          receipt_date: string
+          receipt_storage_path: string
+          session_id: string | null
+          source_type: string | null
+          subtotal_cents: number | null
+          tax_cents: number | null
+          tip_cents: number | null
+          total_cents: number
+          transaction_id: string | null
+          updated_at: string
+          vendor_name: string | null
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["finance_category"]
+          created_at?: string
+          description?: string | null
+          expense_id?: string | null
+          id?: string
+          is_refund?: boolean
+          notes?: string | null
+          parent_receipt_id?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          receipt_date: string
+          receipt_storage_path: string
+          session_id?: string | null
+          source_type?: string | null
+          subtotal_cents?: number | null
+          tax_cents?: number | null
+          tip_cents?: number | null
+          total_cents: number
+          transaction_id?: string | null
+          updated_at?: string
+          vendor_name?: string | null
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["finance_category"]
+          created_at?: string
+          description?: string | null
+          expense_id?: string | null
+          id?: string
+          is_refund?: boolean
+          notes?: string | null
+          parent_receipt_id?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
+          receipt_date?: string
+          receipt_storage_path?: string
+          session_id?: string | null
+          source_type?: string | null
+          subtotal_cents?: number | null
+          tax_cents?: number | null
+          tip_cents?: number | null
+          total_cents?: number
+          transaction_id?: string | null
+          updated_at?: string
+          vendor_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipts_expense_id_fkey"
+            columns: ["expense_id"]
+            isOneToOne: false
+            referencedRelation: "business_expenses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipts_parent_receipt_id_fkey"
+            columns: ["parent_receipt_id"]
+            isOneToOne: false
+            referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sessions: {
         Row: {
+          bill_total: number
           client_names: string[] | null
           created_at: string
           deleted_at: string | null
           group_size: number | null
           id: string
           lesson_status: Database["public"]["Enums"]["lesson_status"] | null
+          notes: string | null
           paid: number
           session_time: string | null
           tip: number | null
         }
         Insert: {
+          bill_total?: number
           client_names?: string[] | null
           created_at?: string
           deleted_at?: string | null
           group_size?: number | null
           id?: string
           lesson_status?: Database["public"]["Enums"]["lesson_status"] | null
+          notes?: string | null
           paid?: number
           session_time?: string | null
           tip?: number | null
         }
         Update: {
+          bill_total?: number
           client_names?: string[] | null
           created_at?: string
           deleted_at?: string | null
           group_size?: number | null
           id?: string
           lesson_status?: Database["public"]["Enums"]["lesson_status"] | null
+          notes?: string | null
           paid?: number
           session_time?: string | null
           tip?: number | null
@@ -254,6 +545,45 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_apply_booking_request_payment: {
+        Args: { p_delta_cents: number; p_id: string }
+        Returns: {
+          amount_paid_cents: number
+          approved_session_id: string | null
+          balance_cents: number | null
+          bill_total_cents: number | null
+          created_at: string
+          customer_email: string
+          customer_name: string
+          customer_phone: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          id: string
+          manual_bill_total_cents: number | null
+          manual_pricing: boolean
+          notes: string | null
+          party_names: string[] | null
+          party_size: number
+          requested_date: string
+          requested_lesson_type: string
+          requested_time_labels: string[]
+          requested_time_slots: string | null
+          selected_time_slot: string | null
+          status: Database["public"]["Enums"]["booking_request_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "booking_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      admin_clear_media_asset_slots: {
+        Args: { p_asset_id: string }
+        Returns: undefined
+      }
       admin_create_session: {
         Args: {
           p_client_names?: string[]
@@ -264,12 +594,14 @@ export type Database = {
           p_tip?: number
         }
         Returns: {
+          bill_total: number
           client_names: string[] | null
           created_at: string
           deleted_at: string | null
           group_size: number | null
           id: string
           lesson_status: Database["public"]["Enums"]["lesson_status"] | null
+          notes: string | null
           paid: number
           session_time: string | null
           tip: number | null
@@ -281,12 +613,161 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      admin_decide_booking_request: {
+        Args: {
+          p_action: string
+          p_decision_reason?: string
+          p_id: string
+          p_selected_time_label?: string
+        }
+        Returns: {
+          amount_paid_cents: number
+          approved_session_id: string | null
+          balance_cents: number | null
+          bill_total_cents: number | null
+          created_at: string
+          customer_email: string
+          customer_name: string
+          customer_phone: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          id: string
+          manual_bill_total_cents: number | null
+          manual_pricing: boolean
+          notes: string | null
+          party_names: string[] | null
+          party_size: number
+          requested_date: string
+          requested_lesson_type: string
+          requested_time_labels: string[]
+          requested_time_slots: string | null
+          selected_time_slot: string | null
+          status: Database["public"]["Enums"]["booking_request_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "booking_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       admin_delete_page_content: {
         Args: { p_page_key: string }
         Returns: undefined
       }
       admin_delete_session: { Args: { p_id: string }; Returns: undefined }
+      admin_get_cms_page_row: {
+        Args: { p_page_key: string }
+        Returns: {
+          approved: boolean
+          body_en: string
+          body_es_draft: string
+          body_es_published: string
+          category: string
+          id: string
+          page_key: string
+          sort: number
+          updated_at: string
+        }[]
+      }
       admin_hard_delete_session: { Args: { p_id: string }; Returns: undefined }
+      admin_list_booking_requests: {
+        Args: { p_show_all?: boolean }
+        Returns: {
+          amount_paid_cents: number
+          approved_session_id: string | null
+          balance_cents: number | null
+          bill_total_cents: number | null
+          created_at: string
+          customer_email: string
+          customer_name: string
+          customer_phone: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          id: string
+          manual_bill_total_cents: number | null
+          manual_pricing: boolean
+          notes: string | null
+          party_names: string[] | null
+          party_size: number
+          requested_date: string
+          requested_lesson_type: string
+          requested_time_labels: string[]
+          requested_time_slots: string | null
+          selected_time_slot: string | null
+          status: Database["public"]["Enums"]["booking_request_status"]
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "booking_requests"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      admin_list_business_expenses_range: {
+        Args: { p_end: string; p_start: string }
+        Returns: {
+          category: Database["public"]["Enums"]["finance_category"]
+          created_at: string
+          description: string | null
+          expense_date: string
+          id: string
+          is_refund: boolean
+          notes: string | null
+          parent_expense_id: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          subtotal_cents: number | null
+          tax_cents: number | null
+          tip_cents: number | null
+          total_cents: number
+          transaction_id: string | null
+          updated_at: string
+          vendor_name: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "business_expenses"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      admin_list_cms_page_content: {
+        Args: { p_category: string; p_limit?: number; p_page_key_like?: string }
+        Returns: {
+          approved: boolean
+          body_en: string
+          body_es_draft: string
+          body_es_published: string
+          category: string
+          id: string
+          page_key: string
+          sort: number
+          updated_at: string
+        }[]
+      }
+      admin_list_lesson_types: {
+        Args: never
+        Returns: {
+          created_at: string
+          description: string | null
+          display_name: string
+          is_active: boolean
+          key: string
+          price_per_person_cents: number
+          sort_order: number
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "lesson_types"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       admin_list_media_assets: {
         Args: never
         Returns: {
@@ -310,16 +791,50 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      admin_list_media_assets_with_key: {
+        Args: never
+        Returns: {
+          asset_key: string
+          asset_type: Database["public"]["Enums"]["asset_type"]
+          bucket: string
+          category: Database["public"]["Enums"]["photo_category"]
+          created_at: string
+          description: string
+          id: string
+          path: string
+          public: boolean
+          session_id: string
+          sort: number
+          title: string
+          updated_at: string
+        }[]
+      }
+      admin_list_media_slots_by_prefix: {
+        Args: { p_prefix: string }
+        Returns: {
+          asset_bucket: string
+          asset_category: Database["public"]["Enums"]["photo_category"]
+          asset_id: string
+          asset_path: string
+          asset_public: boolean
+          asset_title: string
+          asset_type: Database["public"]["Enums"]["asset_type"]
+          slot_key: string
+          sort: number
+        }[]
+      }
       admin_list_sessions:
         | {
             Args: never
             Returns: {
+              bill_total: number
               client_names: string[] | null
               created_at: string
               deleted_at: string | null
               group_size: number | null
               id: string
               lesson_status: Database["public"]["Enums"]["lesson_status"] | null
+              notes: string | null
               paid: number
               session_time: string | null
               tip: number | null
@@ -334,12 +849,14 @@ export type Database = {
         | {
             Args: { include_deleted?: boolean }
             Returns: {
+              bill_total: number
               client_names: string[] | null
               created_at: string
               deleted_at: string | null
               group_size: number | null
               id: string
               lesson_status: Database["public"]["Enums"]["lesson_status"] | null
+              notes: string | null
               paid: number
               session_time: string | null
               tip: number | null
@@ -351,8 +868,121 @@ export type Database = {
               isSetofReturn: true
             }
           }
+      admin_map_session_to_lesson_type: {
+        Args: { p_session_ids: string[] }
+        Returns: {
+          lesson_type: string
+          session_id: string
+        }[]
+      }
       admin_publish_es: { Args: { p_page_key: string }; Returns: undefined }
+      admin_replace_gallery_images: {
+        Args: { p_asset_ids?: string[]; p_count: number }
+        Returns: number
+      }
       admin_restore_session: { Args: { p_id: string }; Returns: undefined }
+      admin_set_media_slot: {
+        Args: { p_asset_id?: string; p_slot_key: string; p_sort?: number }
+        Returns: undefined
+      }
+      admin_update_booking_request: {
+        Args: { p_id: string; p_patch: Json }
+        Returns: {
+          amount_paid_cents: number
+          approved_session_id: string | null
+          balance_cents: number | null
+          bill_total_cents: number | null
+          created_at: string
+          customer_email: string
+          customer_name: string
+          customer_phone: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          id: string
+          manual_bill_total_cents: number | null
+          manual_pricing: boolean
+          notes: string | null
+          party_names: string[] | null
+          party_size: number
+          requested_date: string
+          requested_lesson_type: string
+          requested_time_labels: string[]
+          requested_time_slots: string | null
+          selected_time_slot: string | null
+          status: Database["public"]["Enums"]["booking_request_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "booking_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      admin_update_booking_request_billing: {
+        Args: {
+          p_amount_paid_cents?: number
+          p_bill_total_cents?: number
+          p_id: string
+        }
+        Returns: {
+          amount_paid_cents: number
+          approved_session_id: string | null
+          balance_cents: number | null
+          bill_total_cents: number | null
+          created_at: string
+          customer_email: string
+          customer_name: string
+          customer_phone: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          id: string
+          manual_bill_total_cents: number | null
+          manual_pricing: boolean
+          notes: string | null
+          party_names: string[] | null
+          party_size: number
+          requested_date: string
+          requested_lesson_type: string
+          requested_time_labels: string[]
+          requested_time_slots: string | null
+          selected_time_slot: string | null
+          status: Database["public"]["Enums"]["booking_request_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "booking_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      admin_update_lesson_type: {
+        Args: {
+          p_description?: string
+          p_display_name?: string
+          p_key: string
+          p_price_per_person_cents?: number
+        }
+        Returns: {
+          created_at: string
+          description: string | null
+          display_name: string
+          is_active: boolean
+          key: string
+          price_per_person_cents: number
+          sort_order: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "lesson_types"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       admin_update_session: {
         Args: {
           p_client_names?: string[]
@@ -364,12 +994,14 @@ export type Database = {
           p_tip?: number
         }
         Returns: {
+          bill_total: number
           client_names: string[] | null
           created_at: string
           deleted_at: string | null
           group_size: number | null
           id: string
           lesson_status: Database["public"]["Enums"]["lesson_status"] | null
+          notes: string | null
           paid: number
           session_time: string | null
           tip: number | null
@@ -380,6 +1012,18 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      admin_update_session_v2: {
+        Args: {
+          p_bill_total?: number
+          p_lesson_status?: string
+          p_notes?: string
+          p_paid?: number
+          p_session_id: string
+          p_session_time?: string
+          p_tip?: number
+        }
+        Returns: undefined
       }
       admin_upsert_media_asset:
         | {
@@ -463,8 +1107,21 @@ export type Database = {
         }
         Returns: undefined
       }
+      compute_booking_request_bill_total_cents: {
+        Args: { p_lesson_type_key: string; p_party_size: number }
+        Returns: number
+      }
       get_page_content: {
         Args: { p_locale?: string; p_page_key: string }
+        Returns: {
+          body: string
+          locale: string
+          page_key: string
+          updated_at: string
+        }[]
+      }
+      get_page_content_by_prefix: {
+        Args: { p_locale?: string; p_prefix: string }
         Returns: {
           body: string
           locale: string
@@ -534,12 +1191,14 @@ export type Database = {
       get_public_sessions: {
         Args: never
         Returns: {
+          bill_total: number
           client_names: string[] | null
           created_at: string
           deleted_at: string | null
           group_size: number | null
           id: string
           lesson_status: Database["public"]["Enums"]["lesson_status"] | null
+          notes: string | null
           paid: number
           session_time: string | null
           tip: number | null
@@ -603,6 +1262,7 @@ export type Database = {
     }
     Enums: {
       asset_type: "video" | "photo"
+      booking_request_status: "pending" | "approved" | "denied" | "canceled"
       Days_of_the_week:
         | "Sunday"
         | "Monday"
@@ -611,11 +1271,22 @@ export type Database = {
         | "Thursday"
         | "Friday"
         | "Saturday"
+      finance_category:
+        | "fuel"
+        | "equipment"
+        | "advertising"
+        | "lessons"
+        | "food"
+        | "software"
+        | "payroll"
+        | "other"
       lesson_status:
-        | "booked"
+        | "booked_unpaid"
         | "completed"
         | "canceled_with_refund"
         | "canceled_without_refund"
+        | "booked_paid_in_full"
+      payment_method: "cash" | "card" | "ach" | "check" | "stripe" | "other"
       photo_category:
         | "logo"
         | "hero"
@@ -750,6 +1421,7 @@ export const Constants = {
   public: {
     Enums: {
       asset_type: ["video", "photo"],
+      booking_request_status: ["pending", "approved", "denied", "canceled"],
       Days_of_the_week: [
         "Sunday",
         "Monday",
@@ -759,12 +1431,24 @@ export const Constants = {
         "Friday",
         "Saturday",
       ],
+      finance_category: [
+        "fuel",
+        "equipment",
+        "advertising",
+        "lessons",
+        "food",
+        "software",
+        "payroll",
+        "other",
+      ],
       lesson_status: [
-        "booked",
+        "booked_unpaid",
         "completed",
         "canceled_with_refund",
         "canceled_without_refund",
+        "booked_paid_in_full",
       ],
+      payment_method: ["cash", "card", "ach", "check", "stripe", "other"],
       photo_category: [
         "logo",
         "hero",

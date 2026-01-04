@@ -34,6 +34,7 @@ export type BookingData = {
   customerName: string;
   customerEmail: string;
   customerPhone: string;
+  partyNames: string[];
 };
 
 interface BookingCalendarProps {
@@ -50,15 +51,22 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
     partySize: 1,
     customerName: '',
     customerEmail: '',
-    customerPhone: ''
+    customerPhone: '',
+    partyNames: []
   });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string>('');
 
   const ui = useContentBundle('ui.');
 
   const stepChooseLesson = ui.t('ui.booking.steps.chooseLesson', FALLBACK_COPY);
   const stepSelectDateTime = ui.t('ui.booking.steps.selectDateTime', FALLBACK_COPY);
   const stepCustomerInfo = ui.t('ui.booking.steps.customerInfo', FALLBACK_COPY);
-  const steps = [stepChooseLesson, stepSelectDateTime, stepCustomerInfo];
+  const steps = [
+    stepChooseLesson === FALLBACK_COPY ? 'Choose Lesson' : stepChooseLesson,
+    stepSelectDateTime === FALLBACK_COPY ? 'Select Date & Time' : stepSelectDateTime,
+    stepCustomerInfo === FALLBACK_COPY ? 'Customer Info' : stepCustomerInfo,
+  ];
 
   const lessonTypeLabel = ui.t('ui.booking.lessonTypeLabel', FALLBACK_COPY);
   const partySizeLabel = ui.t('ui.booking.partySizeLabel', FALLBACK_COPY);
@@ -89,19 +97,39 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
   const adminPhone = useCmsStringValue('page.contact.phone', FALLBACK_COPY).value;
   const adminEmail = useCmsStringValue('page.contact.email', FALLBACK_COPY).value;
 
-  type LessonType = { id: string; name: string; price: number };
+  type LessonType = {
+    key: string;
+    display_name: string;
+    description?: string | null;
+    price_per_person_cents: number;
+  };
 
-  // Frontend-only placeholder data (no Supabase / no API dependency)
-  const lessons = useContentBundle('page.lessons.');
-  const lessonBeginnerName = lessons.t('page.lessons.beginner.title', FALLBACK_COPY);
-  const lessonIntermediateName = lessons.t('page.lessons.intermediate.title', FALLBACK_COPY);
-  const lessonAdvancedName = lessons.t('page.lessons.advanced.title', FALLBACK_COPY);
+  const [lessonTypes, setLessonTypes] = useState<LessonType[]>([]);
+  const [lessonTypesError, setLessonTypesError] = useState<string>('');
 
-  const lessonTypes: LessonType[] = [
-    { id: 'beginner', name: lessonBeginnerName, price: 100 },
-    { id: 'intermediate', name: lessonIntermediateName, price: 100 },
-    { id: 'advanced', name: lessonAdvancedName, price: 100 }
-  ];
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        setLessonTypesError('');
+        const res = await fetch('/api/lesson-types', { method: 'GET' });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || (json as any)?.ok === false) {
+          throw new Error(String((json as any)?.message || 'Failed to load lesson types'));
+        }
+        const rows = Array.isArray((json as any)?.lessonTypes) ? ((json as any).lessonTypes as LessonType[]) : [];
+        if (!alive) return;
+        setLessonTypes(rows);
+      } catch (e: any) {
+        if (!alive) return;
+        setLessonTypesError(e?.message || 'Failed to load lesson types');
+        setLessonTypes([]);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // generate 30-minute slots from 07:00 to 15:30 (last slot ends at 16:00)
   const generateTimeSlots = () => {
@@ -120,15 +148,33 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
   useEffect(() => {
     setBookingData((prev) => {
       if (prev.lessonType) return prev;
-      const isValidInitial = typeof initialLessonTypeId === 'string' && lessonTypes.some((lt) => lt.id === initialLessonTypeId);
-      return { ...prev, lessonType: (isValidInitial ? initialLessonTypeId : (lessonTypes[0]?.id || '')) };
+      const isValidInitial = typeof initialLessonTypeId === 'string' && lessonTypes.some((lt) => lt.key === initialLessonTypeId);
+      return { ...prev, lessonType: (isValidInitial ? initialLessonTypeId : (lessonTypes[0]?.key || '')) };
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initialLessonTypeId, lessonTypes]);
+
+  useEffect(() => {
+    setBookingData((prev) => {
+      const expected = Math.max(0, Number(prev.partySize || 1) - 1);
+      if (prev.partyNames.length === expected) return prev;
+      const next = [...prev.partyNames];
+      while (next.length < expected) next.push('');
+      if (next.length > expected) next.length = expected;
+      return { ...prev, partyNames: next };
+    });
+  }, [bookingData.partySize]);
+
+  const dollarsFromCents = (cents: number | null | undefined) => {
+    if (cents == null) return 0;
+    const n = Number(cents);
+    if (!Number.isFinite(n)) return 0;
+    return Math.max(0, Math.round(n)) / 100;
+  };
 
   const calculateTotal = () => {
-    const lessonType = lessonTypes.find(lt => lt.id === bookingData.lessonType);
-    return lessonType ? Number(lessonType.price) * bookingData.partySize : 0;
+    const lt = lessonTypes.find((x) => x.key === bookingData.lessonType);
+    const unit = dollarsFromCents(lt?.price_per_person_cents);
+    return lt ? unit * bookingData.partySize : 0;
   };
 
   const handleNext = async () => {
@@ -137,28 +183,57 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
       return;
     }
 
-    // Finalize: prepare payload and call stubbed notification API (TODO: integrate SMS/Email providers)
-    const payload = {
-      date: bookingData.date,
-      timeSlots: bookingData.timeSlots,
-      lessonType: bookingData.lessonType,
-      partySize: bookingData.partySize,
-      customerName: bookingData.customerName,
-      customerEmail: bookingData.customerEmail,
-      customerPhone: bookingData.customerPhone,
-      adminPhone,
-      adminEmail
-    };
+    setSubmitting(true);
+    setSubmitError('');
 
     try {
-      await sendBookingNotification(payload);
-    } catch (err) {
-      // log and continue; notification delivery is a best-effort for now
-      // eslint-disable-next-line no-console
-      console.error('sendBookingNotification error', err);
-    }
+      const res = await fetch('/api/booking-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer_name: bookingData.customerName,
+          customer_email: bookingData.customerEmail,
+          customer_phone: bookingData.customerPhone,
+          party_size: bookingData.partySize,
+          party_names: bookingData.partyNames,
+          requested_date: bookingData.date,
+          requested_time_labels: bookingData.timeSlots,
+          requested_lesson_type: bookingData.lessonType,
+        }),
+      });
 
-    onBookingComplete(bookingData);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(String((json as any)?.error || 'Failed to submit request'));
+      }
+
+      // Best-effort notification (does not block success)
+      const payload = {
+        date: bookingData.date,
+        timeSlots: bookingData.timeSlots,
+        lessonType: bookingData.lessonType,
+        partySize: bookingData.partySize,
+        customerName: bookingData.customerName,
+        customerEmail: bookingData.customerEmail,
+        customerPhone: bookingData.customerPhone,
+        partyNames: bookingData.partyNames,
+        adminPhone,
+        adminEmail
+      };
+
+      try {
+        await sendBookingNotification(payload);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('sendBookingNotification error', err);
+      }
+
+      onBookingComplete(bookingData);
+    } catch (err: any) {
+      setSubmitError(err?.message || 'Failed to submit request');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleBack = () => {
@@ -181,8 +256,8 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
   return (
     <Box sx={{ maxWidth: 800, mx: 'auto', p: 3 }}>
       <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-        {steps.map((label) => (
-          <Step key={label}>
+        {steps.map((label, idx) => (
+          <Step key={idx}>
             <StepLabel>{label}</StepLabel>
           </Step>
         ))}
@@ -209,8 +284,8 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
                       })}
                     >
                       {lessonTypes.map((type: LessonType) => (
-                        <MenuItem key={type.id} value={type.id}>
-                          {type.name} - ${type.price}
+                        <MenuItem key={type.key} value={type.key}>
+                          {type.display_name} - ${dollarsFromCents(type.price_per_person_cents)}
                         </MenuItem>
                       ))}
                     </Select>
@@ -239,8 +314,13 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
                 <Typography variant="body2" color="text.secondary">
                   {String(totalBreakdownTemplate)
                     .replace('{count}', String(bookingData.partySize))
-                    .replace('{price}', String(lessonTypes.find((lt: LessonType) => lt.id === bookingData.lessonType)?.price || 0))}
+                    .replace('{price}', String(dollarsFromCents(lessonTypes.find((lt: LessonType) => lt.key === bookingData.lessonType)?.price_per_person_cents || 0)))}
                 </Typography>
+                {lessonTypesError ? (
+                  <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+                    {lessonTypesError}
+                  </Typography>
+                ) : null}
               </Paper>
             </Box>
           )}
@@ -301,6 +381,12 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
                 {step2Title}
               </Typography>
 
+              {submitError ? (
+                <Box sx={{ mb: 2, color: 'error.main' }}>
+                  {submitError}
+                </Box>
+              ) : null}
+
               <Grid container spacing={3}>
                 <Grid item xs={12}>
                   <TextField
@@ -338,6 +424,30 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
                     })}
                   />
                 </Grid>
+
+                {bookingData.partySize > 1 ? (
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle1" sx={{ mt: 1, mb: 1 }}>
+                      Additional Names
+                    </Typography>
+                    <Grid container spacing={2}>
+                      {bookingData.partyNames.map((name, idx) => (
+                        <Grid key={idx} item xs={12} md={6}>
+                          <TextField
+                            fullWidth
+                            label={`Guest ${idx + 2} Name`}
+                            value={name}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                              const next = [...bookingData.partyNames];
+                              next[idx] = e.target.value;
+                              setBookingData({ ...bookingData, partyNames: next });
+                            }}
+                          />
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </Grid>
+                ) : null}
               </Grid>
 
               <Paper sx={{ p: 3, mt: 3, backgroundColor: '#e8f5e8' }}>
@@ -351,7 +461,7 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
                   <strong>{summaryTimeLabel}:</strong> {bookingData.timeSlots?.length ? bookingData.timeSlots.join(', ') : ''}
                 </Typography>
                 <Typography variant="body1">
-                  <strong>{summaryLessonLabel}:</strong> {lessonTypes.find(lt => lt.id === bookingData.lessonType)?.name}
+                  <strong>{summaryLessonLabel}:</strong> {lessonTypes.find(lt => lt.key === bookingData.lessonType)?.display_name}
                 </Typography>
                 <Typography variant="body1">
                   <strong>{summaryPartySizeLabel}:</strong> {bookingData.partySize}
@@ -379,7 +489,7 @@ const BookingCalendar: React.FC<BookingCalendarProps> = ({ onBookingComplete, in
                 '&:hover': { backgroundColor: '#1A9A9A' }
               }}
             >
-              {activeStep === steps.length - 1 ? submitLabel : nextLabel}
+              {activeStep === steps.length - 1 ? (submitting ? 'Submitting…' : submitLabel) : nextLabel}
             </Button>
           </Box>
         </CardContent>

@@ -5,6 +5,9 @@ import { Alert, Box, Button, CircularProgress, Container, FormControl, InputLabe
 import { usePathname, useRouter } from 'next/navigation';
 import MediaManager from './MediaManager';
 import SessionsManager from './SessionsManager';
+import BookingRequestsManager from './BookingRequestsManager';
+import FinancesManager from './FinancesManager';
+import LessonTypesManager from './LessonTypesManager';
 import useContentBundle from '@/hooks/useContentBundle';
 import { ADMIN_PAGES, type AdminPageKey } from './adminPages';
 
@@ -63,7 +66,10 @@ export default function AdminDashboard() {
                     <Box sx={{ borderBottom: 1, borderColor: 'divider', mt: 3 }}>
                         <Tabs value={tab} onChange={(_, v) => setTab(v)}>
                             <Tab label={admin.t('admin.dashboard.tabs.edit', 'Edit')} />
+                            <Tab label={admin.t('admin.dashboard.tabs.bookingRequests', 'Requests & Billing')} />
                             <Tab label={admin.t('admin.dashboard.tabs.sessions', 'Sessions')} />
+                            <Tab label={admin.t('admin.dashboard.tabs.lessonTypes', 'Lesson Types')} />
+                            <Tab label={admin.t('admin.dashboard.tabs.finances', 'Finances')} />
                             <Tab label={admin.t('admin.dashboard.tabs.media', 'Media')} />
                         </Tabs>
                     </Box>
@@ -110,10 +116,22 @@ export default function AdminDashboard() {
                     </TabPanel>
 
                     <TabPanel value={tab} index={1}>
-                        <SessionsManager />
+                        <BookingRequestsManager />
                     </TabPanel>
 
                     <TabPanel value={tab} index={2}>
+                        <SessionsManager />
+                    </TabPanel>
+
+                    <TabPanel value={tab} index={3}>
+                        <LessonTypesManager />
+                    </TabPanel>
+
+                    <TabPanel value={tab} index={4}>
+                        <FinancesManager />
+                    </TabPanel>
+
+                    <TabPanel value={tab} index={5}>
                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
                             <Button href={`/${locale}/admin/media-upload`} variant="outlined">
                                 {admin.t('admin.dashboard.goToUpload', 'Go to Upload Page')}

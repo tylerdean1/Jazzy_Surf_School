@@ -6,8 +6,6 @@ interface Props {
     intervalMs?: number;
     className?: string;
     images?: string[];
-    /** height in px for the displayed image (optional) */
-    height?: number;
     /** how the image should be fit into the box: 'cover' | 'contain' | 'fill' */
     objectFit?: 'cover' | 'contain' | 'fill';
     /** ordering mode: random (default) or ordered */
@@ -23,7 +21,7 @@ function getRandomIndex(length: number, exclude: number) {
     return next;
 }
 
-export default function GalleryCarousel({ intervalMs = 8000, className = '', images: imagesProp, height, objectFit = 'cover', mode = 'random' }: Props) {
+export default function GalleryCarousel({ intervalMs = 8000, className = '', images: imagesProp, objectFit = 'contain', mode = 'random' }: Props) {
     const images = useMemo(() => imagesProp ?? defaultImages, [imagesProp]);
     const FADE_MS = 2000; // fade duration
     const [index, setIndex] = useState(0);
@@ -83,12 +81,13 @@ export default function GalleryCarousel({ intervalMs = 8000, className = '', ima
         indexRef.current = index;
     }, [index, images]);
 
-    const heightClass = height === 160 ? styles.h160 : '';
     const fitClass = objectFit === 'contain' ? styles.fitContain : objectFit === 'fill' ? styles.fitFill : styles.fitCover;
     const imageClassName = [styles.image, fitClass, visible ? styles.visible : ''].filter(Boolean).join(' ');
 
     return (
-        <div className={[styles.carousel, heightClass, className].filter(Boolean).join(' ')}>
+        <div
+            className={[styles.carousel, className].filter(Boolean).join(' ')}
+        >
             {images.length ? (
                 // Use a plain <img> to support remote URLs (e.g. Supabase public URLs) without Next image domain config.
                 <img

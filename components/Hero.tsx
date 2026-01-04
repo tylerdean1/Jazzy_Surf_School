@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Box, Typography, Button, Container } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import Link from 'next/link';
 import EditableInlineText from '@/components/admin/edit/EditableInlineText';
 
@@ -35,7 +36,7 @@ const Hero: React.FC<HeroProps> = ({
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'stretch',
         position: 'relative',
         '&::before': {
           content: '""',
@@ -48,61 +49,77 @@ const Hero: React.FC<HeroProps> = ({
         },
       }}
     >
-      <Container maxWidth="lg">
-        <Box sx={{ position: 'relative', zIndex: 1, textAlign: 'center', color: 'white' }}>
-          <Typography
-            variant="h2"
-            component="h1"
-            gutterBottom
-            sx={{
-              fontWeight: 700,
-              fontSize: { xs: '2.5rem', md: '3.5rem', lg: '4rem' },
-              textShadow: '2px 2px 4px rgba(0,0,0,0.5)',
-              mb: 3
-            }}
-          >
-            {cmsKeyBase ? (
-              <EditableInlineText cmsKey={`${cmsKeyBase}.title`} fallback={title}>
-                {(v) => <>{v}</>}
-              </EditableInlineText>
-            ) : (
-              title
-            )}
-          </Typography>
-          <Typography
-            variant="h5"
-            component="p"
-            gutterBottom
-            sx={{
-              mb: 4,
-              maxWidth: '800px',
-              mx: 'auto',
-              fontSize: { xs: '1.1rem', md: '1.3rem' },
-              textShadow: '1px 1px 2px rgba(0,0,0,0.5)'
-            }}
-          >
-            {cmsKeyBase ? (
-              <EditableInlineText cmsKey={`${cmsKeyBase}.subtitle`} fallback={subtitle} multiline fullWidth>
-                {(v) => <>{v}</>}
-              </EditableInlineText>
-            ) : (
-              subtitle
-            )}
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
+      <Container maxWidth="lg" sx={{ height: '100%' }}>
+        <Box
+          sx={{
+            position: 'relative',
+            zIndex: 1,
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            textAlign: 'center',
+            color: 'white'
+          }}
+        >
+          <Box sx={{ mt: '15vh' }}>
+            <Typography
+              variant="h2"
+              component="h1"
+              gutterBottom
+              sx={{
+                fontWeight: 700,
+                fontSize: { xs: '2.5rem', md: '3.5rem', lg: '4rem' },
+                textShadow: '2px 2px 4px rgba(0,0,0,0.5)',
+                mb: 3
+              }}
+            >
+              {cmsKeyBase ? (
+                <EditableInlineText cmsKey={`${cmsKeyBase}.title`} fallback={title}>
+                  {(v) => <>{v}</>}
+                </EditableInlineText>
+              ) : (
+                title
+              )}
+            </Typography>
+            <Typography
+              variant="h5"
+              component="p"
+              gutterBottom
+              sx={{
+                mb: 4,
+                maxWidth: '800px',
+                mx: 'auto',
+                fontSize: { xs: '1.1rem', md: '1.3rem' },
+                textShadow: '1px 1px 2px rgba(0,0,0,0.5)'
+              }}
+            >
+              {cmsKeyBase ? (
+                <EditableInlineText cmsKey={`${cmsKeyBase}.subtitle`} fallback={subtitle} multiline fullWidth>
+                  {(v) => <>{v}</>}
+                </EditableInlineText>
+              ) : (
+                subtitle
+              )}
+            </Typography>
+          </Box>
+
+          <Box sx={{ mb: '15vh', display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link href={primaryHref} style={{ textDecoration: 'none' }}>
               <Button
                 variant="contained"
                 size="large"
-                sx={{
-                  backgroundColor: '#FF6B6B',
-                  '&:hover': { backgroundColor: '#FF5252' },
+                sx={(theme) => ({
+                  backgroundColor: alpha(theme.palette.primary.main, 0.5),
+                  color: 'white',
+                  '&:hover': {
+                    backgroundColor: alpha(theme.palette.primary.main, 0.5),
+                  },
                   px: 4,
                   py: 1.5,
                   fontSize: '1.1rem',
                   fontWeight: 600,
-                  boxShadow: '0 4px 12px rgba(255, 107, 107, 0.3)'
-                }}
+                })}
               >
                 {cmsKeyBase ? (
                   <EditableInlineText cmsKey={`${cmsKeyBase}.primaryAction`} fallback={primaryAction}>
@@ -116,20 +133,19 @@ const Hero: React.FC<HeroProps> = ({
             {secondaryAction && secondaryHref && (
               <Link href={secondaryHref} style={{ textDecoration: 'none' }}>
                 <Button
-                  variant="outlined"
+                  variant="contained"
                   size="large"
-                  sx={{
-                    borderColor: 'white',
+                  sx={(theme) => ({
+                    backgroundColor: alpha(theme.palette.primary.main, 0.5),
                     color: 'white',
                     '&:hover': {
-                      borderColor: '#F5E6A3',
-                      backgroundColor: 'rgba(245, 230, 163, 0.1)'
+                      backgroundColor: alpha(theme.palette.primary.main, 0.5),
                     },
                     px: 4,
                     py: 1.5,
                     fontSize: '1.1rem',
-                    fontWeight: 600
-                  }}
+                    fontWeight: 600,
+                  })}
                 >
                   {cmsKeyBase ? (
                     <EditableInlineText cmsKey={`${cmsKeyBase}.secondaryAction`} fallback={secondaryAction}>

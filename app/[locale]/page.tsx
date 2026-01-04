@@ -146,7 +146,7 @@ function HomeInner() {
 
       <Container maxWidth="lg" sx={{ py: 8 }}>
         <Box textAlign="center" sx={{ mb: 6 }}>
-            <Typography variant="h3" gutterBottom color="#20B2AA">
+          <Typography variant="h3" gutterBottom color="#20B2AA">
             <EditableInlineText cmsKey="page.home.aboutPreview" fallback={FALLBACK_COPY}>
               {(v) => <>{v}</>}
             </EditableInlineText>
@@ -244,20 +244,23 @@ function HomeInner() {
               }}>
                 <CardContent sx={{ p: 4 }}>
                   {teamCardImage ? (
-                    <Box
-                      component="img"
-                      sx={{
-                        width: '100%',
-                        height: 200,
-                        objectFit: 'cover',
-                        borderRadius: 2,
-                        mb: 3
-                      }}
-                      src={teamCardImage}
-                      alt={teamImageAlt}
-                    />
+                    <Box sx={{ width: '100%', height: 280, mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Box
+                        component="img"
+                        sx={{
+                          width: 'auto',
+                          height: 'auto',
+                          maxWidth: '100%',
+                          maxHeight: '100%',
+                          borderRadius: 2,
+                          display: 'block'
+                        }}
+                        src={teamCardImage}
+                        alt={teamImageAlt}
+                      />
+                    </Box>
                   ) : (
-                    <Box sx={{ height: 200, borderRadius: 2, mb: 3, background: 'hsl(var(--background))' }} />
+                    <Box sx={{ height: 280, borderRadius: 2, mb: 3, background: 'hsl(var(--background))' }} />
                   )}
                   <Typography variant="h5" gutterBottom color="#20B2AA">
                     <EditableInlineText cmsKey="page.home.cards.team.title" fallback={FALLBACK_COPY}>

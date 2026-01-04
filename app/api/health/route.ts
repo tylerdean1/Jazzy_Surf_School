@@ -13,7 +13,14 @@ export async function GET() {
 
     return NextResponse.json({
       ok: true,
-      mode: 'frontend-only',
+      mode: 'hybrid',
+      capabilities: {
+        booking_requests: true,
+        availability: false,
+        payments: false,
+        notifications: 'stub',
+        stripe_webhook: false
+      },
       env: envStatus
     });
   } catch (err: any) {

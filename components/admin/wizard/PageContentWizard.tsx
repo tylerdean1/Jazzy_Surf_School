@@ -25,6 +25,7 @@ import useContentBundle from '@/hooks/useContentBundle';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import type { Database, Json } from '@/lib/database.types';
 import { PagePreviewRendererInner, type StagedContentMap, type StagedMediaMap } from '@/components/sections/PagePreviewRenderer';
+import { rpc } from '@/lib/rpc';
 
 type CanonicalSectionKind = 'hero' | 'richText' | 'media' | 'card_group';
 type PageSectionRow = Database['public']['Functions']['rpc_get_page_sections']['Returns'][number];
@@ -35,43 +36,25 @@ type CmsRow = {
 };
 
 async function adminGetCmsRow(pageKey: string): Promise<CmsRow | null> {
-    const res = await fetch(`/api/admin/cms/page-content?page_key=${encodeURIComponent(pageKey)}`);
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body?.message || `Request failed (${res.status})`);
-    if (!body?.ok) throw new Error(body?.message || 'Request failed');
-    const row = body?.row as any;
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error('Supabase client unavailable');
+    const rows = await rpc<any[]>(supabase, 'admin_get_cms_page_row', { p_page_key: pageKey });
+    const row = rows?.[0] ?? null;
     if (!row) return null;
     return { body_en: row.body_en ?? null, body_es_draft: row.body_es_draft ?? null };
 }
 
-async function adminSaveCmsRow(payload: any): Promise<any> {
-    const res = await fetch('/api/admin/cms/page-content', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok || !body?.ok) throw new Error(body?.message || `Request failed (${res.status})`);
-    return body;
-}
-
 async function adminSetMediaSlot(slotKey: string, assetId: string | null, sort: number) {
-    const res = await fetch('/api/admin/media/slots', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ op: 'set', slot_key: slotKey, asset_id: assetId, sort }),
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok || body?.ok === false) throw new Error(body?.message || `Request failed (${res.status})`);
+    const supabase = getSupabaseClient();
+    await rpc<void>(supabase, 'admin_set_media_slot', { p_slot_key: slotKey, p_asset_id: assetId, p_sort: sort });
 }
 
 async function fetchSignedUrl(bucket: string, path: string): Promise<string> {
-    const res = await fetch(
-        `/api/admin/media/signed-url?bucket=${encodeURIComponent(bucket)}&path=${encodeURIComponent(path)}&expiresIn=900`
-    );
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok || !body?.ok) throw new Error(body?.message || `Failed (${res.status})`);
-    return String(body?.url || '');
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error('Supabase client unavailable');
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 900);
+    if (error) throw new Error(error.message);
+    return String((data as any)?.signedUrl || '');
 }
 
 function isAuthErrorMessage(message: string) {
@@ -125,25 +108,22 @@ type LoadedSlotItem = {
 };
 
 async function loadSlotItemsByPrefix(prefix: string): Promise<LoadedSlotItem[]> {
-    const url = new URL('/api/admin/media/slots', window.location.origin);
-    url.searchParams.set('prefix', prefix);
-    const res = await fetch(url.toString(), { method: 'GET' });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok || body?.ok === false) throw new Error(body?.message || `Request failed (${res.status})`);
-
-    const items = (body?.items ?? []) as any[];
-    return items.map((r) => {
-        const a = r?.asset ?? null;
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error('Supabase client unavailable');
+    const rows = await rpc<any[]>(supabase, 'admin_list_media_slots_by_prefix', { p_prefix: prefix });
+    return (rows || []).map((r) => {
+        const assetId = r?.asset_id ? String(r.asset_id) : null;
+        const hasAsset = Boolean(assetId);
         return {
             slot_key: String(r?.slot_key || ''),
             sort: r?.sort ?? null,
-            asset_id: r?.asset_id ?? null,
-            asset: a
+            asset_id: assetId,
+            asset: hasAsset
                 ? {
-                    id: String(a.id || ''),
-                    bucket: String(a.bucket || ''),
-                    path: String(a.path || ''),
-                    title: String(a.title || ''),
+                    id: assetId as string,
+                    bucket: String(r?.asset_bucket || ''),
+                    path: String(r?.asset_path || ''),
+                    title: String(r?.asset_title || ''),
                 }
                 : null,
         } as LoadedSlotItem;
@@ -512,7 +492,12 @@ export default function PageContentWizard(props: { pageKey: string; autoOpen?: b
             for (const k of dirtyKeys) {
                 const v = contentDraft[k];
                 if (!v) continue;
-                await adminSaveCmsRow({ op: 'save', page_key: k, body_en: v.en ?? '', body_es_draft: v.es ?? '' });
+                const supabase = getSupabaseClient();
+                await rpc<void>(supabase, 'admin_upsert_page_content', {
+                    p_page_key: k,
+                    p_body_en: v.en ?? '',
+                    p_body_es_draft: v.es ?? '',
+                });
             }
 
             // 2) Save dirty media prefixes

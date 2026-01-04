@@ -23,6 +23,9 @@ import {
     Typography,
 } from '@mui/material';
 import useContentBundle from '@/hooks/useContentBundle';
+import { getSupabaseClient } from '@/lib/supabaseClient';
+import { rpc } from '@/lib/rpc';
+import { normalizeGalleryImagesSlotKey } from '@/lib/mediaSlots';
 
 type AssetType = 'photo' | 'video';
 type PhotoCategory = 'logo' | 'hero' | 'lessons' | 'web_content' | 'uncategorized';
@@ -47,12 +50,11 @@ const CATEGORIES: PhotoCategory[] = ['logo', 'hero', 'lessons', 'web_content', '
 const ASSET_TYPES: AssetType[] = ['photo', 'video'];
 
 async function getSignedUrl(bucket: string, path: string): Promise<string> {
-    const res = await fetch(
-        `/api/admin/media/signed-url?bucket=${encodeURIComponent(bucket)}&path=${encodeURIComponent(path)}&expiresIn=900`
-    );
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok || !body?.ok) throw new Error(body?.message || `Failed to get URL (${res.status})`);
-    return String(body?.url || '');
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error('Supabase client unavailable');
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 900);
+    if (error) throw new Error(error.message);
+    return String((data as any)?.signedUrl || '');
 }
 
 export default function MediaManager() {
@@ -114,10 +116,9 @@ export default function MediaManager() {
         setError(null);
 
         try {
-            const res = await fetch('/api/admin/media/assets', { method: 'GET' });
-            const body = await res.json().catch(() => ({}));
-            if (!res.ok || !body?.ok) throw new Error(body?.message || `Load failed (${res.status})`);
-            setItems(((body?.items ?? []) as MediaAsset[]) ?? []);
+            const supabase = getSupabaseClient();
+            const rows = await rpc<MediaAsset[]>(supabase, 'admin_list_media_assets_with_key');
+            setItems((rows || []) as MediaAsset[]);
         } catch (e: any) {
             setError(e?.message || admin.t('admin.media.errors.loadFailed', 'Load failed'));
             setItems([]);
@@ -149,30 +150,43 @@ export default function MediaManager() {
         setError(null);
 
         try {
-            const payload = {
-                op: 'upsert',
-                asset: {
-                    id: editing?.id || undefined,
-                    asset_key: assetKey.trim() ? assetKey.trim() : null,
-                    title,
-                    description: description || null,
-                    public: isPublic,
-                    bucket,
-                    path,
-                    category,
-                    asset_type: assetType,
-                    sort: Number.isFinite(sort) ? sort : 32767,
-                    session_id: sessionId.trim() ? sessionId.trim() : null,
-                },
-            };
+            const supabase = getSupabaseClient();
+            if (!supabase) throw new Error('Supabase client unavailable');
 
-            const res = await fetch('/api/admin/media/assets', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
+            const titleTrim = String(title || '').trim();
+            const bucketTrim = String(bucket || '').trim();
+            const pathTrim = String(path || '').trim();
+            if (!titleTrim) throw new Error('Missing title');
+            if (!bucketTrim) throw new Error('Missing bucket');
+            if (!pathTrim) throw new Error('Missing path');
+
+            const saved = await rpc<any>(supabase, 'admin_upsert_media_asset', {
+                p_id: editing?.id || undefined,
+                p_title: titleTrim,
+                p_description: description || null,
+                p_public: Boolean(isPublic),
+                p_bucket: bucketTrim,
+                p_path: pathTrim,
+                p_category: category,
+                p_asset_type: assetType,
+                p_sort: Number.isFinite(sort) ? sort : 32767,
+                p_session_id: sessionId.trim() ? sessionId.trim() : null,
             });
-            const body = await res.json().catch(() => ({}));
-            if (!res.ok || !body?.ok) throw new Error(body?.message || `Save failed (${res.status})`);
+
+            const savedId = String(saved?.id || editing?.id || '').trim();
+            if (!savedId) throw new Error('Save failed');
+
+            const assetKeyRaw = assetKey.trim() ? assetKey.trim() : '';
+            const normalizedKey = normalizeGalleryImagesSlotKey(assetKeyRaw || null);
+            if (!assetKeyRaw) {
+                await rpc<void>(supabase, 'admin_clear_media_asset_slots', { p_asset_id: savedId });
+            } else if (normalizedKey) {
+                await rpc<void>(supabase, 'admin_set_media_slot', {
+                    p_slot_key: normalizedKey,
+                    p_asset_id: savedId,
+                    p_sort: Number.isFinite(sort) ? sort : 32767,
+                });
+            }
 
             setDialogOpen(false);
             resetForm();

@@ -18,6 +18,8 @@ import { useLocale } from 'next-intl';
 import { useCmsStringValue, saveCmsStringValue } from '@/hooks/useCmsStringValue';
 import MediaPickerDialog, { type MediaSelection } from '@/components/admin/MediaPickerDialog';
 import useContentBundle from '@/hooks/useContentBundle';
+import { getSupabaseClient } from '@/lib/supabaseClient';
+import { rpc } from '@/lib/rpc';
 
 type SlotItem = {
     slot_key: string;
@@ -33,19 +35,6 @@ type SlotItem = {
         category: string;
     } | null;
 };
-
-async function adminJson(path: string, init?: RequestInit) {
-    const res = await fetch(path, {
-        ...init,
-        headers: {
-            'Content-Type': 'application/json',
-            ...(init?.headers || {}),
-        },
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok || body?.ok === false) throw new Error(body?.message || `Request failed (${res.status})`);
-    return body;
-}
 
 function clampCount(n: number) {
     if (!Number.isFinite(n)) return 0;
@@ -79,8 +68,29 @@ export default function GalleryMediaSlotsEditor() {
         setLoading(true);
         setError(null);
         try {
-            const body = await adminJson(`/api/admin/media/slots?prefix=${encodeURIComponent(prefix)}`);
-            setItems((body?.items ?? []) as SlotItem[]);
+            const supabase = getSupabaseClient();
+            const rows = await rpc<any[]>(supabase, 'admin_list_media_slots_by_prefix', { p_prefix: prefix });
+            const next = (rows || []).map((r) => {
+                const assetId = r?.asset_id ? String(r.asset_id) : null;
+                const hasAsset = Boolean(assetId);
+                return {
+                    slot_key: String(r?.slot_key || ''),
+                    sort: r?.sort ?? null,
+                    asset_id: assetId,
+                    asset: hasAsset
+                        ? {
+                            id: assetId as string,
+                            title: String(r?.asset_title || ''),
+                            bucket: String(r?.asset_bucket || ''),
+                            path: String(r?.asset_path || ''),
+                            public: Boolean(r?.asset_public),
+                            asset_type: (String(r?.asset_type || 'photo') as any) as 'photo' | 'video',
+                            category: String(r?.asset_category || ''),
+                        }
+                        : null,
+                } as SlotItem;
+            });
+            setItems(next);
         } catch (e: any) {
             setError(e?.message || admin.t('admin.gallerySlots.errors.loadFailed', 'Failed to load gallery slots'));
             setItems([]);
@@ -146,10 +156,8 @@ export default function GalleryMediaSlotsEditor() {
                 return sel?.id ?? null;
             });
 
-            await adminJson('/api/admin/media/slots', {
-                method: 'POST',
-                body: JSON.stringify({ op: 'replace_gallery_images', count, asset_ids }),
-            });
+            const supabase = getSupabaseClient();
+            await rpc<number>(supabase, 'admin_replace_gallery_images', { p_count: count, p_asset_ids: asset_ids });
 
             await load();
         } catch (e: any) {

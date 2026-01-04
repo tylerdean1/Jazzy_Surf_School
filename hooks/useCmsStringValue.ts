@@ -5,6 +5,8 @@ import { useLocale } from 'next-intl';
 import useCmsPageBody from '@/hooks/useCmsPageBody';
 import { useAdminEdit } from '@/components/admin/edit/AdminEditContext';
 import { useContentBundleContext } from '@/components/content/ContentBundleContext';
+import { getSupabaseClient } from '@/lib/supabaseClient';
+import { rpc } from '@/lib/rpc';
 
 type AdminRow = {
     body_en: string | null;
@@ -16,12 +18,16 @@ function isNonEmpty(value: string | null | undefined) {
 }
 
 async function fetchAdminRow(pageKey: string): Promise<AdminRow | null> {
-    const res = await fetch(`/api/admin/cms/page-content?page_key=${encodeURIComponent(pageKey)}`);
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok || !body?.ok) return null;
-    const row = body?.row as any;
-    if (!row) return null;
-    return { body_en: row.body_en ?? null, body_es_draft: row.body_es_draft ?? null };
+    const supabase = getSupabaseClient();
+    if (!supabase) return null;
+    try {
+        const rows = await rpc<any[]>(supabase, 'admin_get_cms_page_row', { p_page_key: pageKey });
+        const row = rows?.[0] ?? null;
+        if (!row) return null;
+        return { body_en: row.body_en ?? null, body_es_draft: row.body_es_draft ?? null };
+    } catch {
+        return null;
+    }
 }
 
 export function useCmsStringValue(pageKey: string, fallback: string) {
@@ -74,31 +80,14 @@ export function useCmsStringValue(pageKey: string, fallback: string) {
 }
 
 export async function saveCmsStringValue(pageKey: string, locale: string, nextValue: string) {
-    const payload: any = { op: 'save', page_key: pageKey };
-    if (locale === 'es') payload.body_es_draft = nextValue;
-    else payload.body_en = nextValue;
-
-    const res = await fetch('/api/admin/cms/page-content', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-    });
-
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok || !body?.ok) {
-        throw new Error(body?.message || `Save failed (${res.status})`);
-    }
+    const supabase = getSupabaseClient();
+    const payload: any = { p_page_key: pageKey };
+    if (locale === 'es') payload.p_body_es_draft = nextValue;
+    else payload.p_body_en = nextValue;
+    await rpc<void>(supabase, 'admin_upsert_page_content', payload);
 }
 
 export async function publishCmsSpanish(pageKey: string) {
-    const res = await fetch('/api/admin/cms/page-content', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ op: 'publish_es', page_key: pageKey }),
-    });
-
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok || !body?.ok) {
-        throw new Error(body?.message || `Publish failed (${res.status})`);
-    }
+    const supabase = getSupabaseClient();
+    await rpc<void>(supabase, 'admin_publish_es', { p_page_key: pageKey });
 }

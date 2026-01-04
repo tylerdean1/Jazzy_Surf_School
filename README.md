@@ -2,7 +2,7 @@
 
 A bilingual (EN/ES) surf lesson booking site built with Next.js App Router, TypeScript, and MUI.
 
-Content (pages + media) is managed via Supabase (Postgres + Storage). The booking/payment pipeline is currently **frontend-only** (see “Frontend-only mode”).
+Content (pages + media) is managed via Supabase (Postgres + Storage). Booking is **request-based**: the public site submits booking requests to the database, and the admin dashboard approves/denies requests and manages sessions/billing.
 
 ## Tech
 - Next.js (App Router) + TypeScript + MUI
@@ -10,6 +10,25 @@ Content (pages + media) is managed via Supabase (Postgres + Storage). The bookin
 - Supabase: Auth, Postgres, Storage
 - TipTap (admin rich-text editing)
 - Deploy on Vercel
+
+## What works today (functional audit)
+
+### Public site
+- Static marketing pages with CMS-backed strings via `GET /api/content-bundle`
+- Booking request submission via `POST /api/booking-requests` (stores `booking_requests` rows, including `bill_total_cents` quote)
+
+### Admin dashboard
+- Login: `/{locale}/adminlogin` → cookie-based admin session (`admin_at`)
+- Requests & Billing: review/edit booking requests, approve/deny, track billing fields (Total/Paid/Due)
+- Sessions: create/edit sessions, soft-delete/restore, month calendar view
+- Finances: charts and aggregates from sessions (revenue/tips) + receipts (expenses)
+- Media: upload and manage assets + stable slot keys
+
+### What is still stubbed / not wired
+- Availability: `GET /api/availability` returns `{ slots: [] }`
+- “Bookings create” pipeline: `POST /api/bookings/create` returns `501`
+- Notifications: `POST /api/notify` logs a summary (no SMS/email provider)
+- Stripe: webhook route is not implemented (folder exists, no handler)
 
 ## Local setup
 
@@ -60,13 +79,15 @@ Notes:
 npm run dev
 ```
 
-## Frontend-only mode (current)
-The UI is present, but server-side booking + payments are intentionally disabled.
+## Booking flow (request-based)
 
-- `POST /api/bookings/create` returns `501`.
-- `GET /api/availability` returns `{ slots: [] }`.
-- `GET /api/lesson-types` returns a static list of lesson types.
-- `POST /api/notify` is a stub that logs an admin-friendly summary.
+1) Public user submits a request (no checkout): `POST /api/booking-requests`
+2) Admin reviews the request in `/{locale}/admin` → “Requests & Billing”
+3) Approving a request creates a `sessions` row (via Supabase RPC) and links it back to the request
+
+Notes:
+- The booking UI and `GET /api/lesson-types` are currently **static placeholder data** (prices/types are not DB-driven).
+- Availability is currently not enforced (availability API is stubbed).
 
 ## CMS + admin
 
@@ -85,6 +106,28 @@ Admin helpers/endpoints:
 
 Security note:
 - For non-GET admin requests, admin APIs enforce a same-origin check (via `Origin`/`Referer`) in addition to the cookie.
+
+## Sessions & time handling
+
+`sessions.session_time` is treated as a local “wall-clock” timestamp string (Postgres `timestamp without time zone`).
+
+Practical implication:
+- The code avoids `Date(...)` for formatting/parsing session times when possible, to prevent timezone shifts.
+
+## Billing fields (booking requests)
+
+`booking_requests` tracks:
+- `bill_total_cents` (nullable)
+- `amount_paid_cents` (integer)
+- `balance_cents` (Due)
+
+Important:
+- In the current schema snapshot, `balance_cents` is a GENERATED column.
+- Do not write `balance_cents` from API code; write `bill_total_cents` / `amount_paid_cents` and let Postgres compute Due.
+
+Admin RPCs:
+- `admin_update_booking_request_billing(p_id, p_bill_total_cents, p_amount_paid_cents)`
+- `admin_apply_booking_request_payment(p_id, p_delta_cents)`
 
 ### CMS content
 - Public pages fetch content from Supabase via RPCs (example: `get_page_content`).
@@ -150,6 +193,12 @@ npm run snapshot
 REM Convenience: typegen + snapshot
 npm run fulldb
 ```
+
+## Database workflow notes
+
+- Migrations live in `supabase/migrations/`.
+- Type generation writes to `lib/database.types.ts`.
+- Backend snapshots write to `backend.snapshot.md` (and `backend.snapshot.sql` when possible).
 
 ## Deployment (Vercel)
 - Set environment variables from the `.env.local` list above.

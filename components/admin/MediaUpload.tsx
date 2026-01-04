@@ -16,6 +16,8 @@ import {
     Typography,
 } from '@mui/material';
 import useContentBundle from '@/hooks/useContentBundle';
+import { getSupabaseClient } from '@/lib/supabaseClient';
+import { rpc } from '@/lib/rpc';
 
 type AssetType = 'photo' | 'video';
 type PhotoCategory = 'logo' | 'hero' | 'lessons' | 'web_content' | 'uncategorized';
@@ -25,6 +27,32 @@ type Mode = 'single' | 'bulk';
 const CATEGORIES: PhotoCategory[] = ['logo', 'hero', 'lessons', 'web_content', 'uncategorized'];
 const ASSET_TYPES: AssetType[] = ['photo', 'video'];
 const BUCKETS = ['Lesson_Photos', 'Private_Photos'] as const;
+
+function sanitizeFileName(name: string): string {
+    const justName = name.replace(/^.*[\\/]/, '');
+    return justName.replace(/[\\/]/g, '').trim();
+}
+
+function splitBaseExt(fileName: string): { base: string; ext: string } {
+    const idx = fileName.lastIndexOf('.');
+    if (idx <= 0) return { base: fileName, ext: '' };
+    return { base: fileName.slice(0, idx), ext: fileName.slice(idx) };
+}
+
+function normalizeFolder(folder: string): string {
+    const f = String(folder || '').trim().replace(/\\/g, '/');
+    const noLead = f.replace(/^\/+/, '');
+    const noTrail = noLead.replace(/\/+$/, '');
+    return noTrail;
+}
+
+function chooseUniqueName(existing: Set<string>, base: string, ext: string): string {
+    const candidate = `${base}${ext}`;
+    if (!existing.has(candidate)) return candidate;
+    let n = 1;
+    while (existing.has(`${base}(${n})${ext}`)) n++;
+    return `${base}(${n})${ext}`;
+}
 
 export default function MediaUpload() {
     const admin = useContentBundle('admin.');
@@ -90,36 +118,87 @@ export default function MediaUpload() {
             return;
         }
 
-        const fd = new FormData();
-        fd.set('mode', mode);
-        fd.set('bucket', bucket);
-        fd.set('folder', folder);
-        fd.set('public', String(isPublic));
-        fd.set('category', category);
-        fd.set('asset_type', assetType);
-        fd.set('description', description);
-        fd.set('sort', String(sort));
-        fd.set('session_id', sessionId);
-        if (mode === 'single') fd.set('title', title);
-        if (mode === 'single' && assetKey.trim()) fd.set('asset_key', assetKey.trim());
-        if (mode === 'bulk' && assetKeyPrefix.trim()) fd.set('asset_key_prefix', assetKeyPrefix.trim());
-
-        const list = Array.from(files);
-        if (mode === 'single') {
-            fd.append('files', list[0]);
-        } else {
-            list.forEach((f) => fd.append('files', f));
-        }
-
         setLoading(true);
         try {
-            const res = await fetch('/api/admin/media/upload', { method: 'POST', body: fd });
-            const body = await res.json().catch(() => ({}));
-            if (!res.ok || !body?.ok) throw new Error(body?.message || `Upload failed (${res.status})`);
+            const supabase = getSupabaseClient();
+            if (!supabase) throw new Error('Supabase client unavailable');
 
-            const up = ((body?.uploaded ?? []) as Array<{ bucket: string; path: string; id: string }>) ?? [];
-            setUploaded(up);
-            setSuccess(admin.t('admin.upload.success', 'Uploaded {count} file(s).').replace('{count}', String(up.length)));
+            const folderNorm = normalizeFolder(folder);
+
+            // List existing names in folder to avoid overwrites.
+            const { data: existingList, error: listErr } = await supabase.storage
+                .from(bucket)
+                .list(folderNorm || '', { limit: 1000 });
+
+            if (listErr) throw new Error(listErr.message);
+            const existingNames = new Set((existingList ?? []).map((o: any) => String(o?.name || '')).filter(Boolean));
+
+            const fileList = Array.from(files);
+            const selectedFiles = mode === 'single' ? [fileList[0]] : fileList;
+
+            let bulkKeyIndex = 1;
+            const nextBulkAssetKey = () => {
+                const prefix = String(assetKeyPrefix || '').trim();
+                if (!prefix) return null;
+                const key = `${prefix}.${String(bulkKeyIndex).padStart(3, '0')}`;
+                bulkKeyIndex += 1;
+                return key;
+            };
+
+            const results: Array<{ bucket: string; path: string; id: string }> = [];
+
+            for (const file of selectedFiles) {
+                if (!file) continue;
+
+                const safeName = sanitizeFileName(file.name || 'file');
+                const { base, ext } = splitBaseExt(safeName);
+                const uniqueName = chooseUniqueName(existingNames, base || 'file', ext);
+                existingNames.add(uniqueName);
+
+                const uploadPath = folderNorm ? `${folderNorm}/${uniqueName}` : uniqueName;
+                const id = (globalThis.crypto as any)?.randomUUID ? (globalThis.crypto as any).randomUUID() : String(Date.now());
+
+                const { error: uploadErr } = await supabase.storage
+                    .from(bucket)
+                    .upload(uploadPath, file, { upsert: false, contentType: file.type || undefined });
+
+                if (uploadErr) throw new Error(uploadErr.message);
+
+                const derivedTitle = mode === 'single' ? String(title).trim() : `${safeName} (${id})`;
+                const derivedAssetKey = mode === 'single' ? (assetKey.trim() ? assetKey.trim() : null) : nextBulkAssetKey();
+
+                try {
+                    await rpc<any>(supabase, 'admin_upsert_media_asset', {
+                        p_id: id,
+                        p_title: derivedTitle,
+                        p_description: description || null,
+                        p_public: Boolean(isPublic),
+                        p_bucket: bucket,
+                        p_path: uploadPath,
+                        p_category: category,
+                        p_asset_type: assetType,
+                        p_sort: Number.isFinite(sort) ? sort : 32767,
+                        p_session_id: sessionId.trim() ? sessionId.trim() : null,
+                    });
+
+                    if (derivedAssetKey) {
+                        await rpc<void>(supabase, 'admin_set_media_slot', {
+                            p_slot_key: derivedAssetKey,
+                            p_asset_id: id,
+                            p_sort: Number.isFinite(sort) ? sort : 32767,
+                        });
+                    }
+                } catch (e: any) {
+                    // Best-effort cleanup of the uploaded file.
+                    await supabase.storage.from(bucket).remove([uploadPath]);
+                    throw e;
+                }
+
+                results.push({ bucket, path: uploadPath, id });
+            }
+
+            setUploaded(results);
+            setSuccess(admin.t('admin.upload.success', 'Uploaded {count} file(s).').replace('{count}', String(results.length)));
             setFiles(null);
             if (mode === 'single') {
                 setTitle('');

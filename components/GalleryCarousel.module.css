@@ -1,22 +1,21 @@
 .carousel {
     position: relative;
     width: 100%;
-    height: 160px;
-    overflow: hidden;
-    border-radius: 12px;
-}
-
-.h160 {
-    height: 160px;
+    height: 280px;
+    overflow: visible;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .image {
-    width: 100%;
-    height: 100%;
-    position: absolute;
-    inset: 0;
+    display: block;
     opacity: 0;
     transition: opacity 2000ms ease;
+    border-radius: 12px;
+    /* Ensure the bitmap is clipped to rounded corners. */
+    clip-path: inset(0 round 12px);
 }
 
 .visible {
@@ -24,13 +23,20 @@
 }
 
 .fitCover {
+    width: 100%;
+    height: 100%;
     object-fit: cover;
 }
 
 .fitContain {
-    object-fit: contain;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
 }
 
 .fitFill {
+    width: 100%;
+    height: 100%;
     object-fit: fill;
 }

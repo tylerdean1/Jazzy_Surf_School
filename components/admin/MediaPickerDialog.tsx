@@ -22,6 +22,8 @@ import {
     Typography,
 } from '@mui/material';
 import useContentBundle from '@/hooks/useContentBundle';
+import { getSupabaseClient } from '@/lib/supabaseClient';
+import { rpc } from '@/lib/rpc';
 
 type AssetType = 'photo' | 'video';
 type PhotoCategory = 'logo' | 'hero' | 'lessons' | 'web_content' | 'uncategorized';
@@ -46,19 +48,17 @@ const CATEGORIES: Array<PhotoCategory | 'all'> = ['all', 'logo', 'hero', 'lesson
 const BUCKETS: Array<string | 'all'> = ['all', 'Lesson_Photos', 'Private_Photos'];
 
 async function fetchAssets(): Promise<MediaAsset[]> {
-    const res = await fetch('/api/admin/media/assets', { method: 'GET' });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok || !body?.ok) throw new Error(body?.message || `Load failed (${res.status})`);
-    return ((body?.items ?? []) as MediaAsset[]) ?? [];
+    const supabase = getSupabaseClient();
+    const rows = await rpc<MediaAsset[]>(supabase, 'admin_list_media_assets_with_key');
+    return (rows || []) as MediaAsset[];
 }
 
 async function fetchSignedUrl(bucket: string, path: string): Promise<string> {
-    const res = await fetch(
-        `/api/admin/media/signed-url?bucket=${encodeURIComponent(bucket)}&path=${encodeURIComponent(path)}&expiresIn=900`
-    );
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok || !body?.ok) throw new Error(body?.message || `Failed (${res.status})`);
-    return String(body?.url || '');
+    const supabase = getSupabaseClient();
+    if (!supabase) throw new Error('Supabase client unavailable');
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 900);
+    if (error) throw new Error(error.message);
+    return String((data as any)?.signedUrl || '');
 }
 
 async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>) {

@@ -18,20 +18,15 @@ import { publishCmsSpanish } from '@/hooks/useCmsStringValue';
 import { RichTextEditor, RichTextRenderer } from '@/components/admin/RichText';
 import { docToPlainText, plainTextToDocJson } from '@/lib/cmsRichText';
 import useContentBundle from '@/hooks/useContentBundle';
+import { getSupabaseClient } from '@/lib/supabaseClient';
+import { rpc } from '@/lib/rpc';
 
 async function saveRich(pageKey: string, locale: string, json: string) {
-    const payload: any = { op: 'save', page_key: pageKey };
-    if (locale === 'es') payload.body_es_draft = json;
-    else payload.body_en = json;
-
-    const res = await fetch('/api/admin/cms/page-content', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-    });
-
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok || !body?.ok) throw new Error(body?.message || `Save failed (${res.status})`);
+    const supabase = getSupabaseClient();
+    const payload: any = { p_page_key: pageKey };
+    if (locale === 'es') payload.p_body_es_draft = json;
+    else payload.p_body_en = json;
+    await rpc<void>(supabase, 'admin_upsert_page_content', payload);
 }
 
 export default function EditableRichTextBlock({

@@ -25,7 +25,14 @@ function asBool(value: unknown): boolean {
 
 function normalizeStatus(value: unknown): LessonStatus | undefined {
     const v = asString(value);
-    if (v === 'booked' || v === 'completed' || v === 'canceled_with_refund' || v === 'canceled_without_refund') return v;
+    if (
+        v === 'booked_unpaid' ||
+        v === 'booked_paid_in_full' ||
+        v === 'completed' ||
+        v === 'canceled_with_refund' ||
+        v === 'canceled_without_refund'
+    )
+        return v;
     return undefined;
 }
 
@@ -109,6 +116,14 @@ export async function POST(req: Request) {
 
         const { data, error } = await supabase.rpc('admin_update_session', payload as any);
         if (error) return NextResponse.json({ ok: false, message: error.message }, { status: 500 });
+
+        // Notes are stored on the sessions table but not currently part of the RPC signature.
+        if (s.p_notes !== undefined) {
+            const notes = s.p_notes == null ? null : String(s.p_notes);
+            const { error: notesErr } = await supabase.from('sessions').update({ notes }).eq('id', id);
+            if (notesErr) return NextResponse.json({ ok: false, message: notesErr.message }, { status: 500 });
+        }
+
         return NextResponse.json({ ok: true, item: data ?? null });
     }
 

@@ -31,6 +31,14 @@ interface LessonCardProps {
   includes: string[];
   featured?: boolean;
   cmsKeyBase?: string;
+  cmsFields?: {
+    title?: boolean;
+    price?: boolean;
+    description?: boolean;
+    duration?: boolean;
+    location?: boolean;
+    includes?: boolean;
+  };
   bookLessonTypeId?: string;
 }
 
@@ -43,6 +51,7 @@ const LessonCard: React.FC<LessonCardProps> = ({
   includes,
   featured = false,
   cmsKeyBase,
+  cmsFields,
   bookLessonTypeId
 }) => {
   const locale = useLocale();
@@ -54,18 +63,18 @@ const LessonCard: React.FC<LessonCardProps> = ({
   const bookCta = ui.t('ui.lessons.card.bookCta', FALLBACK_COPY);
   const contactPricingValue = ui.t('ui.lessons.card.contactPricingValue', FALLBACK_COPY);
 
-  const durationLabel = cmsKeyBase ? (
-            <EditableInlineText cmsKey={`${cmsKeyBase}.duration`} fallback={duration}>
-              {(v) => <>{v}</>}
-            </EditableInlineText>
+  const durationLabel = cmsKeyBase && cmsFields?.duration !== false ? (
+    <EditableInlineText cmsKey={`${cmsKeyBase}.duration`} fallback={duration}>
+      {(v) => <>{v}</>}
+    </EditableInlineText>
   ) : (
     duration
   );
 
-  const locationLabel = cmsKeyBase ? (
-            <EditableInlineText cmsKey={`${cmsKeyBase}.location`} fallback={location}>
-              {(v) => <>{v}</>}
-            </EditableInlineText>
+  const locationLabel = cmsKeyBase && cmsFields?.location !== false ? (
+    <EditableInlineText cmsKey={`${cmsKeyBase}.location`} fallback={location}>
+      {(v) => <>{v}</>}
+    </EditableInlineText>
   ) : (
     location
   );
@@ -89,7 +98,7 @@ const LessonCard: React.FC<LessonCardProps> = ({
     >
       <CardContent sx={{ flexGrow: 1, p: 3 }}>
         <Typography variant="h5" component="h3" gutterBottom fontWeight={600}>
-          {cmsKeyBase ? (
+          {cmsKeyBase && cmsFields?.title !== false ? (
             <EditableInlineText cmsKey={`${cmsKeyBase}.title`} fallback={title}>
               {(v) => <>{v}</>}
             </EditableInlineText>
@@ -100,7 +109,7 @@ const LessonCard: React.FC<LessonCardProps> = ({
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
           <Typography variant="h4" color="#20B2AA" fontWeight={700}>
-            {cmsKeyBase ? (
+            {cmsKeyBase && cmsFields?.price !== false ? (
               <EditableInlineText cmsKey={`${cmsKeyBase}.price`} fallback={price}>
                 {(v) => <>{v}</>}
               </EditableInlineText>
@@ -121,7 +130,7 @@ const LessonCard: React.FC<LessonCardProps> = ({
         </Box>
 
         <Typography variant="body1" paragraph sx={{ mb: 3 }}>
-          {cmsKeyBase ? (
+          {cmsKeyBase && cmsFields?.description !== false ? (
             <EditableInlineText cmsKey={`${cmsKeyBase}.description`} fallback={description} multiline fullWidth>
               {(v) => <>{v}</>}
             </EditableInlineText>
@@ -141,7 +150,7 @@ const LessonCard: React.FC<LessonCardProps> = ({
               </ListItemIcon>
               <ListItemText
                 primary={
-                  cmsKeyBase ? (
+                  cmsKeyBase && cmsFields?.includes !== false ? (
                     <EditableInlineText cmsKey={`${cmsKeyBase}.includes.${index}`} fallback={item}>
                       {(v) => <>{v}</>}
                     </EditableInlineText>
