@@ -421,18 +421,39 @@ export default function FinancesManager() {
         for (const p of pts) byPeriod.set(p.period, p);
 
         const periods = listPeriods(mode, start, end);
-        const filled: Array<FinancePoint & { label: string; runningNet: number; netDelta: number }> = [];
+        const filled: Array<
+            FinancePoint & {
+                label: string;
+                netDelta: number;
+                runningTotal: number;
+                runningRevenue: number;
+                runningTips: number;
+                runningExpenses: number;
+            }
+        > = [];
 
-        let runningNet = 0;
+        let runningTotal = 0;
+        let runningRevenue = 0;
+        let runningTips = 0;
+        let runningExpenses = 0;
+
         for (const period of periods) {
             const base = byPeriod.get(period) || { period, revenue: 0, tips: 0, expenses: 0, count: 0 };
             const netDelta = Math.round((base.revenue + base.tips - base.expenses) * 100) / 100;
-            runningNet = Math.round((runningNet + netDelta) * 100) / 100;
+
+            runningRevenue = Math.round((runningRevenue + base.revenue) * 100) / 100;
+            runningTips = Math.round((runningTips + base.tips) * 100) / 100;
+            runningExpenses = Math.round((runningExpenses + base.expenses) * 100) / 100;
+            runningTotal = Math.round((runningTotal + netDelta) * 100) / 100;
+
             filled.push({
                 ...base,
                 label: formatXAxisLabel(mode, period),
                 netDelta,
-                runningNet,
+                runningTotal,
+                runningRevenue,
+                runningTips,
+                runningExpenses,
             });
         }
 
@@ -440,6 +461,7 @@ export default function FinancesManager() {
     }, [data, mode]);
 
     const revenueColor = theme.palette.primary.main;
+    const runningRevenueColor = theme.palette.info.main;
     const tipsColor = theme.palette.success.main;
     const expensesColor = theme.palette.error.main;
 
@@ -645,16 +667,47 @@ export default function FinancesManager() {
                                     <Tooltip
                                         formatter={(value: any, name: any) => {
                                             const n = Number(value);
-                                            if (name === 'runningNet' || name === 'netDelta') return formatMoney(n);
+                                            if (
+                                                name === 'runningTotal' ||
+                                                name === 'runningRevenue' ||
+                                                name === 'runningTips' ||
+                                                name === 'runningExpenses' ||
+                                                name === 'netDelta'
+                                            )
+                                                return formatMoney(n);
                                             return String(value);
                                         }}
                                     />
                                     <Legend />
                                     <Line
                                         type="monotone"
-                                        dataKey="runningNet"
+                                        dataKey="runningTotal"
                                         name={admin.t('admin.finances.runningTotal', 'Running total')}
                                         stroke={revenueColor}
+                                        strokeWidth={2}
+                                        dot={false}
+                                    />
+                                    <Line
+                                        type="monotone"
+                                        dataKey="runningRevenue"
+                                        name={admin.t('admin.finances.runningRevenue', 'Running lesson costs')}
+                                        stroke={runningRevenueColor}
+                                        strokeWidth={2}
+                                        dot={false}
+                                    />
+                                    <Line
+                                        type="monotone"
+                                        dataKey="runningTips"
+                                        name={admin.t('admin.finances.runningTips', 'Running tips')}
+                                        stroke={tipsColor}
+                                        strokeWidth={2}
+                                        dot={false}
+                                    />
+                                    <Line
+                                        type="monotone"
+                                        dataKey="runningExpenses"
+                                        name={admin.t('admin.finances.runningExpenses', 'Running expenses')}
+                                        stroke={expensesColor}
                                         strokeWidth={2}
                                         dot={false}
                                     />
