@@ -4,9 +4,12 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Alert,
     Box,
+    Card,
+    CardContent,
+    Checkbox,
     CircularProgress,
     FormControl,
-    InputLabel,
+    ListItemText,
     MenuItem,
     Select,
     Stack,
@@ -34,9 +37,10 @@ import { rpc } from '@/lib/rpc';
 
 type LessonStatus = Database['public']['Enums']['lesson_status'];
 type LessonTypeRow = Database['public']['Tables']['lesson_types']['Row'];
+type BusinessExpenseRow = Database['public']['Tables']['business_expenses']['Row'];
+type FinanceCategory = Database['public']['Enums']['finance_category'];
 
 type Mode = 'year' | 'month';
-
 type ChartType = 'line' | 'bar';
 
 type FinancePoint = {
@@ -72,6 +76,8 @@ type FinanceResponse = {
     byStatus: FinanceByStatus[];
     points: FinancePoint[];
 };
+
+type RunningSeriesKey = 'runningTotal' | 'runningRevenue' | 'runningTips' | 'runningExpenses';
 
 function formatMoney(n: number): string {
     if (!Number.isFinite(n)) return '$0.00';
@@ -192,6 +198,17 @@ const STATUS_OPTIONS: Array<{ value: LessonStatus; label: string }> = [
     { value: 'canceled_without_refund', label: 'Canceled (without refund)' },
 ];
 
+const EXPENSE_CATEGORIES: FinanceCategory[] = [
+    'fuel',
+    'equipment',
+    'advertising',
+    'lessons',
+    'food',
+    'software',
+    'payroll',
+    'other',
+];
+
 export default function FinancesManager() {
     const admin = useContentBundle('admin.');
     const theme = useTheme();
@@ -204,9 +221,15 @@ export default function FinancesManager() {
 
     const [selectedLessonTypes, setSelectedLessonTypes] = useState<string[]>([]);
     const [selectedStatuses, setSelectedStatuses] = useState<LessonStatus[]>([]);
+    const [expenseMode, setExpenseMode] = useState<'total' | FinanceCategory>('total');
+    const [runningSeries, setRunningSeries] = useState<RunningSeriesKey[]>([
+        'runningTotal',
+        'runningRevenue',
+        'runningTips',
+        'runningExpenses',
+    ]);
 
     const [lessonTypeOptions, setLessonTypeOptions] = useState<Array<{ key: string; label: string }>>([]);
-
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<FinanceResponse | null>(null);
@@ -217,6 +240,8 @@ export default function FinancesManager() {
         for (let y = current - 4; y <= current + 1; y++) out.push(y);
         return out;
     }, [now]);
+
+    const availableLessonTypes = lessonTypeOptions;
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -243,17 +268,9 @@ export default function FinancesManager() {
             const startDate = start.slice(0, 10);
             const endDate = end.slice(0, 10);
 
-            const sessions = await rpc<
-                Array<{
-                    id: string;
-                    session_time: string | null;
-                    paid: number;
-                    tip: number | null;
-                    lesson_status: LessonStatus | null;
-                    deleted_at: string | null;
-                    lesson_type_key?: string | null;
-                }>
-            >(supabase, 'admin_list_sessions', { include_deleted: false });
+            const sessions = await rpc<Database['public']['Tables']['sessions']['Row'][]>(supabase, 'admin_list_sessions', {
+                include_deleted: false,
+            } as any);
 
             const lessonTypes = await rpc<LessonTypeRow[]>(supabase, 'admin_list_lesson_types');
             const activeLessonTypes = (lessonTypes || []).filter((lt) => lt.is_active);
@@ -276,8 +293,7 @@ export default function FinancesManager() {
             });
 
             const enriched = inRange.map((s) => {
-                const k = String((s as any).lesson_type_key ?? '').trim();
-                const lessonTypeKey = k ? k : 'unknown';
+                const lessonTypeKey = String(s.lesson_type_key || '').trim() || 'unknown';
                 return {
                     id: s.id,
                     session_time: s.session_time,
@@ -289,12 +305,12 @@ export default function FinancesManager() {
             });
 
             const hasUnknown = enriched.some((s) => s.lesson_type_key === 'unknown');
-            const options: Array<{ key: string; label: string }> = keys.map((k) => ({
+            const nextLessonTypeOptions: Array<{ key: string; label: string }> = keys.map((k) => ({
                 key: k,
                 label: labelByKey.get(k) || k,
             }));
-            if (hasUnknown) options.unshift({ key: 'unknown', label: 'Unknown' });
-            setLessonTypeOptions(options);
+            if (hasUnknown) nextLessonTypeOptions.unshift({ key: 'unknown', label: 'Unknown' });
+            setLessonTypeOptions(nextLessonTypeOptions);
 
             const filtered = enriched.filter((s) => {
                 if (selectedStatuses.length) {
@@ -345,17 +361,19 @@ export default function FinancesManager() {
                 pointsMap.set(period, prev);
             }
 
-            const expenses = await rpc<
-                Array<{ id: string; expense_date: string; total_cents: number; is_refund: boolean }>
-            >(supabase, 'admin_list_business_expenses_range', {
+            const expenses = await rpc<BusinessExpenseRow[]>(supabase, 'admin_list_business_expenses_range', {
                 p_start: startDate,
                 p_end: endDate,
+            } as any);
+
+            const expensesFiltered = (expenses || []).filter((e) => {
+                if (expenseMode === 'total') return true;
+                return e.category === expenseMode;
             });
 
             let expenseTotal = 0;
             let expenseCount = 0;
-
-            for (const e of expenses || []) {
+            for (const e of expensesFiltered) {
                 const signed = (e.is_refund ? -1 : 1) * centsToDollars(e.total_cents);
                 expenseTotal = Math.round((expenseTotal + signed) * 100) / 100;
                 expenseCount += 1;
@@ -384,7 +402,7 @@ export default function FinancesManager() {
                 expenseReceiptsCount: expenseCount,
             };
 
-            const next: FinanceResponse = {
+            setData({
                 ok: true,
                 mode,
                 year: normalizedYear,
@@ -394,22 +412,18 @@ export default function FinancesManager() {
                 totals,
                 byStatus,
                 points,
-            };
-
-            setData(next);
+            });
         } catch (e: any) {
             setError(String(e?.message || 'Failed to load finances'));
             setData(null);
         } finally {
             setLoading(false);
         }
-    }, [mode, year, month, selectedLessonTypes, selectedStatuses]);
+    }, [expenseMode, mode, month, selectedLessonTypes, selectedStatuses, year]);
 
     useEffect(() => {
         void fetchData();
     }, [fetchData]);
-
-    const availableLessonTypes = lessonTypeOptions;
 
     const chartData = useMemo(() => {
         const pts = data?.points || [];
@@ -471,127 +485,224 @@ export default function FinancesManager() {
                 {admin.t('admin.finances.title', 'Finances')}
             </Typography>
             <Typography color="text.secondary" sx={{ mb: 2 }}>
-                {admin.t(
-                    'admin.finances.subtitle',
-                    'Revenue and tips from sessions, plus expenses from receipts.'
-                )}
+                {admin.t('admin.finances.subtitle', 'Revenue and tips from sessions, plus expenses from receipts.')}
             </Typography>
 
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 2, flexWrap: 'wrap' }}>
-                <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                        {admin.t('admin.finances.mode', 'Range')}
-                    </Typography>
-                    <ToggleButtonGroup
-                        size="small"
-                        exclusive
-                        value={mode}
-                        onChange={(_, v) => {
-                            const next = v as Mode | null;
-                            if (next) setMode(next);
-                        }}
+            <Card variant="outlined" sx={{ mb: 2 }}>
+                <CardContent sx={{ pt: 2, '&:last-child': { pb: 2 } }}>
+                    <Stack
+                        direction={{ xs: 'column', md: 'row' }}
+                        spacing={2}
+                        useFlexGap
+                        sx={{ flexWrap: 'wrap', alignItems: { xs: 'stretch', md: 'flex-end' } }}
                     >
-                        <ToggleButton value="year">{admin.t('admin.finances.mode.year', 'Year')}</ToggleButton>
-                        <ToggleButton value="month">{admin.t('admin.finances.mode.month', 'Month')}</ToggleButton>
-                    </ToggleButtonGroup>
-                </Box>
+                        <Box sx={{ minWidth: 200 }}>
+                            <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 700 }}>
+                                {admin.t('admin.finances.mode', 'Range')}
+                            </Typography>
+                            <ToggleButtonGroup
+                                size="small"
+                                exclusive
+                                value={mode}
+                                onChange={(_, v) => {
+                                    const next = v as Mode | null;
+                                    if (next) setMode(next);
+                                }}
+                                sx={{ width: { xs: '100%', md: 'auto' } }}
+                            >
+                                <ToggleButton value="year" sx={{ flex: { xs: 1, md: 'initial' } }}>
+                                    {admin.t('admin.finances.mode.year', 'Year')}
+                                </ToggleButton>
+                                <ToggleButton value="month" sx={{ flex: { xs: 1, md: 'initial' } }}>
+                                    {admin.t('admin.finances.mode.month', 'Month')}
+                                </ToggleButton>
+                            </ToggleButtonGroup>
+                        </Box>
 
-                <FormControl size="small" sx={{ minWidth: 140 }}>
-                    <InputLabel id="fin-year-label">{admin.t('admin.finances.year', 'Year')}</InputLabel>
-                    <Select
-                        labelId="fin-year-label"
-                        label={admin.t('admin.finances.year', 'Year')}
-                        value={String(year)}
-                        onChange={(e) => setYear(Number(e.target.value))}
+                        <Box sx={{ minWidth: 140 }}>
+                            <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 700 }}>
+                                {admin.t('admin.finances.year', 'Year')}
+                            </Typography>
+                            <FormControl size="small" fullWidth>
+                                <Select
+                                    value={String(year)}
+                                    onChange={(e) => setYear(Number(e.target.value))}
+                                    inputProps={{ 'aria-label': admin.t('admin.finances.year', 'Year') as string }}
+                                >
+                                    {yearOptions.map((y) => (
+                                        <MenuItem key={y} value={String(y)}>
+                                            {y}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Box>
+
+                        {mode === 'month' ? (
+                            <Box sx={{ minWidth: 160 }}>
+                                <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 700 }}>
+                                    {admin.t('admin.finances.month', 'Month')}
+                                </Typography>
+                                <FormControl size="small" fullWidth>
+                                    <Select
+                                        value={String(month)}
+                                        onChange={(e) => setMonth(Number(e.target.value))}
+                                        inputProps={{ 'aria-label': admin.t('admin.finances.month', 'Month') as string }}
+                                    >
+                                        {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                                            <MenuItem key={m} value={String(m)}>
+                                                {String(m).padStart(2, '0')}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            </Box>
+                        ) : null}
+
+                        <Box sx={{ minWidth: 200 }}>
+                            <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 700 }}>
+                                {admin.t('admin.finances.chartType', 'Chart')}
+                            </Typography>
+                            <ToggleButtonGroup
+                                size="small"
+                                exclusive
+                                value={chartType}
+                                onChange={(_, v) => {
+                                    const next = v as ChartType | null;
+                                    if (next) setChartType(next);
+                                }}
+                                sx={{ width: { xs: '100%', md: 'auto' } }}
+                            >
+                                <ToggleButton value="line" sx={{ flex: { xs: 1, md: 'initial' } }}>
+                                    {admin.t('admin.finances.chartType.line', 'Line')}
+                                </ToggleButton>
+                                <ToggleButton value="bar" sx={{ flex: { xs: 1, md: 'initial' } }}>
+                                    {admin.t('admin.finances.chartType.bar', 'Bar')}
+                                </ToggleButton>
+                            </ToggleButtonGroup>
+                        </Box>
+                    </Stack>
+
+                    <Stack
+                        direction={{ xs: 'column', md: 'row' }}
+                        spacing={2}
+                        useFlexGap
+                        sx={{ mt: 2, flexWrap: 'wrap', alignItems: { xs: 'stretch', md: 'flex-end' } }}
                     >
-                        {yearOptions.map((y) => (
-                            <MenuItem key={y} value={String(y)}>
-                                {y}
-                            </MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
+                        <Box sx={{ minWidth: 240 }}>
+                            <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 700 }}>
+                                {admin.t('admin.finances.expensesMode', 'Expenses')}
+                            </Typography>
+                            <FormControl size="small" fullWidth>
+                                <Select
+                                    value={expenseMode}
+                                    onChange={(e) => setExpenseMode(e.target.value as any)}
+                                    inputProps={{ 'aria-label': admin.t('admin.finances.expensesMode', 'Expenses') as string }}
+                                >
+                                    <MenuItem value="total">{admin.t('admin.finances.expensesMode.total', 'Total expenses')}</MenuItem>
+                                    {EXPENSE_CATEGORIES.map((c) => (
+                                        <MenuItem key={c} value={c}>
+                                            {String(c)}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Box>
 
-                {mode === 'month' ? (
-                    <FormControl size="small" sx={{ minWidth: 160 }}>
-                        <InputLabel id="fin-month-label">{admin.t('admin.finances.month', 'Month')}</InputLabel>
-                        <Select
-                            labelId="fin-month-label"
-                            label={admin.t('admin.finances.month', 'Month')}
-                            value={String(month)}
-                            onChange={(e) => setMonth(Number(e.target.value))}
-                        >
-                            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                                <MenuItem key={m} value={String(m)}>
-                                    {String(m).padStart(2, '0')}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                ) : null}
+                        <Box sx={{ minWidth: 240 }}>
+                            <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 700 }}>
+                                {admin.t('admin.finances.lessonTypes', 'Lesson types')}
+                            </Typography>
+                            <FormControl size="small" fullWidth>
+                                <Select
+                                    multiple
+                                    value={selectedLessonTypes}
+                                    onChange={(e) => setSelectedLessonTypes(e.target.value as string[])}
+                                    inputProps={{ 'aria-label': admin.t('admin.finances.lessonTypes', 'Lesson types') as string }}
+                                    renderValue={(selected) => {
+                                        if (!selected.length) return admin.t('admin.common.all', 'All');
+                                        const labelByKey = new Map(availableLessonTypes.map((o) => [o.key, o.label] as const));
+                                        return selected.map((k) => labelByKey.get(String(k)) || String(k)).join(', ');
+                                    }}
+                                >
+                                    {availableLessonTypes.map((lt) => (
+                                        <MenuItem key={lt.key} value={lt.key}>
+                                            {lt.label}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Box>
 
-                <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                        {admin.t('admin.finances.chartType', 'Chart')}
-                    </Typography>
-                    <ToggleButtonGroup
-                        size="small"
-                        exclusive
-                        value={chartType}
-                        onChange={(_, v) => {
-                            const next = v as ChartType | null;
-                            if (next) setChartType(next);
-                        }}
-                    >
-                        <ToggleButton value="line">{admin.t('admin.finances.chartType.line', 'Line')}</ToggleButton>
-                        <ToggleButton value="bar">{admin.t('admin.finances.chartType.bar', 'Bar')}</ToggleButton>
-                    </ToggleButtonGroup>
-                </Box>
+                        <Box sx={{ minWidth: 280 }}>
+                            <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 700 }}>
+                                {admin.t('admin.finances.statuses', 'Statuses')}
+                            </Typography>
+                            <FormControl size="small" fullWidth>
+                                <Select
+                                    multiple
+                                    value={selectedStatuses}
+                                    onChange={(e) => setSelectedStatuses(e.target.value as LessonStatus[])}
+                                    inputProps={{ 'aria-label': admin.t('admin.finances.statuses', 'Statuses') as string }}
+                                    renderValue={(selected) => {
+                                        if (!selected.length) return admin.t('admin.common.all', 'All');
+                                        const labelByValue = new Map(STATUS_OPTIONS.map((o) => [o.value, o.label] as const));
+                                        return selected.map((s) => labelByValue.get(s) || s).join(', ');
+                                    }}
+                                >
+                                    {STATUS_OPTIONS.map((o) => (
+                                        <MenuItem key={o.value} value={o.value}>
+                                            {o.label}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Box>
 
-                <FormControl size="small" sx={{ minWidth: 240 }}>
-                    <InputLabel id="fin-lesson-type-label">{admin.t('admin.finances.lessonTypes', 'Lesson types')}</InputLabel>
-                    <Select
-                        multiple
-                        labelId="fin-lesson-type-label"
-                        label={admin.t('admin.finances.lessonTypes', 'Lesson types')}
-                        value={selectedLessonTypes}
-                        onChange={(e) => setSelectedLessonTypes(e.target.value as string[])}
-                        renderValue={(selected) => {
-                            if (!selected.length) return admin.t('admin.common.all', 'All');
-                            const labelByKey = new Map(availableLessonTypes.map((o) => [o.key, o.label] as const));
-                            return selected.map((k) => labelByKey.get(String(k)) || String(k)).join(', ');
-                        }}
-                    >
-                        {availableLessonTypes.map((lt) => (
-                            <MenuItem key={lt.key} value={lt.key}>
-                                {lt.label}
-                            </MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
-
-                <FormControl size="small" sx={{ minWidth: 280 }}>
-                    <InputLabel id="fin-status-label">{admin.t('admin.finances.statuses', 'Statuses')}</InputLabel>
-                    <Select
-                        multiple
-                        labelId="fin-status-label"
-                        label={admin.t('admin.finances.statuses', 'Statuses')}
-                        value={selectedStatuses}
-                        onChange={(e) => setSelectedStatuses(e.target.value as LessonStatus[])}
-                        renderValue={(selected) => {
-                            if (!selected.length) return admin.t('admin.common.all', 'All');
-                            const labelByValue = new Map(STATUS_OPTIONS.map((o) => [o.value, o.label] as const));
-                            return selected.map((s) => labelByValue.get(s) || s).join(', ');
-                        }}
-                    >
-                        {STATUS_OPTIONS.map((o) => (
-                            <MenuItem key={o.value} value={o.value}>
-                                {o.label}
-                            </MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
-            </Stack>
+                        {chartType === 'line' ? (
+                            <Box sx={{ minWidth: 260 }}>
+                                <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 700 }}>
+                                    {admin.t('admin.finances.runningLines', 'Running lines')}
+                                </Typography>
+                                <FormControl size="small" fullWidth>
+                                    <Select
+                                        multiple
+                                        value={runningSeries}
+                                        onChange={(e) => setRunningSeries(e.target.value as RunningSeriesKey[])}
+                                        inputProps={{ 'aria-label': admin.t('admin.finances.runningLines', 'Running lines') as string }}
+                                        renderValue={(selected) => {
+                                            const set = new Set(selected as string[]);
+                                            const names: string[] = [];
+                                            if (set.has('runningTotal')) names.push(admin.t('admin.finances.runningTotal', 'Running total'));
+                                            if (set.has('runningRevenue')) names.push(admin.t('admin.finances.runningRevenue', 'Running lesson revenue'));
+                                            if (set.has('runningTips')) names.push(admin.t('admin.finances.runningTips', 'Running tips'));
+                                            if (set.has('runningExpenses')) names.push(admin.t('admin.finances.runningExpenses', 'Running expenses'));
+                                            return names.length ? names.join(', ') : admin.t('admin.common.none', '—');
+                                        }}
+                                    >
+                                        <MenuItem value="runningTotal">
+                                            <Checkbox checked={runningSeries.includes('runningTotal')} />
+                                            <ListItemText primary={admin.t('admin.finances.runningTotal', 'Running total')} />
+                                        </MenuItem>
+                                        <MenuItem value="runningRevenue">
+                                            <Checkbox checked={runningSeries.includes('runningRevenue')} />
+                                            <ListItemText primary={admin.t('admin.finances.runningRevenue', 'Running lesson revenue')} />
+                                        </MenuItem>
+                                        <MenuItem value="runningTips">
+                                            <Checkbox checked={runningSeries.includes('runningTips')} />
+                                            <ListItemText primary={admin.t('admin.finances.runningTips', 'Running tips')} />
+                                        </MenuItem>
+                                        <MenuItem value="runningExpenses">
+                                            <Checkbox checked={runningSeries.includes('runningExpenses')} />
+                                            <ListItemText primary={admin.t('admin.finances.runningExpenses', 'Running expenses')} />
+                                        </MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Box>
+                        ) : null}
+                    </Stack>
+                </CardContent>
+            </Card>
 
             {loading ? (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 2 }}>
@@ -604,32 +715,32 @@ export default function FinancesManager() {
                 </Alert>
             ) : data ? (
                 <>
-                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mb: 2, flexWrap: 'wrap' }}>
-                        <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2, flex: 1 }}>
+                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
+                        <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2, flex: 1, minWidth: 220 }}>
                             <Typography variant="body2" color="text.secondary">
                                 {admin.t('admin.finances.totalRevenue', 'Total revenue')}
                             </Typography>
                             <Typography variant="h6">{formatMoney(data.totals.revenue)}</Typography>
                         </Box>
-                        <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2, flex: 1 }}>
+                        <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2, flex: 1, minWidth: 220 }}>
                             <Typography variant="body2" color="text.secondary">
                                 {admin.t('admin.finances.totalTips', 'Total tips')}
                             </Typography>
                             <Typography variant="h6">{formatMoney(data.totals.tips)}</Typography>
                         </Box>
-                        <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2, flex: 1 }}>
+                        <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2, flex: 1, minWidth: 220 }}>
                             <Typography variant="body2" color="text.secondary">
                                 {admin.t('admin.finances.totalExpenses', 'Total expenses')}
                             </Typography>
                             <Typography variant="h6">{formatMoney(data.totals.expenses)}</Typography>
                         </Box>
-                        <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2, flex: 1 }}>
+                        <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2, flex: 1, minWidth: 220 }}>
                             <Typography variant="body2" color="text.secondary">
                                 {admin.t('admin.finances.net', 'Net')}
                             </Typography>
                             <Typography variant="h6">{formatMoney(data.totals.net)}</Typography>
                         </Box>
-                        <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2, flex: 1 }}>
+                        <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2, flex: 1, minWidth: 220 }}>
                             <Typography variant="body2" color="text.secondary">
                                 {admin.t('admin.finances.totalSessions', 'Sessions')}
                             </Typography>
@@ -638,7 +749,7 @@ export default function FinancesManager() {
                                 {admin.t('admin.finances.expenseReceiptsCount', 'Expense receipts')}: {data.totals.expenseReceiptsCount}
                             </Typography>
                         </Box>
-                    </Stack>
+                    </Box>
 
                     <Box sx={{ height: 320, border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 1, mb: 2 }}>
                         <ResponsiveContainer width="100%" height="100%">
@@ -679,38 +790,46 @@ export default function FinancesManager() {
                                         }}
                                     />
                                     <Legend />
-                                    <Line
-                                        type="monotone"
-                                        dataKey="runningTotal"
-                                        name={admin.t('admin.finances.runningTotal', 'Running total')}
-                                        stroke={revenueColor}
-                                        strokeWidth={2}
-                                        dot={false}
-                                    />
-                                    <Line
-                                        type="monotone"
-                                        dataKey="runningRevenue"
-                                        name={admin.t('admin.finances.runningRevenue', 'Running lesson costs')}
-                                        stroke={runningRevenueColor}
-                                        strokeWidth={2}
-                                        dot={false}
-                                    />
-                                    <Line
-                                        type="monotone"
-                                        dataKey="runningTips"
-                                        name={admin.t('admin.finances.runningTips', 'Running tips')}
-                                        stroke={tipsColor}
-                                        strokeWidth={2}
-                                        dot={false}
-                                    />
-                                    <Line
-                                        type="monotone"
-                                        dataKey="runningExpenses"
-                                        name={admin.t('admin.finances.runningExpenses', 'Running expenses')}
-                                        stroke={expensesColor}
-                                        strokeWidth={2}
-                                        dot={false}
-                                    />
+                                    {runningSeries.includes('runningTotal') ? (
+                                        <Line
+                                            type="monotone"
+                                            dataKey="runningTotal"
+                                            name={admin.t('admin.finances.runningTotal', 'Running total')}
+                                            stroke={revenueColor}
+                                            strokeWidth={2}
+                                            dot={false}
+                                        />
+                                    ) : null}
+                                    {runningSeries.includes('runningRevenue') ? (
+                                        <Line
+                                            type="monotone"
+                                            dataKey="runningRevenue"
+                                            name={admin.t('admin.finances.runningRevenue', 'Running lesson revenue')}
+                                            stroke={runningRevenueColor}
+                                            strokeWidth={2}
+                                            dot={false}
+                                        />
+                                    ) : null}
+                                    {runningSeries.includes('runningTips') ? (
+                                        <Line
+                                            type="monotone"
+                                            dataKey="runningTips"
+                                            name={admin.t('admin.finances.runningTips', 'Running tips')}
+                                            stroke={tipsColor}
+                                            strokeWidth={2}
+                                            dot={false}
+                                        />
+                                    ) : null}
+                                    {runningSeries.includes('runningExpenses') ? (
+                                        <Line
+                                            type="monotone"
+                                            dataKey="runningExpenses"
+                                            name={admin.t('admin.finances.runningExpenses', 'Running expenses')}
+                                            stroke={expensesColor}
+                                            strokeWidth={2}
+                                            dot={false}
+                                        />
+                                    ) : null}
                                 </LineChart>
                             )}
                         </ResponsiveContainer>

@@ -1,0 +1,39 @@
+# Copilot instructions — Jazzy Surf School
+
+## Shorthand / workflow meanings
+
+- **“I ran fulldb”** means: `npm run fulldb`.
+  - This is defined as: `npm run typegen && npm run snapshot`.
+  - Treat this as having already refreshed both the generated Supabase types and the backend snapshot artifacts.
+
+- `npm run typegen` regenerates Supabase types into `lib/database.types.ts`.
+- `npm run snapshot` regenerates backend reference snapshots into:
+  - `backend.snapshot.md`
+  - `backend.snapshot.sql` (when possible)
+
+## Generated backend artifacts (never edit)
+
+These files are generated outputs. **Do not manually edit them** under any circumstance:
+
+- `lib/database.types.ts`
+- `backend.snapshot.md`
+- `backend.snapshot.sql`
+
+Allowed use:
+- Read/inspect these files to understand the current backend structure, schema, RPCs, and to verify whether the backend changed.
+
+If changes are needed:
+- Make backend/schema changes via Supabase migrations in `supabase/migrations/` and/or the appropriate backend SQL sources.
+- Then regenerate via `npm run fulldb` (or ask the user to run it).
+- Do not “fix” the generated outputs directly.
+
+## Repo-specific backend notes
+
+- Migrations live in `supabase/migrations/`.
+- Data writes are **RPC-only**; do not write directly to tables from app code.
+- If a frontend change requires backend/schema/RPC changes, create a new migration in `supabase/migrations/` (then regenerate via `npm run fulldb` when appropriate).
+
+## Collaboration expectations
+
+- If the user says they already ran `fulldb`, do not request they run it again unless a later change would require regeneration.
+- Keep edits focused; avoid unrelated refactors.

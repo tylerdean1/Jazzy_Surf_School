@@ -8,6 +8,7 @@ import SessionsManager from './SessionsManager';
 import BookingRequestsManager from './BookingRequestsManager';
 import FinancesManager from './FinancesManager';
 import LessonTypesManager from './LessonTypesManager';
+import ExpensesManager from './ExpensesManager';
 import useContentBundle from '@/hooks/useContentBundle';
 import { ADMIN_PAGES, type AdminPageKey } from './adminPages';
 
@@ -64,13 +65,20 @@ export default function AdminDashboard() {
             ) : (
                 <>
                     <Box sx={{ borderBottom: 1, borderColor: 'divider', mt: 3 }}>
-                        <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-                            <Tab label={admin.t('admin.dashboard.tabs.edit', 'Edit')} />
-                            <Tab label={admin.t('admin.dashboard.tabs.bookingRequests', 'Requests & Billing')} />
-                            <Tab label={admin.t('admin.dashboard.tabs.sessions', 'Sessions')} />
-                            <Tab label={admin.t('admin.dashboard.tabs.lessonTypes', 'Lesson Types')} />
-                            <Tab label={admin.t('admin.dashboard.tabs.finances', 'Finances')} />
-                            <Tab label={admin.t('admin.dashboard.tabs.media', 'Media')} />
+                        <Tabs
+                            value={tab}
+                            onChange={(_, v) => setTab(v)}
+                            variant="scrollable"
+                            scrollButtons="auto"
+                            allowScrollButtonsMobile
+                        >
+                            <Tab sx={{ minWidth: 'max-content' }} label={admin.t('admin.dashboard.tabs.edit', 'Edit')} />
+                            <Tab sx={{ minWidth: 'max-content' }} label={admin.t('admin.dashboard.tabs.bookingRequests', 'Requests & Billing')} />
+                            <Tab sx={{ minWidth: 'max-content' }} label={admin.t('admin.dashboard.tabs.sessions', 'Sessions')} />
+                            <Tab sx={{ minWidth: 'max-content' }} label={admin.t('admin.dashboard.tabs.lessonTypes', 'Lesson Types')} />
+                            <Tab sx={{ minWidth: 'max-content' }} label={admin.t('admin.dashboard.tabs.finances', 'Finances')} />
+                            <Tab sx={{ minWidth: 'max-content' }} label={admin.t('admin.dashboard.tabs.expenses', 'Expenses')} />
+                            <Tab sx={{ minWidth: 'max-content' }} label={admin.t('admin.dashboard.tabs.media', 'Media')} />
                         </Tabs>
                     </Box>
 
@@ -132,6 +140,10 @@ export default function AdminDashboard() {
                     </TabPanel>
 
                     <TabPanel value={tab} index={5}>
+                        <ExpensesManager />
+                    </TabPanel>
+
+                    <TabPanel value={tab} index={6}>
                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
                             <Button href={`/${locale}/admin/media-upload`} variant="outlined">
                                 {admin.t('admin.dashboard.goToUpload', 'Go to Upload Page')}

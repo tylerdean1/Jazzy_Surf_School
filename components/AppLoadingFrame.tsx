@@ -5,7 +5,8 @@ import { usePathname } from 'next/navigation';
 import useContentBundle from '@/hooks/useContentBundle';
 import LoadingOverlay from '@/components/LoadingOverlay';
 
-const FALLBACK_LOADING = 'Loading…';
+const LOADING_TITLE = 'Sunset Surf Academy';
+const LOADING_SUBTITLE = 'Loading...';
 
 function normalizePathname(pathname: string) {
     // ensure no trailing slash (except root)
@@ -43,8 +44,8 @@ export default function AppLoadingFrame({
                 appReady={appReady}
                 minMs={2000}
                 maxMs={8000}
-                title={nav.t('ui.brandName', FALLBACK_LOADING)}
-                subtitle={nav.t('ui.loading', FALLBACK_LOADING)}
+                title={LOADING_TITLE}
+                subtitle={LOADING_SUBTITLE}
                 videoSrc="/loading_video.mp4"
             />
             {children}

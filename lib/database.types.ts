@@ -201,7 +201,7 @@ export type Database = {
             foreignKeyName: "business_expenses_parent_expense_id_fkey"
             columns: ["parent_expense_id"]
             isOneToOne: false
-            referencedRelation: "business_expenses"
+            referencedRelation: "sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -602,6 +602,95 @@ export type Database = {
         Args: { p_asset_id: string }
         Returns: undefined
       }
+      admin_create_business_expense: {
+        Args: {
+          p_category: Database["public"]["Enums"]["finance_category"]
+          p_description?: string
+          p_expense_date: string
+          p_is_refund?: boolean
+          p_notes?: string
+          p_parent_expense_id?: string
+          p_payment_method?: Database["public"]["Enums"]["payment_method"]
+          p_subtotal_cents?: number
+          p_tax_cents?: number
+          p_tip_cents?: number
+          p_total_cents: number
+          p_transaction_id?: string
+          p_vendor_name?: string
+        }
+        Returns: {
+          category: Database["public"]["Enums"]["finance_category"]
+          created_at: string
+          description: string | null
+          expense_date: string
+          id: string
+          is_refund: boolean
+          notes: string | null
+          parent_expense_id: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          subtotal_cents: number | null
+          tax_cents: number | null
+          tip_cents: number | null
+          total_cents: number
+          transaction_id: string | null
+          updated_at: string
+          vendor_name: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "business_expenses"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      admin_create_expense_receipt: {
+        Args: {
+          p_category: Database["public"]["Enums"]["finance_category"]
+          p_description?: string
+          p_expense_id: string
+          p_is_refund?: boolean
+          p_notes?: string
+          p_parent_receipt_id?: string
+          p_payment_method?: Database["public"]["Enums"]["payment_method"]
+          p_receipt_date: string
+          p_receipt_storage_path: string
+          p_source_type?: string
+          p_subtotal_cents?: number
+          p_tax_cents?: number
+          p_tip_cents?: number
+          p_total_cents: number
+          p_transaction_id?: string
+          p_vendor_name?: string
+        }
+        Returns: {
+          category: Database["public"]["Enums"]["finance_category"]
+          created_at: string
+          description: string | null
+          expense_id: string | null
+          id: string
+          is_refund: boolean
+          notes: string | null
+          parent_receipt_id: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          receipt_date: string
+          receipt_storage_path: string
+          session_id: string | null
+          source_type: string | null
+          subtotal_cents: number | null
+          tax_cents: number | null
+          tip_cents: number | null
+          total_cents: number
+          transaction_id: string | null
+          updated_at: string
+          vendor_name: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "receipts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       admin_create_session: {
         Args: {
           p_client_names?: string[]
@@ -673,10 +762,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      admin_delete_business_expense: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
       admin_delete_page_content: {
         Args: { p_page_key: string }
         Returns: undefined
       }
+      admin_delete_receipt: { Args: { p_id: string }; Returns: undefined }
       admin_delete_session: { Args: { p_id: string }; Returns: undefined }
       admin_get_cms_page_row: {
         Args: { p_page_key: string }
@@ -843,6 +937,37 @@ export type Database = {
           sort: number
         }[]
       }
+      admin_list_receipts_for_expense: {
+        Args: { p_expense_id: string }
+        Returns: {
+          category: Database["public"]["Enums"]["finance_category"]
+          created_at: string
+          description: string | null
+          expense_id: string | null
+          id: string
+          is_refund: boolean
+          notes: string | null
+          parent_receipt_id: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          receipt_date: string
+          receipt_storage_path: string
+          session_id: string | null
+          source_type: string | null
+          subtotal_cents: number | null
+          tax_cents: number | null
+          tip_cents: number | null
+          total_cents: number
+          transaction_id: string | null
+          updated_at: string
+          vendor_name: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "receipts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       admin_list_sessions:
         | {
             Args: never
@@ -981,6 +1106,48 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      admin_update_business_expense: {
+        Args: {
+          p_category: Database["public"]["Enums"]["finance_category"]
+          p_description?: string
+          p_expense_date: string
+          p_id: string
+          p_is_refund?: boolean
+          p_notes?: string
+          p_parent_expense_id?: string
+          p_payment_method?: Database["public"]["Enums"]["payment_method"]
+          p_subtotal_cents?: number
+          p_tax_cents?: number
+          p_tip_cents?: number
+          p_total_cents: number
+          p_transaction_id?: string
+          p_vendor_name?: string
+        }
+        Returns: {
+          category: Database["public"]["Enums"]["finance_category"]
+          created_at: string
+          description: string | null
+          expense_date: string
+          id: string
+          is_refund: boolean
+          notes: string | null
+          parent_expense_id: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          subtotal_cents: number | null
+          tax_cents: number | null
+          tip_cents: number | null
+          total_cents: number
+          transaction_id: string | null
+          updated_at: string
+          vendor_name: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "business_expenses"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       admin_update_lesson_type: {
         Args: {
           p_description?: string
@@ -1001,6 +1168,54 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "lesson_types"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      admin_update_receipt: {
+        Args: {
+          p_category: Database["public"]["Enums"]["finance_category"]
+          p_description?: string
+          p_id: string
+          p_is_refund?: boolean
+          p_notes?: string
+          p_parent_receipt_id?: string
+          p_payment_method?: Database["public"]["Enums"]["payment_method"]
+          p_receipt_date: string
+          p_receipt_storage_path: string
+          p_source_type?: string
+          p_subtotal_cents?: number
+          p_tax_cents?: number
+          p_tip_cents?: number
+          p_total_cents: number
+          p_transaction_id?: string
+          p_vendor_name?: string
+        }
+        Returns: {
+          category: Database["public"]["Enums"]["finance_category"]
+          created_at: string
+          description: string | null
+          expense_id: string | null
+          id: string
+          is_refund: boolean
+          notes: string | null
+          parent_receipt_id: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
+          receipt_date: string
+          receipt_storage_path: string
+          session_id: string | null
+          source_type: string | null
+          subtotal_cents: number | null
+          tax_cents: number | null
+          tip_cents: number | null
+          total_cents: number
+          transaction_id: string | null
+          updated_at: string
+          vendor_name: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "receipts"
           isOneToOne: true
           isSetofReturn: false
         }
