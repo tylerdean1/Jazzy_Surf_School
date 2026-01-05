@@ -8,6 +8,7 @@ import {
     Button,
     Checkbox,
     CircularProgress,
+    Dialog,
     FormControl,
     FormControlLabel,
     Grid,
@@ -229,6 +230,17 @@ async function moveStorageObject(
     fromPath: string,
     toPath: string
 ): Promise<void> {
+    if (bucket === FINANCES_BUCKET) {
+        const res = await fetch('/api/admin/finances/receipts/move', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bucket, fromPath, toPath }),
+        });
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json?.ok) throw new Error(json?.message || 'Failed to move receipt file');
+        return;
+    }
+
     const storage = supabase.storage.from(bucket);
     if (typeof (storage as any).move === 'function') {
         const { error } = await (storage as any).move(fromPath, toPath);
@@ -269,6 +281,8 @@ export default function ExpensesManager() {
 
     const [receiptsByExpenseId, setReceiptsByExpenseId] = useState<Record<string, ReceiptRow[]>>({});
     const [receiptDraftsById, setReceiptDraftsById] = useState<Record<string, ReceiptDraft>>({});
+    const [receiptPanelOpenByExpenseId, setReceiptPanelOpenByExpenseId] = useState<Record<string, boolean>>({});
+    const [receiptEditorOpenById, setReceiptEditorOpenById] = useState<Record<string, boolean>>({});
 
     const [newDraft, setNewDraft] = useState<ExpenseDraft>(() => defaultExpenseDraft());
 
@@ -277,6 +291,10 @@ export default function ExpensesManager() {
 
     const [uploadingForExpenseId, setUploadingForExpenseId] = useState<string | null>(null);
     const [selectedFileByExpenseId, setSelectedFileByExpenseId] = useState<Record<string, File | null>>({});
+
+    const [receiptViewer, setReceiptViewer] = useState<{ open: boolean; url: string; storagePath: string; title: string }>(
+        { open: false, url: '', storagePath: '', title: '' }
+    );
 
     const loadRefundParentOptions = useCallback(async () => {
         if (refundParentLoaded || refundParentLoading) return;
@@ -327,12 +345,28 @@ export default function ExpensesManager() {
 
             setReceiptsByExpenseId({});
             setReceiptDraftsById({});
+            setReceiptPanelOpenByExpenseId({});
+            setReceiptEditorOpenById({});
         } catch (e: any) {
             setError(e?.message || 'Failed to load');
         } finally {
             setLoading(false);
         }
     }, [supabase, start, end]);
+
+    const uploadReceiptFile = useCallback(async (expenseId: string, category: FinanceCategory, file: File): Promise<string> => {
+        const form = new FormData();
+        form.set('expense_id', expenseId);
+        form.set('category', String(category));
+        form.set('file', file);
+
+        const res = await fetch('/api/admin/finances/receipts/upload', { method: 'POST', body: form });
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json?.ok) throw new Error(json?.message || 'Upload failed');
+        const storagePath = String(json.storagePath || '').trim();
+        if (!storagePath) throw new Error('Upload failed');
+        return storagePath;
+    }, []);
 
     useEffect(() => {
         void loadExpenses();
@@ -380,16 +414,7 @@ export default function ExpensesManager() {
                 }
                 await (async () => {
                     if (!supabase) throw new Error('Network error');
-                    const folder = categoryToFinancesFolder(newDraft.category);
-                    const clean = sanitizeFilename(newReceiptFile.name);
-                    const objectPath = `${folder}/receipts/${created.id}/${Date.now()}_${clean}`;
-
-                    const { error: uploadErr } = await supabase.storage
-                        .from(FINANCES_BUCKET)
-                        .upload(objectPath, newReceiptFile, { upsert: false, contentType: newReceiptFile.type || undefined });
-                    if (uploadErr) throw new Error(uploadErr.message);
-
-                    const receiptStoragePath = `${FINANCES_BUCKET}/${objectPath}`;
+                    const receiptStoragePath = await uploadReceiptFile(created.id, newDraft.category, newReceiptFile);
                     await rpc(supabase, 'admin_create_expense_receipt', {
                         p_expense_id: created.id,
                         p_receipt_date: newDraft.expense_date,
@@ -420,7 +445,7 @@ export default function ExpensesManager() {
         } finally {
             setLoading(false);
         }
-    }, [supabase, newDraft, newHasReceipt, newReceiptFile, loadExpenses]);
+    }, [supabase, newDraft, newHasReceipt, newReceiptFile, loadExpenses, uploadReceiptFile]);
 
     const saveExpense = useCallback(
         async (id: string) => {
@@ -591,13 +616,49 @@ export default function ExpensesManager() {
         [supabase, rows]
     );
 
+    // Background loader (does not toggle global loading state).
+    const loadReceiptsSilently = useCallback(
+        async (expenseId: string) => {
+            try {
+                const data = await rpc<ReceiptRow[]>(supabase, 'admin_list_receipts_for_expense', {
+                    p_expense_id: expenseId,
+                });
+                const list = Array.isArray(data) ? data : [];
+                setReceiptsByExpenseId((prev) => ({ ...prev, [expenseId]: list }));
+
+                const expense = rows.find((r) => r.id === expenseId);
+                if (expense) {
+                    setReceiptDraftsById((prev) => {
+                        const next = { ...prev };
+                        for (const r of list) next[r.id] = defaultReceiptDraft(expense, r);
+                        return next;
+                    });
+                }
+            } catch {
+                // Silent by design.
+            }
+        },
+        [supabase, rows]
+    );
+
+    // Automatically load receipts for displayed expenses.
+    useEffect(() => {
+        const missing = rows
+            .map((r) => r.id)
+            .filter((id) => !Object.prototype.hasOwnProperty.call(receiptsByExpenseId, id));
+        if (!missing.length) return;
+
+        void (async () => {
+            await Promise.all(missing.map((id) => loadReceiptsSilently(id)));
+        })();
+    }, [rows, receiptsByExpenseId, loadReceiptsSilently]);
+
     const uploadReceipt = useCallback(
         async (expense: ExpenseRow) => {
             if (!supabase) throw new Error('Network error');
             const expenseId = expense.id;
             const file = selectedFileByExpenseId[expenseId];
             const chosenCategory = draftsById[expenseId]?.category ?? expense.category;
-            const folder = categoryToFinancesFolder(chosenCategory);
 
             if (!file) {
                 setError('Choose a file first');
@@ -607,16 +668,7 @@ export default function ExpensesManager() {
             setUploadingForExpenseId(expenseId);
             setError(null);
             try {
-                const clean = sanitizeFilename(file.name);
-                const objectPath = `${folder}/receipts/${expenseId}/${Date.now()}_${clean}`;
-
-                const { error: uploadErr } = await supabase.storage.from(FINANCES_BUCKET).upload(objectPath, file, {
-                    upsert: false,
-                    contentType: file.type || undefined,
-                });
-                if (uploadErr) throw new Error(uploadErr.message);
-
-                const receiptStoragePath = `${FINANCES_BUCKET}/${objectPath}`;
+                const receiptStoragePath = await uploadReceiptFile(expenseId, chosenCategory as FinanceCategory, file);
 
                 // Create receipt row (minimal, but includes required fields)
                 await rpc(supabase, 'admin_create_expense_receipt', {
@@ -648,7 +700,7 @@ export default function ExpensesManager() {
                 setUploadingForExpenseId(null);
             }
         },
-        [supabase, selectedFileByExpenseId, loadReceipts, draftsById]
+        [supabase, selectedFileByExpenseId, loadReceipts, draftsById, uploadReceiptFile]
     );
 
     const saveReceipt = useCallback(
@@ -725,26 +777,102 @@ export default function ExpensesManager() {
 
     const openReceipt = useCallback(
         async (receipt: ReceiptRow) => {
-            if (!supabase) throw new Error('Network error');
-            const { bucket, path } = splitBucketPath(receipt.receipt_storage_path);
-            if (!bucket || !path) {
+            const storagePath = String(receipt.receipt_storage_path || '').trim();
+            if (!storagePath) {
                 setError('Invalid receipt storage path');
                 return;
             }
             setError(null);
-            const { data, error: signErr } = await supabase.storage.from(bucket).createSignedUrl(path, 60);
-            if (signErr) {
-                setError(signErr.message);
+            const res = await fetch('/api/admin/finances/receipts/signed-url', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ storagePath, expiresIn: 60 }),
+            });
+            const json = await res.json().catch(() => null);
+            if (!res.ok || !json?.ok) {
+                setError(json?.message || 'Failed to open receipt');
                 return;
             }
-            const url = data?.signedUrl;
-            if (url) window.open(url, '_blank', 'noreferrer');
+            const url = String(json?.signedUrl || '').trim();
+            if (!url) {
+                setError('Failed to open receipt');
+                return;
+            }
+
+            const title = storagePath.split('/').pop() || admin.t('admin.expenses.receipt', 'Receipt');
+            setReceiptViewer({ open: true, url, storagePath, title });
         },
-        [supabase]
+        [admin]
+    );
+
+    const downloadReceiptStoragePath = useCallback(
+        (storagePath: string) => {
+            const sp = String(storagePath || '').trim();
+            if (!sp) {
+                setError('Invalid receipt storage path');
+                return;
+            }
+
+            const filename = sp.split('/').pop() || 'receipt';
+            const href = `/api/admin/finances/receipts/download?storagePath=${encodeURIComponent(sp)}&filename=${encodeURIComponent(filename)}`;
+
+            const a = document.createElement('a');
+            a.href = href;
+            a.rel = 'noreferrer';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        },
+        []
+    );
+
+    const downloadReceipt = useCallback(
+        async (receipt: ReceiptRow) => {
+            downloadReceiptStoragePath(String(receipt.receipt_storage_path || ''));
+        },
+        [downloadReceiptStoragePath]
     );
 
     return (
         <Box>
+            <Dialog
+                fullScreen
+                open={receiptViewer.open}
+                onClose={() => setReceiptViewer({ open: false, url: '', storagePath: '', title: '' })}
+                PaperProps={{ sx: { display: 'flex', flexDirection: 'column' } }}
+            >
+                <Box
+                    sx={{
+                        p: 1.5,
+                        display: 'flex',
+                        gap: 1,
+                        alignItems: 'center',
+                        borderBottom: '1px solid',
+                        borderColor: 'divider',
+                    }}
+                >
+                    <Typography variant="subtitle1" sx={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {receiptViewer.title || admin.t('admin.expenses.receipt', 'Receipt')}
+                    </Typography>
+                    <Box sx={{ flex: 1 }} />
+                    <Button variant="outlined" onClick={() => downloadReceiptStoragePath(receiptViewer.storagePath)}>
+                        {admin.t('admin.common.download', 'Download')}
+                    </Button>
+                    <Button variant="contained" onClick={() => setReceiptViewer({ open: false, url: '', storagePath: '', title: '' })}>
+                        {admin.t('admin.common.close', 'Close')}
+                    </Button>
+                </Box>
+
+                <Box sx={{ flex: 1, minHeight: 0 }}>
+                    <Box
+                        component="iframe"
+                        title={receiptViewer.title || 'Receipt'}
+                        src={receiptViewer.url}
+                        sx={{ border: 0, width: '100%', height: '100%' }}
+                    />
+                </Box>
+            </Dialog>
+
             <Typography variant="h6" sx={{ mb: 1 }}>
                 {admin.t('admin.expenses.title', 'Expenses')}
             </Typography>
@@ -959,7 +1087,15 @@ export default function ExpensesManager() {
 
                     <Grid item xs={12}>
                         <FormControlLabel
-                            control={<Checkbox checked={newHasReceipt} onChange={(e) => setNewHasReceipt(Boolean(e.target.checked))} />}
+                            control={
+                                <Checkbox
+                                    checked={newHasReceipt}
+                                    onChange={(_, checked) => {
+                                        setNewHasReceipt(checked);
+                                        if (!checked) setNewReceiptFile(null);
+                                    }}
+                                />
+                            }
                             label={admin.t('admin.expenses.fields.hasReceipt', 'Has receipt')}
                         />
                         {newHasReceipt ? (
@@ -1310,44 +1446,50 @@ export default function ExpensesManager() {
                                         <FormControlLabel
                                             control={
                                                 <Checkbox
-                                                    checked={Boolean(receiptList ? receiptList.length : false)}
-                                                    onChange={() => {
-                                                        // No DB field; this just controls whether the receipt area is used.
+                                                    checked={Boolean(receiptPanelOpenByExpenseId[r.id] ?? (receiptList ? receiptList.length : false))}
+                                                    onChange={(_, checked) => {
+                                                        setReceiptPanelOpenByExpenseId((p) => ({ ...p, [r.id]: checked }));
                                                         // If receipts are not loaded yet, load them so we know current state.
-                                                        if (!receiptList) void loadReceipts(r.id);
+                                                        if (checked && !receiptList) void loadReceipts(r.id);
                                                     }}
                                                 />
                                             }
                                             label={admin.t('admin.expenses.fields.hasReceipt', 'Has receipt')}
                                         />
 
-                                        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ mt: 1, alignItems: { md: 'center' } }}>
-                                            <Button component="label" variant="outlined" disabled={uploading}>
-                                                {admin.t('admin.expenses.upload.chooseFile', 'Choose file')}
-                                                <input
-                                                    hidden
-                                                    type="file"
-                                                    onChange={(e) => {
-                                                        const f = e.target.files?.[0] ?? null;
-                                                        setSelectedFileByExpenseId((p) => ({ ...p, [r.id]: f }));
-                                                    }}
-                                                />
-                                            </Button>
+                                        {receiptPanelOpenByExpenseId[r.id] ?? (receiptList ? receiptList.length : false) ? (
+                                            <Stack
+                                                direction={{ xs: 'column', md: 'row' }}
+                                                spacing={1}
+                                                sx={{ mt: 1, alignItems: { md: 'center' } }}
+                                            >
+                                                <Button component="label" variant="outlined" disabled={uploading}>
+                                                    {admin.t('admin.expenses.upload.chooseFile', 'Choose file')}
+                                                    <input
+                                                        hidden
+                                                        type="file"
+                                                        onChange={(e) => {
+                                                            const f = e.target.files?.[0] ?? null;
+                                                            setSelectedFileByExpenseId((p) => ({ ...p, [r.id]: f }));
+                                                        }}
+                                                    />
+                                                </Button>
 
-                                            <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
-                                                {selectedFileByExpenseId[r.id]?.name || admin.t('admin.common.none', '—')}
-                                            </Typography>
+                                                <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
+                                                    {selectedFileByExpenseId[r.id]?.name || admin.t('admin.common.none', '—')}
+                                                </Typography>
 
-                                            <Typography variant="body2" color="text.secondary">
-                                                {FINANCES_BUCKET}/{folder}
-                                            </Typography>
+                                                <Typography variant="body2" color="text.secondary">
+                                                    {FINANCES_BUCKET}/{folder}
+                                                </Typography>
 
-                                            <Button variant="contained" onClick={() => void uploadReceipt(r)} disabled={uploading}>
-                                                {uploading
-                                                    ? admin.t('admin.expenses.upload.uploading', 'Uploading…')
-                                                    : admin.t('admin.expenses.upload.uploadAttach', 'Upload & attach')}
-                                            </Button>
-                                        </Stack>
+                                                <Button variant="contained" onClick={() => void uploadReceipt(r)} disabled={uploading}>
+                                                    {uploading
+                                                        ? admin.t('admin.expenses.upload.uploading', 'Uploading…')
+                                                        : admin.t('admin.expenses.upload.uploadAttach', 'Upload & attach')}
+                                                </Button>
+                                            </Stack>
+                                        ) : null}
                                     </Grid>
                                 </Grid>
 
@@ -1357,7 +1499,7 @@ export default function ExpensesManager() {
                                             {admin.t('admin.expenses.receipts', 'Receipts')}
                                         </Typography>
                                         <Button variant="outlined" onClick={() => void loadReceipts(r.id)} disabled={loading}>
-                                            {admin.t('admin.common.load', 'Load')}
+                                            {admin.t('admin.common.refresh', 'Refresh')}
                                         </Button>
                                     </Stack>
 
@@ -1366,39 +1508,57 @@ export default function ExpensesManager() {
                                             {!receiptList.length ? (
                                                 <Typography color="text.secondary">{admin.t('admin.common.none', '—')}</Typography>
                                             ) : (
-                                                <Stack spacing={2}>
+                                                <Stack spacing={1}>
                                                     {receiptList.map((rec) => {
                                                         const expense = r;
-                                                        const rd = receiptDraftsById[rec.id] ?? defaultReceiptDraft(expense, rec);
+                                                        const storagePath = String(rec.receipt_storage_path || '').trim();
+                                                        const filename = (storagePath.split('/').pop() || '').trim() || admin.t('admin.expenses.receipt', 'Receipt');
+                                                        const total = formatUsdFromCents(rec.total_cents);
+                                                        const date = rec.receipt_date;
+                                                        const isEditing = Boolean(receiptEditorOpenById[rec.id]);
 
                                                         return (
                                                             <Box
                                                                 key={rec.id}
                                                                 sx={{
-                                                                    p: 2,
+                                                                    p: 1.5,
                                                                     border: '1px solid',
                                                                     borderColor: 'divider',
                                                                     borderRadius: 2,
                                                                     backgroundColor: 'background.paper',
                                                                 }}
                                                             >
-                                                                <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ mb: 1 }}>
-                                                                    <Box sx={{ flex: 1 }}>
-                                                                        <Typography variant="subtitle2">
-                                                                            {admin.t('admin.expenses.receipt', 'Receipt')} · {rec.receipt_date}
+                                                                <Stack
+                                                                    direction={{ xs: 'column', md: 'row' }}
+                                                                    spacing={1}
+                                                                    sx={{ alignItems: { md: 'center' } }}
+                                                                >
+                                                                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                                        <Typography variant="subtitle2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                            {filename}
                                                                         </Typography>
-                                                                        <Box sx={{ fontFamily: 'monospace', fontSize: 12, color: 'text.secondary' }}>{rec.id}</Box>
+                                                                        <Typography variant="body2" color="text.secondary">
+                                                                            {date} · ${total || '—'}
+                                                                        </Typography>
                                                                     </Box>
-                                                                    <Stack direction="row" spacing={1}>
-                                                                        <Button variant="outlined" onClick={() => void openReceipt(rec)}>
-                                                                            {admin.t('admin.common.open', 'Open')}
-                                                                        </Button>
+
+                                                                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
                                                                         <Button
                                                                             variant="outlined"
-                                                                            onClick={() => void saveReceipt(expense, rec.id)}
-                                                                            disabled={loading}
+                                                                            onClick={() =>
+                                                                                setReceiptEditorOpenById((p) => ({
+                                                                                    ...p,
+                                                                                    [rec.id]: !Boolean(p[rec.id]),
+                                                                                }))
+                                                                            }
                                                                         >
-                                                                            {admin.t('admin.common.save', 'Save')}
+                                                                            {isEditing ? admin.t('admin.common.collapse', 'Collapse') : admin.t('admin.common.edit', 'Edit')}
+                                                                        </Button>
+                                                                        <Button variant="outlined" onClick={() => void openReceipt(rec)}>
+                                                                            {admin.t('admin.common.view', 'View')}
+                                                                        </Button>
+                                                                        <Button variant="outlined" onClick={() => void downloadReceipt(rec)}>
+                                                                            {admin.t('admin.common.download', 'Download')}
                                                                         </Button>
                                                                         <Button
                                                                             color="error"
@@ -1411,247 +1571,330 @@ export default function ExpensesManager() {
                                                                     </Stack>
                                                                 </Stack>
 
-                                                                <Grid container spacing={2}>
-                                                                    <Grid item xs={12} sm={4}>
-                                                                        <TextField
-                                                                            fullWidth
-                                                                            size="small"
-                                                                            type="date"
-                                                                            label={admin.t('admin.expenses.fields.date', 'Date')}
-                                                                            InputLabelProps={{ shrink: true }}
-                                                                            value={rd.receipt_date}
-                                                                            onChange={(e) =>
-                                                                                setReceiptDraftsById((p) => ({
-                                                                                    ...p,
-                                                                                    [rec.id]: { ...rd, receipt_date: String(e.target.value || '') },
-                                                                                }))
-                                                                            }
-                                                                        />
-                                                                    </Grid>
-                                                                    <Grid item xs={12} sm={4}>
-                                                                        <TextField
-                                                                            fullWidth
-                                                                            size="small"
-                                                                            label={admin.t('admin.expenses.fields.vendor', 'Vendor')}
-                                                                            value={rd.vendor_name}
-                                                                            onChange={(e) =>
-                                                                                setReceiptDraftsById((p) => ({
-                                                                                    ...p,
-                                                                                    [rec.id]: { ...rd, vendor_name: String(e.target.value || '') },
-                                                                                }))
-                                                                            }
-                                                                        />
-                                                                    </Grid>
-                                                                    <Grid item xs={12} sm={4}>
-                                                                        <FormControl fullWidth size="small">
-                                                                            <InputLabel id={`receipt-cat-${rec.id}`}>{admin.t('admin.expenses.fields.category', 'Category')}</InputLabel>
-                                                                            <Select
-                                                                                labelId={`receipt-cat-${rec.id}`}
-                                                                                label={admin.t('admin.expenses.fields.category', 'Category')}
-                                                                                value={rd.category}
-                                                                                onChange={(e) =>
-                                                                                    setReceiptDraftsById((p) => ({
-                                                                                        ...p,
-                                                                                        [rec.id]: { ...rd, category: e.target.value as FinanceCategory },
-                                                                                    }))
-                                                                                }
-                                                                            >
-                                                                                {FINANCE_CATEGORIES.map((c) => (
-                                                                                    <MenuItem key={c} value={c}>
-                                                                                        {c}
-                                                                                    </MenuItem>
-                                                                                ))}
-                                                                            </Select>
-                                                                        </FormControl>
-                                                                    </Grid>
+                                                                {isEditing ? (
+                                                                    <Box sx={{ mt: 2 }}>
+                                                                        <Grid container spacing={2}>
+                                                                            {(() => {
+                                                                                const rd = receiptDraftsById[rec.id] ?? defaultReceiptDraft(expense, rec);
+                                                                                return (
+                                                                                    <>
+                                                                                        <Grid item xs={12} sm={4}>
+                                                                                            <TextField
+                                                                                                fullWidth
+                                                                                                size="small"
+                                                                                                type="date"
+                                                                                                label={admin.t('admin.expenses.fields.date', 'Date')}
+                                                                                                InputLabelProps={{ shrink: true }}
+                                                                                                value={rd.receipt_date}
+                                                                                                onChange={(e) =>
+                                                                                                    setReceiptDraftsById((p) => ({
+                                                                                                        ...p,
+                                                                                                        [rec.id]: {
+                                                                                                            ...rd,
+                                                                                                            receipt_date: String(e.target.value || ''),
+                                                                                                        },
+                                                                                                    }))
+                                                                                                }
+                                                                                            />
+                                                                                        </Grid>
+                                                                                        <Grid item xs={12} sm={4}>
+                                                                                            <TextField
+                                                                                                fullWidth
+                                                                                                size="small"
+                                                                                                label={admin.t('admin.expenses.fields.vendor', 'Vendor')}
+                                                                                                value={rd.vendor_name}
+                                                                                                onChange={(e) =>
+                                                                                                    setReceiptDraftsById((p) => ({
+                                                                                                        ...p,
+                                                                                                        [rec.id]: {
+                                                                                                            ...rd,
+                                                                                                            vendor_name: String(e.target.value || ''),
+                                                                                                        },
+                                                                                                    }))
+                                                                                                }
+                                                                                            />
+                                                                                        </Grid>
+                                                                                        <Grid item xs={12} sm={4}>
+                                                                                            <FormControl fullWidth size="small">
+                                                                                                <InputLabel id={`receipt-cat-${rec.id}`}>
+                                                                                                    {admin.t('admin.expenses.fields.category', 'Category')}
+                                                                                                </InputLabel>
+                                                                                                <Select
+                                                                                                    labelId={`receipt-cat-${rec.id}`}
+                                                                                                    label={admin.t('admin.expenses.fields.category', 'Category')}
+                                                                                                    value={rd.category}
+                                                                                                    onChange={(e) =>
+                                                                                                        setReceiptDraftsById((p) => ({
+                                                                                                            ...p,
+                                                                                                            [rec.id]: {
+                                                                                                                ...rd,
+                                                                                                                category: e.target.value as FinanceCategory,
+                                                                                                            },
+                                                                                                        }))
+                                                                                                    }
+                                                                                                >
+                                                                                                    {FINANCE_CATEGORIES.map((c) => (
+                                                                                                        <MenuItem key={c} value={c}>
+                                                                                                            {c}
+                                                                                                        </MenuItem>
+                                                                                                    ))}
+                                                                                                </Select>
+                                                                                            </FormControl>
+                                                                                        </Grid>
 
-                                                                    <Grid item xs={12} sm={6}>
-                                                                        <TextField
-                                                                            fullWidth
-                                                                            size="small"
-                                                                            label={admin.t('admin.expenses.fields.description', 'Description')}
-                                                                            value={rd.description}
-                                                                            onChange={(e) =>
-                                                                                setReceiptDraftsById((p) => ({
-                                                                                    ...p,
-                                                                                    [rec.id]: { ...rd, description: String(e.target.value || '') },
-                                                                                }))
-                                                                            }
-                                                                        />
-                                                                    </Grid>
-                                                                    <Grid item xs={12} sm={6}>
-                                                                        <FormControl fullWidth size="small">
-                                                                            <InputLabel id={`receipt-method-${rec.id}`}>{admin.t('admin.expenses.fields.paymentMethod', 'Payment method')}</InputLabel>
-                                                                            <Select
-                                                                                labelId={`receipt-method-${rec.id}`}
-                                                                                label={admin.t('admin.expenses.fields.paymentMethod', 'Payment method')}
-                                                                                value={rd.payment_method}
-                                                                                onChange={(e) =>
-                                                                                    setReceiptDraftsById((p) => ({
-                                                                                        ...p,
-                                                                                        [rec.id]: { ...rd, payment_method: String(e.target.value || '') as any },
-                                                                                    }))
-                                                                                }
-                                                                            >
-                                                                                <MenuItem value="">{admin.t('admin.common.none', '—')}</MenuItem>
-                                                                                {PAYMENT_METHODS.map((m) => (
-                                                                                    <MenuItem key={m} value={m}>
-                                                                                        {m}
-                                                                                    </MenuItem>
-                                                                                ))}
-                                                                            </Select>
-                                                                        </FormControl>
-                                                                    </Grid>
+                                                                                        <Grid item xs={12} sm={6}>
+                                                                                            <TextField
+                                                                                                fullWidth
+                                                                                                size="small"
+                                                                                                label={admin.t('admin.expenses.fields.description', 'Description')}
+                                                                                                value={rd.description}
+                                                                                                onChange={(e) =>
+                                                                                                    setReceiptDraftsById((p) => ({
+                                                                                                        ...p,
+                                                                                                        [rec.id]: {
+                                                                                                            ...rd,
+                                                                                                            description: String(e.target.value || ''),
+                                                                                                        },
+                                                                                                    }))
+                                                                                                }
+                                                                                            />
+                                                                                        </Grid>
+                                                                                        <Grid item xs={12} sm={6}>
+                                                                                            <FormControl fullWidth size="small">
+                                                                                                <InputLabel id={`receipt-method-${rec.id}`}>
+                                                                                                    {admin.t(
+                                                                                                        'admin.expenses.fields.paymentMethod',
+                                                                                                        'Payment method'
+                                                                                                    )}
+                                                                                                </InputLabel>
+                                                                                                <Select
+                                                                                                    labelId={`receipt-method-${rec.id}`}
+                                                                                                    label={admin.t(
+                                                                                                        'admin.expenses.fields.paymentMethod',
+                                                                                                        'Payment method'
+                                                                                                    )}
+                                                                                                    value={rd.payment_method}
+                                                                                                    onChange={(e) =>
+                                                                                                        setReceiptDraftsById((p) => ({
+                                                                                                            ...p,
+                                                                                                            [rec.id]: {
+                                                                                                                ...rd,
+                                                                                                                payment_method: String(e.target.value || '') as any,
+                                                                                                            },
+                                                                                                        }))
+                                                                                                    }
+                                                                                                >
+                                                                                                    <MenuItem value="">{admin.t('admin.common.none', '—')}</MenuItem>
+                                                                                                    {PAYMENT_METHODS.map((m) => (
+                                                                                                        <MenuItem key={m} value={m}>
+                                                                                                            {m}
+                                                                                                        </MenuItem>
+                                                                                                    ))}
+                                                                                                </Select>
+                                                                                            </FormControl>
+                                                                                        </Grid>
 
-                                                                    <Grid item xs={12} sm={3}>
-                                                                        <TextField
-                                                                            fullWidth
-                                                                            size="small"
-                                                                            label={admin.t('admin.expenses.fields.subtotal', 'Subtotal (USD)')}
-                                                                            value={rd.subtotal_usd}
-                                                                            onChange={(e) =>
-                                                                                setReceiptDraftsById((p) => ({
-                                                                                    ...p,
-                                                                                    [rec.id]: { ...rd, subtotal_usd: String(e.target.value || '') },
-                                                                                }))
-                                                                            }
-                                                                        />
-                                                                    </Grid>
-                                                                    <Grid item xs={12} sm={3}>
-                                                                        <TextField
-                                                                            fullWidth
-                                                                            size="small"
-                                                                            label={admin.t('admin.expenses.fields.tax', 'Tax (USD)')}
-                                                                            value={rd.tax_usd}
-                                                                            onChange={(e) =>
-                                                                                setReceiptDraftsById((p) => ({
-                                                                                    ...p,
-                                                                                    [rec.id]: { ...rd, tax_usd: String(e.target.value || '') },
-                                                                                }))
-                                                                            }
-                                                                        />
-                                                                    </Grid>
-                                                                    <Grid item xs={12} sm={3}>
-                                                                        <TextField
-                                                                            fullWidth
-                                                                            size="small"
-                                                                            label={admin.t('admin.expenses.fields.tip', 'Tip (USD)')}
-                                                                            value={rd.tip_usd}
-                                                                            onChange={(e) =>
-                                                                                setReceiptDraftsById((p) => ({
-                                                                                    ...p,
-                                                                                    [rec.id]: { ...rd, tip_usd: String(e.target.value || '') },
-                                                                                }))
-                                                                            }
-                                                                        />
-                                                                    </Grid>
-                                                                    <Grid item xs={12} sm={3}>
-                                                                        <TextField
-                                                                            fullWidth
-                                                                            size="small"
-                                                                            label={admin.t('admin.expenses.fields.total', 'Total (USD)')}
-                                                                            value={rd.total_usd}
-                                                                            onChange={(e) =>
-                                                                                setReceiptDraftsById((p) => ({
-                                                                                    ...p,
-                                                                                    [rec.id]: { ...rd, total_usd: String(e.target.value || '') },
-                                                                                }))
-                                                                            }
-                                                                        />
-                                                                    </Grid>
+                                                                                        <Grid item xs={12} sm={3}>
+                                                                                            <TextField
+                                                                                                fullWidth
+                                                                                                size="small"
+                                                                                                label={admin.t('admin.expenses.fields.subtotal', 'Subtotal (USD)')}
+                                                                                                value={rd.subtotal_usd}
+                                                                                                onChange={(e) =>
+                                                                                                    setReceiptDraftsById((p) => ({
+                                                                                                        ...p,
+                                                                                                        [rec.id]: {
+                                                                                                            ...rd,
+                                                                                                            subtotal_usd: String(e.target.value || ''),
+                                                                                                        },
+                                                                                                    }))
+                                                                                                }
+                                                                                            />
+                                                                                        </Grid>
+                                                                                        <Grid item xs={12} sm={3}>
+                                                                                            <TextField
+                                                                                                fullWidth
+                                                                                                size="small"
+                                                                                                label={admin.t('admin.expenses.fields.tax', 'Tax (USD)')}
+                                                                                                value={rd.tax_usd}
+                                                                                                onChange={(e) =>
+                                                                                                    setReceiptDraftsById((p) => ({
+                                                                                                        ...p,
+                                                                                                        [rec.id]: { ...rd, tax_usd: String(e.target.value || '') },
+                                                                                                    }))
+                                                                                                }
+                                                                                            />
+                                                                                        </Grid>
+                                                                                        <Grid item xs={12} sm={3}>
+                                                                                            <TextField
+                                                                                                fullWidth
+                                                                                                size="small"
+                                                                                                label={admin.t('admin.expenses.fields.tip', 'Tip (USD)')}
+                                                                                                value={rd.tip_usd}
+                                                                                                onChange={(e) =>
+                                                                                                    setReceiptDraftsById((p) => ({
+                                                                                                        ...p,
+                                                                                                        [rec.id]: { ...rd, tip_usd: String(e.target.value || '') },
+                                                                                                    }))
+                                                                                                }
+                                                                                            />
+                                                                                        </Grid>
+                                                                                        <Grid item xs={12} sm={3}>
+                                                                                            <TextField
+                                                                                                fullWidth
+                                                                                                size="small"
+                                                                                                label={admin.t('admin.expenses.fields.total', 'Total (USD)')}
+                                                                                                value={rd.total_usd}
+                                                                                                onChange={(e) =>
+                                                                                                    setReceiptDraftsById((p) => ({
+                                                                                                        ...p,
+                                                                                                        [rec.id]: { ...rd, total_usd: String(e.target.value || '') },
+                                                                                                    }))
+                                                                                                }
+                                                                                            />
+                                                                                        </Grid>
 
-                                                                    <Grid item xs={12} sm={6}>
-                                                                        <TextField
-                                                                            fullWidth
-                                                                            size="small"
-                                                                            label={admin.t('admin.expenses.fields.transaction', 'Transaction ID')}
-                                                                            value={rd.transaction_id}
-                                                                            onChange={(e) =>
-                                                                                setReceiptDraftsById((p) => ({
-                                                                                    ...p,
-                                                                                    [rec.id]: { ...rd, transaction_id: String(e.target.value || '') },
-                                                                                }))
-                                                                            }
-                                                                        />
-                                                                    </Grid>
-                                                                    <Grid item xs={12} sm={6}>
-                                                                        <TextField
-                                                                            fullWidth
-                                                                            size="small"
-                                                                            label={admin.t('admin.expenses.fields.parent', 'Parent receipt ID (refund)')}
-                                                                            value={rd.parent_receipt_id}
-                                                                            onChange={(e) =>
-                                                                                setReceiptDraftsById((p) => ({
-                                                                                    ...p,
-                                                                                    [rec.id]: { ...rd, parent_receipt_id: String(e.target.value || '') },
-                                                                                }))
-                                                                            }
-                                                                        />
-                                                                    </Grid>
+                                                                                        <Grid item xs={12} sm={6}>
+                                                                                            <TextField
+                                                                                                fullWidth
+                                                                                                size="small"
+                                                                                                label={admin.t('admin.expenses.fields.transaction', 'Transaction ID')}
+                                                                                                value={rd.transaction_id}
+                                                                                                onChange={(e) =>
+                                                                                                    setReceiptDraftsById((p) => ({
+                                                                                                        ...p,
+                                                                                                        [rec.id]: {
+                                                                                                            ...rd,
+                                                                                                            transaction_id: String(e.target.value || ''),
+                                                                                                        },
+                                                                                                    }))
+                                                                                                }
+                                                                                            />
+                                                                                        </Grid>
+                                                                                        <Grid item xs={12} sm={6}>
+                                                                                            <TextField
+                                                                                                fullWidth
+                                                                                                size="small"
+                                                                                                label={admin.t(
+                                                                                                    'admin.expenses.fields.parent',
+                                                                                                    'Parent receipt ID (refund)'
+                                                                                                )}
+                                                                                                value={rd.parent_receipt_id}
+                                                                                                onChange={(e) =>
+                                                                                                    setReceiptDraftsById((p) => ({
+                                                                                                        ...p,
+                                                                                                        [rec.id]: {
+                                                                                                            ...rd,
+                                                                                                            parent_receipt_id: String(e.target.value || ''),
+                                                                                                        },
+                                                                                                    }))
+                                                                                                }
+                                                                                            />
+                                                                                        </Grid>
 
-                                                                    <Grid item xs={12}>
-                                                                        <TextField
-                                                                            fullWidth
-                                                                            size="small"
-                                                                            label={admin.t('admin.expenses.fields.storagePath', 'Receipt storage path')}
-                                                                            value={rd.receipt_storage_path}
-                                                                            onChange={(e) =>
-                                                                                setReceiptDraftsById((p) => ({
-                                                                                    ...p,
-                                                                                    [rec.id]: { ...rd, receipt_storage_path: String(e.target.value || '') },
-                                                                                }))
-                                                                            }
-                                                                        />
-                                                                    </Grid>
+                                                                                        <Grid item xs={12}>
+                                                                                            <TextField
+                                                                                                fullWidth
+                                                                                                size="small"
+                                                                                                label={admin.t(
+                                                                                                    'admin.expenses.fields.storagePath',
+                                                                                                    'Receipt storage path'
+                                                                                                )}
+                                                                                                value={rd.receipt_storage_path}
+                                                                                                onChange={(e) =>
+                                                                                                    setReceiptDraftsById((p) => ({
+                                                                                                        ...p,
+                                                                                                        [rec.id]: {
+                                                                                                            ...rd,
+                                                                                                            receipt_storage_path: String(e.target.value || ''),
+                                                                                                        },
+                                                                                                    }))
+                                                                                                }
+                                                                                            />
+                                                                                        </Grid>
 
-                                                                    <Grid item xs={12} sm={6}>
-                                                                        <TextField
-                                                                            fullWidth
-                                                                            size="small"
-                                                                            label={admin.t('admin.expenses.fields.sourceType', 'Source type')}
-                                                                            value={rd.source_type}
-                                                                            onChange={(e) =>
-                                                                                setReceiptDraftsById((p) => ({
-                                                                                    ...p,
-                                                                                    [rec.id]: { ...rd, source_type: String(e.target.value || '') },
-                                                                                }))
-                                                                            }
-                                                                        />
-                                                                    </Grid>
-                                                                    <Grid item xs={12} sm={6}>
-                                                                        <FormControlLabel
-                                                                            control={
-                                                                                <Checkbox
-                                                                                    checked={rd.is_refund}
-                                                                                    onChange={(e) =>
-                                                                                        setReceiptDraftsById((p) => ({
-                                                                                            ...p,
-                                                                                            [rec.id]: { ...rd, is_refund: Boolean(e.target.checked) },
-                                                                                        }))
-                                                                                    }
-                                                                                />
-                                                                            }
-                                                                            label={admin.t('admin.expenses.fields.isRefund', 'Refund')}
-                                                                        />
-                                                                    </Grid>
+                                                                                        <Grid item xs={12} sm={6}>
+                                                                                            <TextField
+                                                                                                fullWidth
+                                                                                                size="small"
+                                                                                                label={admin.t('admin.expenses.fields.sourceType', 'Source type')}
+                                                                                                value={rd.source_type}
+                                                                                                onChange={(e) =>
+                                                                                                    setReceiptDraftsById((p) => ({
+                                                                                                        ...p,
+                                                                                                        [rec.id]: {
+                                                                                                            ...rd,
+                                                                                                            source_type: String(e.target.value || ''),
+                                                                                                        },
+                                                                                                    }))
+                                                                                                }
+                                                                                            />
+                                                                                        </Grid>
+                                                                                        <Grid item xs={12} sm={6}>
+                                                                                            <FormControlLabel
+                                                                                                control={
+                                                                                                    <Checkbox
+                                                                                                        checked={rd.is_refund}
+                                                                                                        onChange={(_, checked) =>
+                                                                                                            setReceiptDraftsById((p) => ({
+                                                                                                                ...p,
+                                                                                                                [rec.id]: {
+                                                                                                                    ...rd,
+                                                                                                                    is_refund: checked,
+                                                                                                                },
+                                                                                                            }))
+                                                                                                        }
+                                                                                                    />
+                                                                                                }
+                                                                                                label={admin.t('admin.expenses.fields.isRefund', 'Refund')}
+                                                                                            />
+                                                                                        </Grid>
 
-                                                                    <Grid item xs={12}>
-                                                                        <TextField
-                                                                            fullWidth
-                                                                            size="small"
-                                                                            multiline
-                                                                            minRows={2}
-                                                                            label={admin.t('admin.expenses.fields.notes', 'Notes')}
-                                                                            value={rd.notes}
-                                                                            onChange={(e) =>
-                                                                                setReceiptDraftsById((p) => ({
-                                                                                    ...p,
-                                                                                    [rec.id]: { ...rd, notes: String(e.target.value || '') },
-                                                                                }))
-                                                                            }
-                                                                        />
-                                                                    </Grid>
-                                                                </Grid>
+                                                                                        <Grid item xs={12}>
+                                                                                            <TextField
+                                                                                                fullWidth
+                                                                                                size="small"
+                                                                                                multiline
+                                                                                                minRows={2}
+                                                                                                label={admin.t('admin.expenses.fields.notes', 'Notes')}
+                                                                                                value={rd.notes}
+                                                                                                onChange={(e) =>
+                                                                                                    setReceiptDraftsById((p) => ({
+                                                                                                        ...p,
+                                                                                                        [rec.id]: { ...rd, notes: String(e.target.value || '') },
+                                                                                                    }))
+                                                                                                }
+                                                                                            />
+                                                                                        </Grid>
+
+                                                                                        <Grid item xs={12}>
+                                                                                            <Stack direction="row" spacing={1}>
+                                                                                                <Button
+                                                                                                    variant="contained"
+                                                                                                    onClick={() => void saveReceipt(expense, rec.id)}
+                                                                                                    disabled={loading}
+                                                                                                >
+                                                                                                    {admin.t('admin.common.save', 'Save')}
+                                                                                                </Button>
+                                                                                                <Button
+                                                                                                    variant="outlined"
+                                                                                                    onClick={() =>
+                                                                                                        setReceiptEditorOpenById((p) => ({
+                                                                                                            ...p,
+                                                                                                            [rec.id]: false,
+                                                                                                        }))
+                                                                                                    }
+                                                                                                >
+                                                                                                    {admin.t('admin.common.close', 'Close')}
+                                                                                                </Button>
+                                                                                            </Stack>
+                                                                                        </Grid>
+                                                                                    </>
+                                                                                );
+                                                                            })()}
+                                                                        </Grid>
+                                                                    </Box>
+                                                                ) : null}
                                                             </Box>
                                                         );
                                                     })}
@@ -1660,7 +1903,7 @@ export default function ExpensesManager() {
                                         </Box>
                                     ) : (
                                         <Typography color="text.secondary" sx={{ mt: 1 }}>
-                                            {admin.t('admin.expenses.receiptsHint', 'Load receipts to view, upload, and edit.')}
+                                            {admin.t('admin.common.loading', 'Loading…')}
                                         </Typography>
                                     )}
                                 </Box>
